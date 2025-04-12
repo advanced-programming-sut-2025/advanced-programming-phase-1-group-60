@@ -1,5 +1,6 @@
 package models;
 
+import java.time.DayOfWeek;
 import java.util.List;
 import java.time.LocalTime;
 
@@ -10,34 +11,78 @@ public class Store {
     private List<Product> products;
     private int upgradeLevel;
 
-    public boolean isOpen(LocalTime currentTime);
+    public boolean isOpen(LocalTime currentTime) {
+        return false;
+    }
 
-    public boolean purchaseProduct(Player player, Product product, int quantity);
+    public boolean purchaseProduct(User player, Product product, int quantity) {
+        return false;
+    }
+
+    ;
 
 
-    public boolean sellProduct(Player player, Product product, int quantity);
+    public boolean sellProduct(User player, Product product, int quantity) {
+        return false;
+    }
 
-    public boolean upgradeStore(Player player);
+    ;
 
-    public boolean hasProductInStock(Product product, int quantity);
+    public boolean upgradeStore(User player) {
+        return false;
+    }
 
-    public void addProduct(Product product);
+    ;
 
-    public void removeProduct(Product product);
+    public boolean hasProductInStock(Product product, int quantity) {
+        return false;
+    }
 
-    public String getType();
-    public Npc getCreator();
-    public WorkTime getWorkTime();
-    public List<Product> getAvailableProducts();
-    public int getUpgradeLevel();
+    ;
+
+    public void addProduct(Product product) {
+    }
+
+    public void removeProduct(Product product) {
+        return;
+    }
+
+    public String getType() {
+        return null;
+    }
+
+    public Npc getCreator() {
+        return null;
+    }
+
+    public WorkTime getWorkTime() {
+        return null;
+    }
+
+    ;
+
+    public List<Product> getAvailableProducts() {
+        return null;
+    }
+
+    public int getUpgradeLevel() {
+        return 0;
+    }
+
+    ;
+
+    public boolean isOpen(LocalTime time, DayOfWeek day) {
+        return false;
+    }
+
+    ;
+
+
+    private class WorkTime {
+        private int openTime;
+        private int closeTime;
+        private boolean[] workingDays;
+
+
+    }
 }
-
-// ساعات کاری
-//public class WorkTime {
-//    private LocalTime openTime;
-//    private LocalTime closeTime;
-//    private boolean[] workingDays; // روزهای فعال در هفته
-//
-//    // متد بررسی باز بودن در زمان مشخص
-//    public boolean isOpen(LocalTime time, DayOfWeek day);
-//}

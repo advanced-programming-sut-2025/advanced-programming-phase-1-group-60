@@ -25,12 +25,15 @@ public class TimeSystem {
 
 
     public String getCurrentTime() {
+        return null;
     }
 
     public String getCurrentDate() {
+        return null;
     }
 
     public String getDayOfWeek() {
+        return null;
     }
 
     public int getCurrentHour() {
@@ -77,12 +80,5 @@ public class TimeSystem {
         this.currentYear = currentYear;
     }
 
-    public void cheatAdvanceTime(int hours) {
-        advanceTime(hours * 60);
-    }
+}
 
-    public void cheatAdvanceDate(int days) {
-        advanceDate(days);
-    }
-}
-}

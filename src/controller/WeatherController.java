@@ -3,8 +3,14 @@ package controller;
 import models.Result;
 import models.Weather;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 public class WeatherController {
-    private Weather currentWeather;
+    private Set<String> weathersSet = new HashSet<>(Arrays.asList("sunny", "rain", "snow", "storm"));
+    private String currentWeather;
 
     // Current Weather
     // TODO : Update weather base on 1.season 2.effects 3.forecast
@@ -26,25 +32,23 @@ public class WeatherController {
 
     // Forecast
     // TODO : Get the forecast for the upcoming day.
-    public String getForecast() {
-        return currentWeather.getForecast();
+    public String getForecast(){
+        return null;
     }
 
     // Displaying Weather
     // TODO : Show the current weather so the user is aware of it's effects.
     public String displayWeather() {
-        return currentWeather.getType();
+        return currentWeather;
     }
 
     // Validations
     // TODO : check if the weather type we want to set in cheat code is valid
     private boolean isValidWeatherType(String type) {
-        String[] validTypes = {"Sunny", "Rain", "Storm", "Snow"};
-        for (String valid : validTypes) {
-            if (valid.equals(type)) {
-                return true;
-            }
-        }
         return false;
+    }
+
+    public Result thunder(){
+        return null;
     }
 }

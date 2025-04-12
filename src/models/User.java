@@ -26,6 +26,7 @@ public class User {
     private List<Question> securityQuestions;
     private List<Quest> activeQuests;
     private int selectedMapId;
+    private List<Tools> tools;
 
     public boolean verifyPassword(String inputPassword) { }
     public void addItem(Item item) { }

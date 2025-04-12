@@ -43,6 +43,7 @@ public class TrashBin {
 
 
     public int calculateRefund(Item item) {
+        return 0;
     }
 
     public void clearTrashBin() {

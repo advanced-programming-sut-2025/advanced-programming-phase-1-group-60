@@ -1,18 +1,20 @@
 package models;
 
-import java.util.List;
+import java.util.HashMap;
+
 
 public class Inventory {
-    private Map<Item, Integer> items;
+    private HashMap<Item, Integer> items;
     private int capacity;
     private int currentSize;
+    private User owner;
 
 
-    public Map<Item, Integer> getItems() {
+    public HashMap<Item, Integer> getItems() {
         return items;
     }
 
-    public void setItems(Map<Item, Integer> items) {
+    public void setItems(HashMap<Item, Integer> items) {
         this.items = items;
     }
 
@@ -33,25 +35,26 @@ public class Inventory {
     }
 
     public boolean addItem(Item item, int count) {
+        return false;
     }
 
 
     public boolean removeItem(Item item, int count) {
+        return false;
     }
 
 
     public boolean hasItem(Item item, int count) {
-
+        return false;
     }
 
 
     public int getItemCount(Item item) {
-
+        return 0;
     }
 
 
-    public Map<Item, Integer> getAllItems() {
-
+    public HashMap<Item, Integer> getAllItems() {
+        return null;
     }
-}
 }

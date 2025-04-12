@@ -1,7 +1,5 @@
 package models;
 
-package models;
-
 public class Tile {
     private int positionX;
     private int positionY;
@@ -13,6 +11,8 @@ public class Tile {
     private boolean isFertilized;
     private boolean isPlowed;
     private String weatherEffect;
+
+    private boolean isGreenHouseTile;
 
     // متدهای getter و setter
     public int getPositionX() {
@@ -98,9 +98,11 @@ public class Tile {
     }
 
     public boolean isEmpty() {
+        return false;
     }
 
     public boolean canPlant() {
+        return false;
     }
 
     public void clearTile() {
@@ -117,5 +119,6 @@ public class Tile {
 
     @Override
     public String toString() {
+        return null;
     }
 }

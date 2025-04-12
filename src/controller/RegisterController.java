@@ -17,4 +17,8 @@ public class RegisterController {
     public Result pickQuestion(int questionNumber, String answer, String answerConfirm) {
         return null;
     }
+
+    public String generateRandomPassword() {
+        return null;
+    }
 }

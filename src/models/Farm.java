@@ -1,5 +1,6 @@
 package models;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Farm {
@@ -9,8 +10,7 @@ public class Farm {
     private int width;
     private int height;
     private int id;
-    private Item randomItem;
-    private int numberOfFarms;
+    private final List<Item> randomItem = new ArrayList<Item>();
     private Item staticItem;
 
 
@@ -62,18 +62,6 @@ public class Farm {
         this.id = id;
     }
 
-    public Item getRandomItem() {
-        return randomItem;
-    }
-
-    public int getNumberOfFarms() {
-        return numberOfFarms;
-    }
-
-    public void setNumberOfFarms(int numberOfFarms) {
-        this.numberOfFarms = numberOfFarms;
-    }
-
     public void initializeFarm(int width, int height) {}
 
 
@@ -117,4 +105,6 @@ public class Farm {
 
 
     public void transferOwnership(User newOwner) {}
+
+    private void setRandomItems () {}
 }

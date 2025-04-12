@@ -1,9 +1,11 @@
 package models;
 
+import java.util.HashMap;
+
 public class Tools extends Item {
     private int toolLevel;
     private String type;
-    private Map <String, Object>  attributes;
+    private HashMap<String, Object> attributes;
     private int upgradeCost;
     private int energyCost;
 
@@ -48,11 +50,11 @@ public class Tools extends Item {
         this.type = type;
     }
 
-    public Map<String, Object> getAttributes() {
+    public HashMap<String, Object> getAttributes() {
         return attributes;
     }
 
-    public void setAttributes(Map<String, Object> attributes) {
+    public void setAttributes(HashMap<String, Object> attributes) {
         this.attributes = attributes;
     }
 
@@ -70,5 +72,15 @@ public class Tools extends Item {
 
     public void setEnergyCost(int energyCost) {
         this.energyCost = energyCost;
+    }
+
+    public Result UseTool(){
+        return null;
+    }
+    public Result upgradeTool() {
+        return null;
+    }
+    public Result equipTool() {
+        return null;
     }
 }

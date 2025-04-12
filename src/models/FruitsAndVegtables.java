@@ -12,6 +12,7 @@ public class FruitsAndVegtables extends Item {
     private boolean canBeGiant;
 
 
+
     public String getSource() {
         return source;
     }
@@ -76,10 +77,6 @@ public class FruitsAndVegtables extends Item {
         return suitableSeason;
     }
 
-    public void setSuitableSeason(String suitableSeason) {
-        this.suitableSeason = suitableSeason;
-    }
-
     public boolean isCanBeGiant() {
         return canBeGiant;
     }
@@ -89,6 +86,7 @@ public class FruitsAndVegtables extends Item {
     }
 
     private int calculateTotalHarvestTime() {
+        return 0;
     }
 
 
@@ -98,9 +96,11 @@ public class FruitsAndVegtables extends Item {
 
 
     public boolean canGrowInSeason(String currentSeason) {
+        return false;
     }
 
     public boolean isReadyToHarvest(int currentGrowthDay) {
+        return false;
     }
 
 }

@@ -2,7 +2,7 @@ package models;
 
 import java.util.Map;
 
-public class Buildings {
+public abstract class Buildings {
     private String buildingType;
     private int width;
     private int height;
@@ -77,24 +77,32 @@ public class Buildings {
         this.maintenanceCost = maintenanceCost;
     }
 
-    public void construct();
+    public void construct(){}
 
 
-    public boolean upgrade();
+    public boolean upgrade(){
+        return false;
+    }
 
 
-    public void demolish();
+    public void demolish(){}
 
 
-    public boolean canUpgrade();
+    public boolean canUpgrade(){
+        return false;
+    }
 
 
-    public int calculateMaintenanceCost();
+    public int calculateMaintenanceCost(){
+        return 0;
+    }
 
 
-    public void applySpecialEffects();
+    public void applySpecialEffects(){}
 
 
-    public boolean canWithstandWeather(String weatherType);
+    public boolean canWithstandWeather(String weatherType){
+        return false;
+    }
 
 }
