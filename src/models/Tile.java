@@ -5,13 +5,11 @@ public class Tile {
     private int positionY;
     private String type;
     private boolean isOccupied;
-    // private Plant plantedPlant;
+    private FruitsAndVegtables plantedPlant;
     private Item placedItem;
     private boolean isWatered;
     private boolean isFertilized;
     private boolean isPlowed;
-    private String weatherEffect;
-
     private boolean isGreenHouseTile;
 
     // متدهای getter و setter
@@ -89,14 +87,6 @@ public class Tile {
         isPlowed = plowed;
     }
 
-    public String getWeatherEffect() {
-        return weatherEffect;
-    }
-
-    public void setWeatherEffect(String weatherEffect) {
-        this.weatherEffect = weatherEffect;
-    }
-
     public boolean isEmpty() {
         return false;
     }
@@ -120,5 +110,13 @@ public class Tile {
     @Override
     public String toString() {
         return null;
+    }
+
+    public boolean isGreenHouseTile() {
+        return isGreenHouseTile;
+    }
+
+    public void setGreenHouseTile(boolean greenHouseTile) {
+        isGreenHouseTile = greenHouseTile;
     }
 }

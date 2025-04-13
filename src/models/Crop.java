@@ -6,7 +6,7 @@ public class Crop {
     private int[] growthStages;
     private boolean isWatered;
     private boolean hasFertilizer;
-    private Season suitableSeason;
+    private String suitableSeason;
     private boolean isGiant;
     //private LocalDate plantedDate;
 
@@ -47,11 +47,11 @@ public class Crop {
         isWatered = watered;
     }
 
-    public Season getSuitableSeason() {
+    public String getSuitableSeason() {
         return suitableSeason;
     }
 
-    public void setSuitableSeason(Season suitableSeason) {
+    public void setSuitableSeason(String suitableSeason) {
         this.suitableSeason = suitableSeason;
     }
 
@@ -68,10 +68,11 @@ public class Crop {
 
 
     public boolean isReadyToHarvest() {
+        return false;
     }
 
 
-    public String getName() { }
-    public int getCurrentStageDays() {}
+    public String getName() { return null;}
+    public int getCurrentStageDays() {return 0;}
 
 }

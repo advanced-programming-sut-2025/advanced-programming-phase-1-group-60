@@ -1,11 +1,10 @@
 package controller;
 
 import models.Result;
-import models.Weather;
+import models.Tile;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class WeatherController {
@@ -48,7 +47,11 @@ public class WeatherController {
         return false;
     }
 
-    public Result thunder(){
+    // TODO : choose 3 tiles and applying thunder, if tile == null -> random select
+    public Result thunder(Tile tile) {
         return null;
     }
+
+    // TODO : automatic irrigation of crops
+    public Result irrigation () { return null; }
 }

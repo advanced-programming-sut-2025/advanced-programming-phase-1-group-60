@@ -11,7 +11,7 @@ public class Farm {
     private int height;
     private int id;
     private final List<Item> randomItem = new ArrayList<Item>();
-    private Item staticItem;
+    private final List<Item> staticItems = new ArrayList<Item>();
 
 
     public List<Tile> getTiles() {
@@ -107,4 +107,12 @@ public class Farm {
     public void transferOwnership(User newOwner) {}
 
     private void setRandomItems () {}
+
+    public List<Item> getStaticItems() {
+        return staticItems;
+    }
+
+    public List<Item> getRandomItem() {
+        return randomItem;
+    }
 }

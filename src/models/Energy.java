@@ -27,9 +27,10 @@ public class Energy {
     }
 
     public boolean isExhausted() {
+        return false;
     }
 
 
-    public int getCurrentEnergy() { }
-    public void setUnlimited(boolean unlimited) {  }
+    public int getCurrentEnergy() {return 0; }
+    public void setUnlimited(boolean unlimited) {}
 }

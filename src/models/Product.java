@@ -1,7 +1,5 @@
 package models;
 
-package models;
-
 import java.util.List;
 
 public class Product {
@@ -9,10 +7,10 @@ public class Product {
     private String name;
     private int energy;
     private String description;
-    private List<Item> ingredients;
+    private List<Ingredient> ingredients;
     private int price;
     private String quality;
-    // private ProcessingTime processingTime;
+    private ProcessingTime processingTime;
     private int growthStage;
     private int[] growthStages;
     private boolean isRegrowable;
@@ -46,14 +44,6 @@ public class Product {
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public List<Item> getIngredients() {
-        return ingredients;
-    }
-
-    public void setIngredients(List<Item> ingredients) {
-        this.ingredients = ingredients;
     }
 
     public int getPrice() {
@@ -152,25 +142,40 @@ public class Product {
         isAvailable = available;
     }
 
-    public boolean isReadyToHarvest();
+    public boolean isReadyToHarvest() {
+        return false;
+    }
 
 
-    public void growDaily();
+    public void growDaily () {}
 
 
-    //  public Product harvest();
+    public boolean canGrowInSeason(String currentSeason) {
+        return false;
+    }
 
 
-    public boolean canGrowInSeason(String currentSeason);
+    public int getFinalPrice () {
+        return 0;
+    }
 
 
-    public int getFinalPrice();
+    public boolean isProcessingComplete() {
+        return false;
+    }
 
 
-    public boolean isProcessingComplete();
+    public void startProcessing() {}
+    
+    private static class ProcessingTime {
+        int days;
+        int hours;
+    }
 
-
-    public void startProcessing();
+    public static class Ingredient {
+        List<Item> items;
+        List<Product> products;
+    }
 
 
 }

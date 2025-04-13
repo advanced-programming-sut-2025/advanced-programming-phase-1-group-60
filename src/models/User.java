@@ -11,12 +11,11 @@ public class User {
     private String email;
     private String gender;
     private boolean stayLoggedIn;
-    private int energy;
-    private int maxEnergy;
+    private Energy energy;
     private List<Skill> skills;
     private List<Inventory> inventories;  // private Inventory inventory;
     private List<Game> games;
-    private List<String> craftRecipes;
+    private List<String> craftInstructions;
     private List<String> cookRecipes;
     private Map<User, Integer> friendshipLevelsWithUsers;
     private Map<Npc, Integer> friendshipLevelsWithNPCs;
@@ -28,7 +27,9 @@ public class User {
     private int selectedMapId;
     private List<Tools> tools;
 
-    public boolean verifyPassword(String inputPassword) { }
+    public boolean verifyPassword(String inputPassword) {
+        return false;
+    }
     public void addItem(Item item) { }
     public void updateSkill(Skill skill, int exp) {  }
 
@@ -80,21 +81,14 @@ public class User {
         this.stayLoggedIn = stayLoggedIn;
     }
 
-    public int getEnergy() {
+    public Energy getEnergy() {
         return energy;
     }
 
-    public void setEnergy(int energy) {
+    public void setEnergy(Energy energy) {
         this.energy = energy;
     }
 
-    public int getMaxEnergy() {
-        return maxEnergy;
-    }
-
-    public void setMaxEnergy(int maxEnergy) {
-        this.maxEnergy = maxEnergy;
-    }
 
     public List<Skill> getSkills() {
         return skills;
@@ -120,12 +114,12 @@ public class User {
         this.games = games;
     }
 
-    public List<String> getCraftRecipes() {
-        return craftRecipes;
+    public List<String> getcraftInstructions() {
+        return craftInstructions;
     }
 
-    public void setCraftRecipes(List<String> craftRecipes) {
-        this.craftRecipes = craftRecipes;
+    public void setcraftInstructions(List<String> craftInstructions) {
+        this.craftInstructions = craftInstructions;
     }
 
     public List<String> getCookRecipes() {

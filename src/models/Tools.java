@@ -22,7 +22,7 @@ public class Tools extends Item {
     private void updateAttributesAfterUpgrade() {}
 
 
-    @Override
+
     public void use() {}
 
     public void setAttribute(String key, Object value) {}
@@ -40,12 +40,12 @@ public class Tools extends Item {
         this.toolLevel = toolLevel;
     }
 
-    @Override
+
     public String getType() {
         return type;
     }
 
-    @Override
+
     public void setType(String type) {
         this.type = type;
     }

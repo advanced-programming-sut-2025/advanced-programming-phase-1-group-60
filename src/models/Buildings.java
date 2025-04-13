@@ -6,7 +6,8 @@ public abstract class Buildings {
     private String buildingType;
     private int width;
     private int height;
-    //  private Position position;
+    private int x;
+    private int y;
     private Map<String, Object> properties;
     private int upgradeLevel;
     private boolean isBuilt;
