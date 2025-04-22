@@ -8,7 +8,6 @@ public class Game {
     private Map map;
     private User currentTurn;
     private TimeSystem timeSystem;
-    private Weather weather;
     private String season;
     private boolean isActive;
 
@@ -58,14 +57,6 @@ public class Game {
 
     public void setTimeSystem(TimeSystem timeSystem) {
         this.timeSystem = timeSystem;
-    }
-
-    public Weather getWeather() {
-        return weather;
-    }
-
-    public void setWeather(Weather weather) {
-        this.weather = weather;
     }
 
     public String getSeason() {
@@ -145,7 +136,7 @@ public class Game {
 
 
     public void nextTurn() { }
-    public User getCurrentTurnPlayer() { }
+//    public User getCurrentTurnPlayer() { }
     // public void updatePlayerPosition(User player, Point newPosition) { }
 
 
