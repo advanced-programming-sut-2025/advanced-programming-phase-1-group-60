@@ -17,8 +17,11 @@ public class Energy {
         return isUnlimited;
     }
 
+
     public void decreaseEnergy(int amount) {
+        currentEnergy = Math.max(0,currentEnergy - amount);
     }
+
 
     public void restoreEnergy() {
     }
@@ -32,5 +35,8 @@ public class Energy {
 
 
     public int getCurrentEnergy() {return 0; }
-    public void setUnlimited(boolean unlimited) {}
+
+    public void setUnlimited(boolean unlimited) {
+        isUnlimited = unlimited;
+    }
 }

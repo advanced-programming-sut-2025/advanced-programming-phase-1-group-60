@@ -1,8 +1,13 @@
 package models;
 
+import java.util.Optional;
+
 public class Tile {
-    private int positionX;
-    private int positionY;
+    private final int positionX;
+    private final int positionY;
+    private StaticElement staticElement;
+    private RandomElement randomElement;
+    private boolean passable = true;
     private String type;
     private boolean isOccupied;
     private FruitsAndVegtables plantedPlant;
@@ -12,21 +17,30 @@ public class Tile {
     private boolean isPlowed;
     private boolean isGreenHouseTile;
 
+    public Tile(int x, int y) { this.positionX= x; this.positionY = y; }
+
+    public Optional<StaticElement> getStaticElement() { return Optional.ofNullable(staticElement); }
+    public Optional<RandomElement> getRandomElement() { return Optional.ofNullable(randomElement); }
+    public boolean isPassable() { return passable; }
+
+    public void setStaticElement(StaticElement e) {
+        this.staticElement = e;
+        this.passable = e.isPassable();
+    }
+    public void setRandomElement(RandomElement e) {
+        if (this.randomElement == null && staticElement == null) {
+            this.randomElement = e;
+            if (!e.isPassable()) passable = false;
+        }
+    }
+
     // متدهای getter و setter
     public int getPositionX() {
         return positionX;
     }
 
-    public void setPositionX(int positionX) {
-        this.positionX = positionX;
-    }
-
     public int getPositionY() {
         return positionY;
-    }
-
-    public void setPositionY(int positionY) {
-        this.positionY = positionY;
     }
 
     public String getType() {

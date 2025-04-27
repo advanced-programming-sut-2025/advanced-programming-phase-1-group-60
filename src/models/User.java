@@ -14,6 +14,7 @@ public class User {
     private String email;
     private String gender;
     private boolean stayLoggedIn;
+    private Tile position;
     private Energy energy;
     private List<Skill> skills;
     private List<Inventory> inventories;  // private Inventory inventory;
@@ -28,6 +29,8 @@ public class User {
     private List<Quest> activeQuests;
     private int selectedMapId;
     private List<Tools> tools;
+
+    // Registration part
 
     public User(String username, String password, String nickname, String email, String gender) throws Exception {
         this.username = username;
@@ -64,8 +67,42 @@ public class User {
         return hexString.toString();
     }
 
-    public void addItem(Item item) { }
-    public void updateSkill(Skill skill, int exp) {  }
+    // walk , energy and faint
+
+    public void setUnlimitedEnergy(boolean u) {
+        energy.setUnlimited(u);
+    }
+
+    public void consumeEnergy(int v) {
+        if (!energy.isUnlimited()) energy.decreaseEnergy(v);
+    }
+
+    public void setPosition(Tile t) {
+        position = t;
+    }
+
+    public Tile getPosition() {
+        return position;
+    }
+
+    public void faint(){
+
+    }
+
+    public void faintAlong(Path path){
+        int rem=energy.getCurrentEnergy();
+        for(var s: path.getSteps()){
+            if(rem<=0) break;
+            rem--; position=s;
+        }
+        energy.setCurrentEnergy(0); faint();
+    }
+
+    public void addItem(Item item) {
+    }
+
+    public void updateSkill(Skill skill, int exp) {
+    }
 
     public String getUsername() {
         return username;
@@ -87,8 +124,8 @@ public class User {
         return hashPassword;
     }
 
-    public void setHashPassword(String newPassword)  throws Exception {
-        if (!verifyPassword(newPassword)){
+    public void setHashPassword(String newPassword) throws Exception {
+        if (!verifyPassword(newPassword)) {
             this.hashPassword = hashedPassword(newPassword);
         }
     }
