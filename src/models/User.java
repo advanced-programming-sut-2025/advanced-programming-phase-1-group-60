@@ -1,12 +1,15 @@
 package models;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class User {
     private String username;
     private String nickname;
-    private String HashPassword;
+    private String hashPassword;
     //private Question question;
     private String email;
     private String gender;
@@ -20,16 +23,47 @@ public class User {
     private Map<User, Integer> friendshipLevelsWithUsers;
     private Map<Npc, Integer> friendshipLevelsWithNPCs;
     private List<Item> refrigeratorItems;
-    // +++
     private int highestMoney;
     private List<Question> securityQuestions;
     private List<Quest> activeQuests;
     private int selectedMapId;
     private List<Tools> tools;
 
-    public boolean verifyPassword(String inputPassword) {
-        return false;
+    public User(String username, String password, String nickname, String email, String gender) throws Exception {
+        this.username = username;
+        this.hashPassword = hashedPassword(password);
+        this.nickname = nickname;
+        this.email = email;
+        this.gender = gender;
     }
+
+    public static boolean verifyEmail(String email) {
+        String regex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$";
+        return Pattern.matches(regex, email);
+    }
+
+    public static boolean verifyPassword(String inputPassword) {
+        if (inputPassword.length() < 8) return false;
+        boolean hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+        for (char c : inputPassword.toCharArray()) {
+            if (Character.isUpperCase(c)) hasUpper = true;
+            else if (Character.isLowerCase(c)) hasLower = true;
+            else if (Character.isDigit(c)) hasDigit = true;
+            else hasSpecial = true;
+        }
+        return hasUpper && hasLower && hasDigit && hasSpecial;
+    }
+
+    private String hashedPassword(String password) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        byte[] hash = md.digest(password.getBytes());
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            hexString.append(String.format("%02x", b));
+        }
+        return hexString.toString();
+    }
+
     public void addItem(Item item) { }
     public void updateSkill(Skill skill, int exp) {  }
 
@@ -50,11 +84,13 @@ public class User {
     }
 
     public String getHashPassword() {
-        return HashPassword;
+        return hashPassword;
     }
 
-    public void setHashPassword(String hashPassword) {
-        HashPassword = hashPassword;
+    public void setHashPassword(String newPassword)  throws Exception {
+        if (!verifyPassword(newPassword)){
+            this.hashPassword = hashedPassword(newPassword);
+        }
     }
 
     public String getEmail() {
