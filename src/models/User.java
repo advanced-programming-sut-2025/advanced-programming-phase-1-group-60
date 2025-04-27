@@ -54,7 +54,7 @@ public class User {
         return hasUpper && hasLower && hasDigit && hasSpecial;
     }
 
-    private String hashedPassword(String password) throws NoSuchAlgorithmException {
+    public String hashedPassword(String password) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         byte[] hash = md.digest(password.getBytes());
         StringBuilder hexString = new StringBuilder();
