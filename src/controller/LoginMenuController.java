@@ -19,13 +19,18 @@ public class LoginMenuController {
     public Result Login(String username, String password, boolean stayLoggedIn) {
         User user = users.get(username);
         if (user != null) {
+            try {
                 if (user.getHashPassword().equals(User.hashedPassword(password))) {
                     loggedInUser = user;
                     return new Result(true, "Login successful.", user);
                 }
+            } catch (Exception e) {
+                return new Result(false, "Internal error during login.");
+            }
         }
         return new Result(false, "Invalid username or password.");
     }
+
 
     public String forgetPassword(String username, String question) {
         User user = users.get(username);
