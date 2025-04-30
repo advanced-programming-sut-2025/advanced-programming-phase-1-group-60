@@ -17,6 +17,12 @@ public class GamePlayController {
         this.sc = sc;
     }
 
+    public void getAndProcessInput() {
+        String input = sc.nextLine();
+        
+
+    }
+
     public void walkTo(int tx, int ty) {
         if (tx < 0 || ty < 0 || ty >= tiles.length || tx >= tiles[0].length) {
             System.out.println("خارج از مرز مزرعه!");
@@ -44,6 +50,49 @@ public class GamePlayController {
             if (user.getEnergy().getCurrentEnergy() == 0) user.faint();
         } else user.faintAlong(path);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     public Result saveGame() {
         return null;
