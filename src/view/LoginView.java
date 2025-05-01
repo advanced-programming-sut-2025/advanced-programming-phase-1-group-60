@@ -18,10 +18,8 @@ public class LoginView extends View {
     @Override
     public void display() {
         System.out.println("=== Welcome to Stardew Valley Login Menu ===");
-        System.out.println("Available commands:");
-        System.out.println("- login -u <username> -p <password>");
-        System.out.println("- forget password -u <username>");
-        System.out.println("- answer <answer>");
+        System.out.println("- login");
+        System.out.println("- forget password");
         System.out.println("- exit");
 
         while (true) {

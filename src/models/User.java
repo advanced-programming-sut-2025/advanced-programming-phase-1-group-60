@@ -56,6 +56,13 @@ public class User {
         }
         return hasUpper && hasLower && hasDigit && hasSpecial;
     }
+    public static boolean verifyName(String inputName) {
+        String regex = "^[a-zA-Z0-9_]+$";
+        if(inputName == null || !(Pattern.matches(regex, inputName))){
+            return false;
+        }
+        return true;
+    }
 
     public static String hashedPassword(String password) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");

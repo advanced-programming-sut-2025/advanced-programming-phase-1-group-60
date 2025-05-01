@@ -15,6 +15,9 @@ public class ProfileController {
         if (newUserName == null || newUserName.isEmpty()) {
             return new Result(false, "Username cannot be empty.");
         }
+        if(!User.verifyName(newUserName)) {
+            return new Result(false, "Username format is incorrect.");
+        }
         user.setUsername(newUserName);
         return new Result(true, "Username changed successfully.");
     }
