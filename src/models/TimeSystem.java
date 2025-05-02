@@ -1,39 +1,70 @@
 package models;
 
 public class TimeSystem {
-    private int currentHour;
-    private int currentMinute;
-    private int currentDay;
-    private String currentSeason;
-    private String dayOfWeek;
-    private int currentYear;
+    private int currentHour = 9;
+    private int currentMinute = 0;
+    private int currentDay = 1;
+    private String currentSeason = "Spring";
+    private String dayOfWeek = "Monday";
+    private int currentYear = 1;
 
     public void advanceTime(int minutes) {
+        currentMinute += minutes;
+        while (currentMinute >= 60) {
+            currentMinute -= 60;
+            currentHour++;
+        }
+        if (currentHour >= 24) {
+            currentHour -= 24;
+            advanceDate(1);
+        }
+
     }
 
     public void advanceDate(int days) {
+        currentDay += days;
+        while (currentDay > 28) {
+            currentDay -= 28;
+            updateSeason();
+        }
+        calculateDayOfWeek();
 
     }
 
 
     private void calculateDayOfWeek() {
+        String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        int index = (currentDay - 1) % 7;
+        dayOfWeek = days[index];
     }
 
     private void updateSeason() {
-
+        String[] seasons = {"Spring", "Summer", "Fall", "Winter"};
+        int index = 0;
+        for (int i = 0; i < seasons.length; i++) {
+            if (seasons[i].equals(currentSeason)) {
+                index = i;
+                break;
+            }
+        }
+        currentSeason = seasons[(index + 1) % seasons.length];
+        if (currentSeason.equals("Spring")) {
+            currentYear++;
+        }
     }
 
 
     public String getCurrentTime() {
-        return null;
+        return String.format("%02d:%02d", currentHour, currentMinute);
     }
 
+
     public String getCurrentDate() {
-        return null;
+        return String.format("Year %d, %s %d", currentYear, currentSeason, currentDay);
     }
 
     public String getDayOfWeek() {
-        return null;
+        return dayOfWeek;
     }
 
     public int getCurrentHour() {

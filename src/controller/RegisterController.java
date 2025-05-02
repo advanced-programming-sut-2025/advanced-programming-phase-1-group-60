@@ -10,12 +10,22 @@ import java.util.Random;
 
 public class RegisterController {
     private Map<String, User> users;
+    private Map<Integer, String> securityQuestions;
 
     public RegisterController() {
         this.users = new HashMap<>();
+        this.securityQuestions = new HashMap<>();
+//        populateSecurityQuestions();
     }
 
-    public Result processRegister(String username, String password, String passwordConfirm, String nickname, String email, String gender) {
+//    private void populateSecurityQuestions() {
+//
+//    }
+
+    public Result register(String username, String password, String passwordConfirm, String nickname, String email, String gender) {
+        if (!isValidUsername(username)) {
+            return new Result(false, "Invalid username. It must be at least 3 characters and include only letters, digits, or underscores.");
+        }
         if (users.containsKey(username)) {
             return new Result(false, "Username already exists.");
         }
@@ -23,11 +33,16 @@ public class RegisterController {
             return new Result(false, "Invalid email format.");
         }
         if (!User.verifyPassword(password)) {
-            return new Result(false, "Weak password. It must be at least 8 characters, include uppercase," +
-                    " lowercase, digit, and special character.");
+            return new Result(false, "Weak password. It must be at least 8 characters, include uppercase, lowercase, digit, and special character.");
         }
         if (!password.equals(passwordConfirm)) {
             return new Result(false, "Passwords do not match.");
+        }
+        if (!isValidGender(gender)) {
+            return new Result(false, "Invalid gender. It must be 'Male' or 'Female'.");
+        }
+        if (!isValidNickname(nickname)) {
+            return new Result(false, "Invalid nickname. It cannot be empty and must only include letters or digits.");
         }
 
         try {
@@ -40,17 +55,35 @@ public class RegisterController {
         }
     }
 
+    private boolean isValidUsername(String username) {
+        return username.matches("^[a-zA-Z0-9_]{3,20}$");
+    }
+
+    private boolean isValidGender(String gender) {
+        return gender.equalsIgnoreCase("Male") || gender.equalsIgnoreCase("Female");
+    }
+
+    private boolean isValidNickname(String nickname) {
+        return nickname != null && nickname.matches("^[a-zA-Z0-9]{1,30}$");
+    }
+
     private String hashPassword(String password) throws NoSuchAlgorithmException {
         return User.hashedPassword(password);
-    } //لازمه؟؟؟
+    }
 
-    // انتخاب سوال امنیتی (الان فرضی میزنیم که سوال واقعی تو پروژه باشه)
     public Result pickQuestion(int questionNumber, String answer, String answerConfirm) {
+        if (!securityQuestions.containsKey(questionNumber)) {
+            return new Result(false, "Invalid question number.");
+        }
         if (!answer.equals(answerConfirm)) {
             return new Result(false, "Answers do not match.");
         }
-        // سوالات رو جداگانه مدیریت میکنیم.
+        // سوال امنیتی انتخاب و پاسخ ذخیره شود (فرضی)
         return new Result(true, "Security question selected successfully.");
+    }
+
+    public String getSecurityQuestion(int questionNumber) {
+        return securityQuestions.getOrDefault(questionNumber, "Question not found.");
     }
 
     public String generateRandomPassword() {
@@ -63,18 +96,44 @@ public class RegisterController {
         Random random = new Random();
         StringBuilder password = new StringBuilder();
 
-
         password.append(upper.charAt(random.nextInt(upper.length())));
         password.append(lower.charAt(random.nextInt(lower.length())));
         password.append(digits.charAt(random.nextInt(digits.length())));
         password.append(specials.charAt(random.nextInt(specials.length())));
-
 
         while (password.length() < 10) {
             password.append(allChars.charAt(random.nextInt(allChars.length())));
         }
 
         return password.toString();
+    }
+
+    public Result deleteUser(String username) {
+        if (!users.containsKey(username)) {
+            return new Result(false, "User not found.");
+        }
+        users.remove(username);
+        return new Result(true, "User deleted successfully.");
+    }
+
+    public Result updateUser(String username, String newNickname, String newEmail) {
+        User user = users.get(username);
+        if (user == null) {
+            return new Result(false, "User not found.");
+        }
+        if (newNickname != null && !newNickname.trim().isEmpty()) {
+            user.setNickname(newNickname);
+        }
+        if (newEmail != null && User.verifyEmail(newEmail)) {
+            user.setEmail(newEmail);
+        } else if (newEmail != null) {
+            return new Result(false, "Invalid email format.");
+        }
+        return new Result(true, "User updated successfully.", user);
+    }
+
+    public User findUser(String username) {
+        return users.get(username);
     }
 
     public Map<String, User> getUsers() {

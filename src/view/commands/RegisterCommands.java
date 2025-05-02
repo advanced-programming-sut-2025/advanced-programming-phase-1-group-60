@@ -1,8 +1,8 @@
 package view.commands;
 
 public enum RegisterCommands {
-    REGISTER("register"),
-    PICK_QUESTION("pick question");
+    REGISTER("register -u <username> -p <password> <password_confirm> -n <nickname> -e <email> -g <gender>"),
+    PICK_QUESTION("pick question -q <question_number> -a <answer> -c <answer_confirm>");
 
     private final String commandPrefix;
 
@@ -11,6 +11,16 @@ public enum RegisterCommands {
     }
 
     public String getCommandPrefix() {
-        return commandPrefix;
+        return this.commandPrefix;
+    }
+
+    public static RegisterCommands getCommand(String input) {
+        input = input.toLowerCase().trim();
+        for (RegisterCommands command : RegisterCommands.values()) {
+            if (input.startsWith(command.commandPrefix.split(" ")[0])) {
+                return command;
+            }
+        }
+        return null;
     }
 }

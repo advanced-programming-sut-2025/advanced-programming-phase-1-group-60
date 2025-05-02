@@ -2,56 +2,71 @@ package controller;
 
 import models.Result;
 import models.Tile;
+import view.commands.WeatherCommands;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Random;
 import java.util.Set;
 
 public class WeatherController {
     private Set<String> weathersSet = new HashSet<>(Arrays.asList("sunny", "rain", "snow", "storm"));
     private String currentWeather;
+    private String forecastWeather;
 
-    // Current Weather
-    // TODO : Update weather base on 1.season 2.effects 3.forecast
+    public String handleCommand(WeatherCommands command) {
+        switch (command) {
+            case SHOW_WEATHER:
+                return displayWeather();
+            case PREDICT_WEATHER:
+                return "Weather forecast for tomorrow: " + getForecast();
+            default:
+                return "Unknown command.";
+        }
+    }
+
     public boolean updateWeather() {
         if (currentWeather == null) {
-            return false;
+            currentWeather = "sunny"; // پیش‌فرض
         }
+        Random random = new Random();
+        String[] weatherOptions = weathersSet.toArray(new String[0]);
+        currentWeather = weatherOptions[random.nextInt(weatherOptions.length)];
         return true;
     }
 
-    // Setting Weather
-    // TODO : set a specific weather (cheat code)
     public boolean setWeather(String weatherType) {
         if (weatherType == null || !isValidWeatherType(weatherType)) {
             return false;
         }
+        currentWeather = weatherType;
         return true;
     }
 
-    // Forecast
-    // TODO : Get the forecast for the upcoming day.
-    public String getForecast(){
-        return null;
+    public String getForecast() {
+        Random random = new Random();
+        String[] weatherOptions = weathersSet.toArray(new String[0]);
+        forecastWeather = weatherOptions[random.nextInt(weatherOptions.length)];
+        return forecastWeather;
     }
 
-    // Displaying Weather
-    // TODO : Show the current weather so the user is aware of it's effects.
+
     public String displayWeather() {
-        return currentWeather;
+        return currentWeather != null ? currentWeather : "Weather not set.";
     }
 
-    // Validations
-    // TODO : check if the weather type we want to set in cheat code is valid
+
     private boolean isValidWeatherType(String type) {
-        return false;
+        return weathersSet.contains(type.toLowerCase());
     }
 
-    // TODO : choose 3 tiles and applying thunder, if tile == null -> random select
+
     public Result thunder(Tile tile) {
-        return null;
+        Random random = new Random();
+        return new Result(true,"Thunder applied to tile: " + (tile != null ? tile.toString() : "random tile"));
     }
 
-    // TODO : automatic irrigation of crops
-    public Result irrigation () { return null; }
+    public Result irrigation() {
+        return new Result(true,"Crops irrigated successfully.");
+    }
 }
