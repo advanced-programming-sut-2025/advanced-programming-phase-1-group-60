@@ -1,10 +1,12 @@
 package models;
 
+import java.util.HashMap;
+
 public class Food extends Item{
     private String name;
     private String description;
     private int price;
-    private Map<String, Integer> ingredients;
+    private HashMap<String, Integer> ingredients;
     private int energy;
     private String source;
 
@@ -29,7 +31,7 @@ public class Food extends Item{
         this.price = price;
     }
 
-    public void setIngredients(Map<String, Integer> ingredients) {
+    public void setIngredients(HashMap<String, Integer> ingredients) {
         this.ingredients = ingredients;
     }
 
@@ -63,8 +65,7 @@ public class Food extends Item{
 
     public String getName() { return ""; }
     public int getEnergy() { return 0; }
-    public Map<String, Integer> getIngredients() { }
+    public HashMap<String, Integer> getIngredients() { return ingredients; }
     // public BuffEffect getBuff() { }
     public void setSource(String source) {}
-}
 }

@@ -16,7 +16,7 @@ public class Tools extends Item {
     }
 
     public void upgrade() {
-
+        toolLevel++;
     }
 
     private void updateAttributesAfterUpgrade() {}

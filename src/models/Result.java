@@ -16,6 +16,15 @@ public class Result {
         this.data = data;
     }
 
+    public Result() {};
+
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
     public boolean isSuccess() {
         return success;
     }

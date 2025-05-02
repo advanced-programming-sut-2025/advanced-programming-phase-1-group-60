@@ -1,12 +1,14 @@
 package models;
 
+import java.util.HashMap;
+
 public class Item {
     private int id;
     private String name;
     private String type;
     private int basePrice;
     private int quantity;
-    private Map<String, Object> properties;
+    private HashMap<String, Object> properties;
 
     public int getId() {
         return id;
@@ -40,6 +42,10 @@ public class Item {
         this.basePrice = basePrice;
     }
 
+    public int getPrice() {
+        return basePrice * quantity;
+    }
+
     public int getQuantity() {
         return quantity;
     }
@@ -48,14 +54,14 @@ public class Item {
         this.quantity = quantity;
     }
 
-    public Map<String, Object> getProperties() {
+    public HashMap<String, Object> getProperties() {
         return properties;
     }
 
-    public void setProperties(Map<String, Object> properties) {
+    public void setProperties(HashMap<String, Object> properties) {
         this.properties = properties;
     }
 
-    public abstract void use();
+    public void use(){};
 
 }

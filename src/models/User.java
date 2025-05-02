@@ -1,7 +1,10 @@
 package models;
 
+import repository.UserRepository;
+
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -17,18 +20,21 @@ public class User {
     private Tile position;
     private Energy energy;
     private List<Skill> skills;
-    private List<Inventory> inventories;  // private Inventory inventory;
+    private Inventory inventory;
     private List<Game> games;
     private List<String> craftInstructions;
     private List<String> cookRecipes;
-    private Map<User, Integer> friendshipLevelsWithUsers;
+    private Map<User, Integer> friendshipXpsWithoutUsers;
     private Map<Npc, Integer> friendshipLevelsWithNPCs;
+    private HashMap<User,String> unreadMessages;
+    private HashMap<User,StringBuilder> allMessages;
     private List<Item> refrigeratorItems;
-    private int highestMoney;
+    private int money;
     private List<Question> securityQuestions;
     private List<Quest> activeQuests;
     private int selectedMapId;
     private List<Tools> tools;
+
 
     // Registration part
 
@@ -38,6 +44,9 @@ public class User {
         this.nickname = nickname;
         this.email = email;
         this.gender = gender;
+        for (User user : UserRepository.getInstance().getAllUsers()) {
+            friendshipXpsWithoutUsers.put(user, 0);
+        }
     }
 
     public static boolean verifyEmail(String email) {
@@ -92,17 +101,19 @@ public class User {
         return position;
     }
 
-    public void faint(){
+    public void faint() {
 
     }
 
-    public void faintAlong(Path path){
-        int rem=energy.getCurrentEnergy();
-        for(var s: path.getSteps()){
-            if(rem<=0) break;
-            rem--; position=s;
+    public void faintAlong(Path path) {
+        int rem = energy.getCurrentEnergy();
+        for (var s : path.getSteps()) {
+            if (rem <= 0) break;
+            rem--;
+            position = s;
         }
-        energy.setCurrentEnergy(0); faint();
+        energy.setCurrentEnergy(0);
+        faint();
     }
 
     public void addItem(Item item) {
@@ -178,12 +189,12 @@ public class User {
         this.skills = skills;
     }
 
-    public List<Inventory> getInventories() {
-        return inventories;
+    public Inventory getInventory() {
+        return inventory;
     }
 
-    public void setInventories(List<Inventory> inventories) {
-        this.inventories = inventories;
+    public void setInventory(Inventory inventory) {
+        this.inventory = inventory;
     }
 
     public List<Game> getGames() {
@@ -198,6 +209,14 @@ public class User {
         return craftInstructions;
     }
 
+    public void setFriendshipXpsWithoutUsers(User user, Integer xp) {
+        friendshipXpsWithoutUsers.put(user, xp);
+    }
+
+    public Integer getFriendshipXpsWithThisUser(User user) {
+        return friendshipXpsWithoutUsers.get(user);
+    }
+
     public void setcraftInstructions(List<String> craftInstructions) {
         this.craftInstructions = craftInstructions;
     }
@@ -210,12 +229,11 @@ public class User {
         this.cookRecipes = cookRecipes;
     }
 
-    public Map<User, Integer> getFriendshipLevelsWithUsers() {
-        return friendshipLevelsWithUsers;
+    public int getFriendshipLevelsWithUsers(User user) {
+        return friendshipXpsWithoutUsers.get(user) / 100;
     }
-
-    public void setFriendshipLevelsWithUsers(Map<User, Integer> friendshipLevelsWithUsers) {
-        this.friendshipLevelsWithUsers = friendshipLevelsWithUsers;
+    public void increaseFriendshipXpsWithUsers(User user, Integer xp) {
+        friendshipXpsWithoutUsers.put(user, friendshipXpsWithoutUsers.get(user) + xp);
     }
 
     public Map<Npc, Integer> getFriendshipLevelsWithNPCs() {
@@ -234,12 +252,12 @@ public class User {
         this.refrigeratorItems = refrigeratorItems;
     }
 
-    public int getHighestMoney() {
-        return highestMoney;
+    public int getMoney() {
+        return money;
     }
 
-    public void setHighestMoney(int highestMoney) {
-        this.highestMoney = highestMoney;
+    public void setMoney(int money) {
+        this.money = money;
     }
 
     public List<Question> getSecurityQuestions() {
@@ -265,5 +283,52 @@ public class User {
 
     public int getSelectedMapId() {
         return selectedMapId;
+    }
+
+    public List<Tools> getTools() {
+        return tools;
+    }
+
+    public String showFriendshipLevelsWithUsers() {
+        StringBuilder sb = new StringBuilder();
+        for (User user : friendshipXpsWithoutUsers.keySet()) {
+            sb.append(user.getNickname()).append(": ").append(friendshipXpsWithoutUsers.get(user)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public Result talk(User user, String message) {
+        Result result = new Result();
+        if (Math.abs(position.getPositionX() - user.getPosition().getPositionX()) > 1
+                || Math.abs(position.getPositionY() - user.getPosition().getPositionY()) > 1) {
+            result.setSuccess(false);
+            result.setMessage("You are far away!");
+            return result;
+        }
+        result.setSuccess(true);
+        user.requestToTalk(this, message);
+        friendshipXpsWithoutUsers.put(user, friendshipXpsWithoutUsers.get(user) + 20);
+        user.increaseFriendshipXpsWithUsers(this, 20);
+        return result;
+    }
+
+    public void requestToTalk(User user, String message) {
+        unreadMessages.put(user,message);
+        StringBuilder sb = new StringBuilder();
+        sb.append(allMessages.get(user).toString());
+        sb.append("\n");
+        sb.append(message);
+    }
+
+    public String getUnreadMessage() {
+        StringBuilder sb = new StringBuilder();
+        for (User user : unreadMessages.keySet()) {
+            sb.append(user.getNickname()).append(": ").append(unreadMessages.get(user)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public String showTalkHistory(User user) {
+        return allMessages.get(user).toString();
     }
 }

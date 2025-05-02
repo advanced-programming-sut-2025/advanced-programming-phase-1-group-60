@@ -1,20 +1,21 @@
 package models;
 
 import java.util.HashMap;
+import java.util.List;
 
 
 public class Inventory {
-    private HashMap<Item, Integer> items;
+    private List<Item> items;
     private int capacity;
     private int currentSize;
     private User owner;
 
 
-    public HashMap<Item, Integer> getItems() {
+    public List<Item> getItems() {
         return items;
     }
 
-    public void setItems(HashMap<Item, Integer> items) {
+    public void setItems(List<Item> items) {
         this.items = items;
     }
 
