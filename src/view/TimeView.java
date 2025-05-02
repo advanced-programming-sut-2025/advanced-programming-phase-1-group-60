@@ -1,6 +1,6 @@
 package view;
 
-import controllers.TimeController;
+import controller.TimeController;
 import view.commands.TimeCommands;
 
 import java.util.Scanner;
