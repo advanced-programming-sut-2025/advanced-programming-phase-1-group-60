@@ -35,8 +35,19 @@ public class Inventory {
         this.currentSize = currentSize;
     }
 
-    public boolean addItem(Item item, int count) {
-        return false;
+    public void addItem(Item item, int count) {
+        Item target = null;
+        for (Item i : items) {
+            if (i.getName().equals(item.getName())) {
+                target = i;
+            }
+        }
+        if (target == null) {
+            items.add(item);
+        }
+        else {
+            target.setQuantity(target.getQuantity() + count);
+        }
     }
 
 

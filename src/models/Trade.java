@@ -11,7 +11,7 @@ public class Trade {
     private int offeredMoney;
     private int requestedMoney;
     private boolean isAccepted;
-    private TimeSystem timestamp;
+    private String timestamp;
 
 
     public int getId() {
@@ -78,11 +78,11 @@ public class Trade {
         isAccepted = accepted;
     }
 
-    public TimeSystem getTimestamp() {
+    public String getTimestamp() {
         return timestamp;
     }
 
-    public void setTimestamp(TimeSystem timestamp) {
+    public void setTimestamp(String timestamp) {
         this.timestamp = timestamp;
     }
 
@@ -95,6 +95,7 @@ public class Trade {
 
 
     public void acceptTrade() {
+
     }
 
 
