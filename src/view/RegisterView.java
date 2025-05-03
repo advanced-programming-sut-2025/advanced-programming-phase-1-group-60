@@ -4,6 +4,7 @@ import controller.RegisterController;
 import models.Result;
 import view.commands.RegisterCommands;
 
+import java.util.Map;
 import java.util.Scanner;
 
 public class RegisterView extends View {
@@ -35,10 +36,9 @@ public class RegisterView extends View {
             if (command == RegisterCommands.REGISTER) {
                 handleRegister(input);
             } else if (command == RegisterCommands.PICK_QUESTION) {
-               // handlePickQuestion(input);
-            } else if (input.equalsIgnoreCase("exit")) {
+               handlePickQuestion(input);
+            } else if (command == RegisterCommands.EXIT) {  // Remove the extra parenthesis
                 System.out.println("Exiting Register Menu. Goodbye!");
-                //خروج از منوی ثبتنام
                 break;
             } else {
                 System.out.println("Unknown command. Please try again.");
@@ -49,10 +49,6 @@ public class RegisterView extends View {
     private void handleRegister(String input) {
         try {
             String[] parts = input.split(" -");
-            if (parts.length < 7) {
-                System.out.println("Error: Incomplete command. Please provide all required fields.");
-                return;
-            }
 
             String username = getValue(parts, "u");
             String password = getValue(parts, "p");
@@ -63,44 +59,62 @@ public class RegisterView extends View {
 
             Result result = registerController.register(username, password, passwordConfirm, nickname, email, gender);
             System.out.println(result.getMessage());
+            if (result.isSuccess()) {
+                displaySecurityQuestions();
+            }
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+    private void displaySecurityQuestions() {
+        System.out.println("\nPlease select one of the following security questions:");
+        for (Map.Entry<Integer, String> entry : registerController.getSecurityQuestions().entrySet()) {
+            System.out.println(entry.getKey() + ". " + entry.getValue());
+        }
+        System.out.println("\nUse command: pick question -q <number> -a <answer> -c <confirm>");
+    }
+    private void handlePickQuestion(String input) {
+        try {
+            String[] parts = input.split(" -");
+
+            int questionNumber = Integer.parseInt(getValue(parts, "q"));
+            String answer = getValue(parts, "a");
+            String confirmAnswer = getValue(parts, "c");
+
+            Result result = registerController.pickQuestion(questionNumber, answer, confirmAnswer);
+            System.out.println(result.getMessage());
+
+            if (result.isSuccess()) {
+                System.out.println("You can now proceed to login.");
+            }
+        } catch (NumberFormatException e) {
+            System.out.println("Error: Invalid question number. Please choose 1, 2, or 3.");
         } catch (IllegalArgumentException e) {
             System.out.println("Error: " + e.getMessage());
         }
     }
 
-//    private void handlePickQuestion(String input) {
-//        try {
-//            String[] parts = input.split(" -");
-//            if (parts.length < 4) {
-//                System.out.println("Error: Incomplete command. Please provide all required fields.");
-//                return;
-//            }
-//
-//            int questionNumber = Integer.parseInt(getValue(parts, "q"));
-//            String answer = getValue(parts, "a");
-//            String answerConfirm = getValue(parts, "c");
-//
-//            Result result = registerController.pickQuestion(questionNumber, answer, answerConfirm);
-//            System.out.println(result.getMessage());
-//        } catch (NumberFormatException e) {
-//            System.out.println("Error: Invalid question number. It must be a number.");
-//        } catch (IllegalArgumentException e) {
-//            System.out.println("Error: " + e.getMessage());
-//        }
-//    }
-
     private String getValue(String[] parts, String key) {
-        return getValue(parts, key, 1);
+        for (String part : parts) {
+            if (part.startsWith(key + " ")) {
+                String[] values = part.substring(2).trim().split(" ");
+                if (values.length == 0) {
+                    throw new IllegalArgumentException("Missing value for -" + key + ".");
+                }
+                return values[0];
+            }
+        }
+        throw new IllegalArgumentException("Missing key: -" + key + ".");
     }
 
     private String getValue(String[] parts, String key, int occurrence) {
         for (String part : parts) {
             if (part.startsWith(key + " ")) {
-                String[] values = part.split(" ", 2);
-                if (values.length < occurrence + 1) {
+                String[] values = part.substring(2).trim().split(" ");
+                if (values.length < occurrence) {
                     throw new IllegalArgumentException("Missing value for -" + key + ".");
                 }
-                return values[occurrence - 1].trim();
+                return values[occurrence - 1];
             }
         }
         throw new IllegalArgumentException("Missing key: -" + key + ".");

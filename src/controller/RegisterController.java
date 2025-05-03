@@ -2,6 +2,7 @@ package controller;
 
 import models.User;
 import models.Result;
+import repository.UserRepository;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -11,22 +12,27 @@ import java.util.Random;
 public class RegisterController {
     private Map<String, User> users;
     private Map<Integer, String> securityQuestions;
+    private User lastRegisteredUser;
+    private final UserRepository userRepository;
 
     public RegisterController() {
         this.users = new HashMap<>();
         this.securityQuestions = new HashMap<>();
-//        populateSecurityQuestions();
+        this.userRepository = UserRepository.getInstance();
+        populateSecurityQuestions();
     }
 
-//    private void populateSecurityQuestions() {
-//
-//    }
+    private void populateSecurityQuestions() {
+        securityQuestions.put(1, "What was the first school that you attended?");
+        securityQuestions.put(2, "What was your first pet's name?");
+        securityQuestions.put(3, "In which city were you born?");
+    }
 
     public Result register(String username, String password, String passwordConfirm, String nickname, String email, String gender) {
         if (!isValidUsername(username)) {
             return new Result(false, "Invalid username. It must be at least 3 characters and include only letters, digits, or underscores.");
         }
-        if (users.containsKey(username)) {
+        if (users.containsKey(username) || userRepository.getUserByUsername(username) != null) {
             return new Result(false, "Username already exists.");
         }
         if (!User.verifyEmail(email)) {
@@ -47,10 +53,13 @@ public class RegisterController {
 
         try {
             String hashedPassword = hashPassword(password);
-            User newUser = new User(username, hashedPassword, nickname, email, gender);
+            User newUser = new User(username, password, nickname, email, gender);
+            userRepository.addUser(newUser);
             users.put(username, newUser);
+            lastRegisteredUser = newUser;
             return new Result(true, "User registered successfully.", newUser);
         } catch (Exception e) {
+            e.printStackTrace();
             return new Result(false, "Internal error during registration.");
         }
     }
@@ -72,18 +81,27 @@ public class RegisterController {
     }
 
     public Result pickQuestion(int questionNumber, String answer, String answerConfirm) {
+        if (lastRegisteredUser == null) {
+            return new Result(false, "Please register first before picking a security question.");
+        }
         if (!securityQuestions.containsKey(questionNumber)) {
-            return new Result(false, "Invalid question number.");
+            return new Result(false, "Invalid question number. Please choose 1, 2, or 3.");
         }
         if (!answer.equals(answerConfirm)) {
             return new Result(false, "Answers do not match.");
         }
-        // سوال امنیتی انتخاب و پاسخ ذخیره شود (فرضی)
-        return new Result(true, "Security question selected successfully.");
+        if (answer.trim().isEmpty()) {
+            return new Result(false, "Answer cannot be empty.");
+        }
+
+        lastRegisteredUser.setSecurityQuestion(securityQuestions.get(questionNumber), answer);
+        String successMessage = "Security question successfully set: " + securityQuestions.get(questionNumber);
+        lastRegisteredUser = null;  // Reset for next registration
+        return new Result(true, successMessage);
     }
 
-    public String getSecurityQuestion(int questionNumber) {
-        return securityQuestions.getOrDefault(questionNumber, "Question not found.");
+    public Map<Integer, String> getSecurityQuestions() {
+        return securityQuestions;
     }
 
     public String generateRandomPassword() {

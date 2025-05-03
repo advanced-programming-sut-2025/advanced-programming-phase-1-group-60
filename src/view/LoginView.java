@@ -2,6 +2,7 @@ package view;
 
 import controller.LoginMenuController;
 import models.Result;
+import models.User;
 import view.commands.LoginCommands;
 
 import java.util.Scanner;
@@ -9,6 +10,7 @@ import java.util.Scanner;
 public class LoginView extends View {
     private final LoginMenuController loginMenuController;
     private final Scanner scanner;
+    private String forgottenPasswordUsername = null;
 
     public LoginView(LoginMenuController loginMenuController, Scanner scanner) {
         this.loginMenuController = loginMenuController;
@@ -45,56 +47,83 @@ public class LoginView extends View {
         String[] parts = input.split("\\s+");
         String username = null, password = null;
 
-        for (int i = 1; i < parts.length; i++) {
-            if (parts[i].equals("-u") && i + 1 < parts.length) {
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (parts[i].equals("-u")) {
                 username = parts[i + 1];
-            } else if (parts[i].equals("-p") && i + 1 < parts.length) {
+            }
+            if (parts[i].equals("-p")) {
                 password = parts[i + 1];
             }
         }
 
         if (username == null || password == null) {
-            System.out.println("Missing username or password.");
+            System.out.println("Invalid login command format.");
             return;
         }
 
         Result result = loginMenuController.Login(username, password, false);
-
         if (result.isSuccess()) {
             System.out.println("Login successful! Welcome, " + username + "!");
-            // بعدا میفرستیمش به Main Menu
         } else {
             System.out.println(result.getMessage());
         }
-
-        System.out.println("Invalid login command format.");
     }
 
     private void handleForgetPassword(String input) {
-        String[] parts = input.split("\\s+");
-        String username = null;
-
-        for (int i = 2; i < parts.length; i++) {
-            if (parts[i].equals("-u") && i + 1 < parts.length) {
-                username = parts[i + 1];
+        String[] parts = input.split(" -");
+        try {
+            String username = getValue(parts, "u");
+            Result result = loginMenuController.forgetPassword(username);
+            System.out.println(result.getMessage());
+            if (result.isSuccess()) {
+                forgottenPasswordUsername = username;
             }
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
         }
+    }
 
-        if (username == null) {
-            System.out.println("Missing username.");
+    private void handleAnswerQuestion(String input) {
+        if (forgottenPasswordUsername == null) {
+            System.out.println("Please use 'forget password -u <username>' first.");
             return;
         }
 
-     //   String result = loginMenuController.forgetPassword(username, question);
-      //  System.out.println(result);
-
-        //برای سوال امنیتی  فراموش کردن رمز
-
-        System.out.println("Invalid forget password command format.");
-    }
-
-        private void handleAnswerQuestion (String input){
-            System.out.println("Answering security question... (Functionality to be expanded)");
-            // این قسمت بعداً کامل‌تر میشه
+        String[] parts = input.split(" -");
+        try {
+            String answer = getValue(parts, "a");
+            Result result = loginMenuController.checkSecurityAnswer(forgottenPasswordUsername, answer);
+            System.out.println(result.getMessage());
+            if (result.isSuccess()) {
+                forgottenPasswordUsername = null;  // Reset after successful recovery
+            }
+        } catch (IllegalArgumentException e) {
+            System.out.println("Error: " + e.getMessage());
         }
     }
+    private String getValue(String[] parts, String key) {
+        for (String part : parts) {
+            if (part.startsWith(key + " ")) {
+                String[] values = part.substring(2).trim().split(" ");
+                if (values.length == 0) {
+                    throw new IllegalArgumentException("Missing value for -" + key + ".");
+                }
+                return values[0];
+            }
+        }
+        throw new IllegalArgumentException("Missing key: -" + key + ".");
+    }
+
+    private String getValue(String[] parts, String key, int occurrence) {
+        for (String part : parts) {
+            if (part.startsWith(key + " ")) {
+                String[] values = part.substring(2).trim().split(" ");
+                if (values.length < occurrence) {
+                    throw new IllegalArgumentException("Missing value for -" + key + ".");
+                }
+                return values[occurrence - 1];
+            }
+        }
+        throw new IllegalArgumentException("Missing key: -" + key + ".");
+    }
+}

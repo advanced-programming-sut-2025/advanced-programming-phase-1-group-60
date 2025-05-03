@@ -4,6 +4,7 @@ import repository.UserRepository;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,7 @@ public class User {
     private String username;
     private String nickname;
     private String hashPassword;
+    private String plainPassword;
     //private Question question;
     private String email;
     private String gender;
@@ -31,24 +33,42 @@ public class User {
     private List<Item> refrigeratorItems;
     private int money;
     private List<Question> securityQuestions;
+    private String securityAnswer;
     private List<Quest> activeQuests;
     private int selectedMapId;
     private List<Tools> tools;
+    private Item equippedTool;
+    private List<Item> backpackItems;
 
 
     // Registration part
 
     public User(String username, String password, String nickname, String email, String gender) throws Exception {
         this.username = username;
+        this.plainPassword = password;
         this.hashPassword = hashedPassword(password);
         this.nickname = nickname;
         this.email = email;
         this.gender = gender;
-        for (User user : UserRepository.getInstance().getAllUsers()) {
-            friendshipXpsWithoutUsers.put(user, 0);
+        this.securityQuestions = new ArrayList<>();
+        this.friendshipXpsWithoutUsers = new HashMap<>();
+        this.unreadMessages = new HashMap<>();
+        this.allMessages = new HashMap<>();
+
+        // Create friendship entries with existing users
+        for (User existingUser : UserRepository.getInstance().getAllUsers()) {
+            // Add friendship entry to new user's map
+            this.friendshipXpsWithoutUsers.put(existingUser, 0);
+            // Add friendship entry to existing user's map
+            existingUser.getFriendshipXpsWithoutUsers().put(this, 0);
         }
     }
-
+    public String getPlainPassword() {
+        return plainPassword;
+    }
+    public Map<User, Integer> getFriendshipXpsWithoutUsers() {
+        return friendshipXpsWithoutUsers;
+    }
     public static boolean verifyEmail(String email) {
         String regex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$";
         return Pattern.matches(regex, email);
@@ -259,7 +279,26 @@ public class User {
     public void setMoney(int money) {
         this.money = money;
     }
-
+    public void setSecurityQuestion(String question, String answer) {
+        if (this.securityQuestions == null) {
+            this.securityQuestions = new ArrayList<>();
+        }
+        this.securityQuestions.add(new Question(question, answer));
+    }
+    public String getSecurityQuestionInfo() {
+        if (securityQuestions == null || securityQuestions.isEmpty()) {
+            return "No security question set";
+        }
+        Question question = securityQuestions.get(0);
+        return "Security Question: " + question.getQuestion();
+    }
+    public boolean verifySecurityQuestion(String answer) {
+        if (securityQuestions == null || securityQuestions.isEmpty()) {
+            return false;
+        }
+        // We only have one security question per user
+        return securityQuestions.get(0).checkAnswer(answer);
+    }
     public List<Question> getSecurityQuestions() {
         return securityQuestions;
     }
@@ -327,7 +366,21 @@ public class User {
         }
         return sb.toString();
     }
+    public Item getEquippedTool() {
+        return equippedTool;
+    }
 
+    public void setEquippedTool(Item equippedTool) {
+        this.equippedTool = equippedTool;
+    }
+
+    public List<Item> getBackpackItems() {
+        return backpackItems;
+    }
+
+    public void setBackpackItems(List<Item> backpackItems) {
+        this.backpackItems = backpackItems;
+    }
     public String showTalkHistory(User user) {
         return allMessages.get(user).toString();
     }

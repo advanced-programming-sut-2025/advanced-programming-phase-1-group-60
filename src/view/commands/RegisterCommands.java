@@ -2,8 +2,8 @@ package view.commands;
 
 public enum RegisterCommands {
     REGISTER("register -u <username> -p <password> <password_confirm> -n <nickname> -e <email> -g <gender>"),
-    PICK_QUESTION("pick question -q <question_number> -a <answer> -c <answer_confirm>");
-
+    PICK_QUESTION("pick question -q <question_number> -a <answer> -c <answer_confirm>"),
+    EXIT("exit");
     private final String commandPrefix;
 
     RegisterCommands(String commandPrefix) {
