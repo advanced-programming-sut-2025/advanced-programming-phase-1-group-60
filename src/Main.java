@@ -7,7 +7,7 @@ import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        LoginMenuController loginMenuController = new LoginMenuController();
+        LoginMenuController loginMenuController = new LoginMenuController(scanner);
         RegisterController registerController = new RegisterController();
 
         while (true) {

@@ -6,13 +6,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.time.LocalTime;
 
-public class Store {
+public class Store implements StaticElement{
+
+    private String name;
     private String type;
     private String creator;
     private WorkTime workTime;
     private List<Item> items = new ArrayList<>();
     private List<Product> products = new ArrayList<>();
     private int upgradeLevel;
+
+    public Store(String name) {
+        this.name = name;
+    }
 
     HashMap<Integer, Integer> upgradeCosts = new HashMap<>(); // for blacksmith
     HashMap<Integer, Integer> upgradeBinsCosts = new HashMap<>(); // for blacksmith
@@ -114,6 +120,16 @@ public class Store {
 
     public void setUpgradeBinsCosts(HashMap<Integer, Integer> upgradeBinsCosts) {
         this.upgradeBinsCosts = upgradeBinsCosts;
+    }
+
+    @Override
+    public char symbol() {
+        return 'S';
+    }
+
+    @Override
+    public boolean isPassable() {
+        return false;
     }
 
 

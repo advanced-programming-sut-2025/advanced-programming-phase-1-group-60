@@ -10,4 +10,6 @@ public class FarmManager {
         farms.add(new Farm(FarmTemplate.template4()));
     }
     public Farm getFarm(int index) { return farms.get(index); }
+
+    public List<Farm> getAllFarms() { return farms; }
 }

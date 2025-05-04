@@ -1,19 +1,19 @@
 package controller;
 
 import models.Farm;
-import models.Map;
+import models.GameMap;
 import models.Tile;
 import models.User;
 
 public class MapController {
     private GameController gameController;
-    private Map currentMap;
+    private GameMap currentGameMap;
     private Tile[][] view;
     public MapController(Farm f) { this.view = f.getTiles(); }
-    public void helpReadingMap() {
+    public void helpReadingGameMap() {
         System.out.println("T=Tree, S=Stone, F=Forage, C=Cabin, G=Greenhouse, L=Lake, Q=Quarry");
     }
-    public void printMap(int cx,int cy,int size){
+    public void printGameMap(int cx,int cy,int size){
         for(int y=cy;y<cy+size;y++){
             for(int x=cx;x<cx+size;x++){
                 var t=view[y][x];

@@ -1,56 +1,91 @@
 package models;
 
-import java.util.HashMap;
+import java.awt.*;
+import java.util.*;
 import java.util.List;
+import java.util.Map;
+
 
 public class Npc {
+    // مشخصات اصلی
     private String name;
-    private String job;
-    private String address;
-    private int friendshipLevel;
-    private List<Item> favoriteItems;
-    private List<Item> hatedItems;
-    private HashMap<String, Dialog> dialogues;
-    private List<Quest> quests;
-    private TimeSystem timeSystem; // to choose dialogs
+    private String personality;
+    private List<String> favoriteItems;
+    private List<Quest> quests = new ArrayList<>();
+    private Map<String, Dialog> dialogs = new HashMap<>();
+    private Set<String> spokenToday = new HashSet<>();
+
+    private Tile tile;  // TODO: مقداردهی اولیه‌ی tile در زمان ایجاد یا لود نقشه
+
+    public Npc(String name, String personality, List<String> favoriteItems) {
+        this.name = name;
+        this.personality = personality;
+        this.favoriteItems = favoriteItems;
+        //this.tile = tile;
+    }
 
 
-    public void increaseFriendship(int amount) {};
+    public String getName() {
+        return name;
+    }
 
+    public String getPersonality() {
+        return personality;
+    }
+    public List<String> getFavoriteItems() {
+        return favoriteItems;
+    }
+    public Tile getTile() {
+        return tile;
+    }
+    public void setTile(Tile tile) {
+        this.tile = tile;
+    }
 
-    public void decreaseFriendship(int amount) {};
+    public void defineDialog(String season,
+                             String prompt,
+                             List<String> validReplies,
+                             Map<String,String> npcAnswers) {
+        dialogs.put(season, new Dialog(prompt, validReplies, npcAnswers));
+    }
 
+    public String converse(User user, String reply) {
+        String season = TimeSystem.getInstance().getCurrentSeason();
+        String date = TimeSystem.getInstance().getCurrentDate();
+        Dialog d = dialogs.get(season);
+        if (d == null) return "…";
 
-    public String getDialogue(String condition) {
-        return null;
-    };
+        String key = user.getUsername() + "#" + name + "#" + date;
+        if (!spokenToday.contains(key)) {
+            user.increaseFriendshipXpsWithNpc(this, 20);
+            spokenToday.add(key);
+        }
 
+        if (d.validReplies.contains(reply)) {
+            return d.npcAnswers.get(reply);
+        } else {
+            return "I don't understand.";
+        }
+    }
 
-    public boolean likesGift(Item gift) {
-        return false;
-    };
+    public void addQuest(Quest quest) {
+        quests.add(quest);
+    }
 
+    public List<Quest> getQuests() {
+        return quests;
+    }
 
-    public String giveGift(Item gift) {
-        return null;
-    };
-
-
-    public void addQuest(Quest quest) {};
-
-
-    public boolean hasActiveRequest() {
-        return false;
-    };
-
-    public Result meet (){
-        return null;
+    public boolean isFavoriteItem(String itemName) {
+        return favoriteItems.contains(itemName);
     }
 
     private class Dialog {
-        String dialogue;
-        int levelRequired;
-        TimeSystem timeSystem;
-        String weather;
+        String prompt;
+        List<String> validReplies;
+        Map<String,String> npcAnswers;
+        Dialog(String p, List<String> vr, Map<String,String> na) {
+            prompt = p; validReplies = vr; npcAnswers = na;
+        }
     }
 }

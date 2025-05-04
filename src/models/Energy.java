@@ -2,11 +2,20 @@ package models;
 
 public class Energy {
     private int currentEnergy;
-    private int maxEnergy;
+    private final int maxEnergy = 200;
     private boolean isUnlimited;
+
+    public Energy() {
+        currentEnergy = maxEnergy;
+        isUnlimited = false;
+    }
 
     public void setCurrentEnergy(int currentEnergy) {
         this.currentEnergy = currentEnergy;
+    }
+
+    public void resetEnergy() {
+        this.currentEnergy = maxEnergy;
     }
 
     public int getMaxEnergy() {
@@ -34,9 +43,16 @@ public class Energy {
     }
 
 
-    public int getCurrentEnergy() {return 0; }
+    public int getCurrentEnergy() {
+        return currentEnergy;
+    }
 
     public void setUnlimited(boolean unlimited) {
         isUnlimited = unlimited;
+    }
+
+    @Override
+    public String toString() {
+        return currentEnergy + "";
     }
 }

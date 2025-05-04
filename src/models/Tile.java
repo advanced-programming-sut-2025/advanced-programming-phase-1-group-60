@@ -121,16 +121,19 @@ public class Tile {
     public void applyWeatherEffect(String effect) {
     }
 
-    @Override
-    public String toString() {
-        return null;
-    }
-
     public boolean isGreenHouseTile() {
         return isGreenHouseTile;
     }
 
     public void setGreenHouseTile(boolean greenHouseTile) {
         isGreenHouseTile = greenHouseTile;
+    }
+
+    @Override
+    public String toString() {
+        String elementInfo = (staticElement != null)
+                ? staticElement.getClass().getSimpleName()
+                : "Empty";
+        return String.format("Tile[x=%d, y=%d, Element=%s]", positionX, positionY, elementInfo);
     }
 }

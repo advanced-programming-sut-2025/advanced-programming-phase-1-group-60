@@ -1,8 +1,10 @@
 package view;
 
+import controller.GameController;
 import controller.LoginMenuController;
 import models.Result;
 import models.User;
+import repository.UserRepository;
 import view.commands.LoginCommands;
 
 import java.util.Scanner;
@@ -64,6 +66,9 @@ public class LoginView extends View {
         Result result = loginMenuController.Login(username, password, false);
         if (result.isSuccess()) {
             System.out.println("Login successful! Welcome, " + username + "!");
+            GameController gameController = new GameController(
+                    UserRepository.getInstance().getUserByUsername(username), scanner);
+            gameController.displayGame();
         } else {
             System.out.println(result.getMessage());
         }

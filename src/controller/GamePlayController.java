@@ -11,35 +11,50 @@ public class GamePlayController {
 
     private final Tile[][] tiles;
     private final User user;
-    private final Scanner in = new Scanner(System.in);
+    private int energyUsedThisTurn;
+    private Game currentGame;
 
-    public GamePlayController(Farm f, User u, Scanner sc) {
+    public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.tiles = f.getTiles();
         this.user = u;
         this.sc = sc;
+        u.setPosition(tiles[0][0]);
+        energyUsedThisTurn = 0;
+        currentGame = game;
     }
 
     public void getAndProcessInput() {
-        String input = sc.nextLine();
-        String[] parts = input.split("\\s+");
+        while (energyUsedThisTurn <= 50) {
+            String input = sc.nextLine();
+            String[] parts = input.split("\\s+");
 
-        if (parts[0].equalsIgnoreCase("tool")) {
-            if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
-                try {
-                    int toolId = Integer.parseInt(parts[2]);
-                    equipTool(toolId);
-                } catch (NumberFormatException e) {
-                    System.out.println("Invalid tool ID.");
+            if (parts[0].equalsIgnoreCase("tool")) {
+                if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
+                    try {
+                        int toolId = Integer.parseInt(parts[2]);
+                        equipTool(toolId);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid tool ID.");
+                    }
+                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
+                    showCurrentTool();
+                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
+                    showAvailableTools();
+                } else {
+                    System.out.println("Unknown tool command.");
                 }
-            } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
-                showCurrentTool();
-            } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
-                showAvailableTools();
-            } else {
-                System.out.println("Unknown tool command.");
+            } else if (parts[0].equalsIgnoreCase("walk")) {
+                int x = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                walkTo(x, y);
+            } else if (parts[0].equalsIgnoreCase("next")) {
+                break;
+            }else if (parts[0].equalsIgnoreCase("print")) {
+                currentGame.getCurrentMap().printRegion(user.getPosition().getPositionX(),user.getPosition().getPositionY()
+                        , Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
+            }else {
+                System.out.println("Unknown command.");
             }
-        } else {
-            System.out.println("Unknown command.");
         }
     }
 
@@ -104,99 +119,14 @@ public class GamePlayController {
         int need = (path.getDistance() + 10 * path.getTurns()) / 20;
         System.out.printf("مسافت=%d، پیچ=%d، انرژی=%d. ادامه؟ (y/n)\n",
                 path.getDistance(), path.getTurns(), need);
-        if (!in.nextLine().equalsIgnoreCase("y")) return;
+        String response = sc.nextLine();
+        if (!response.equalsIgnoreCase("y")) return;
         if (user.getEnergy().getCurrentEnergy() >= need || user.getEnergy().isUnlimited()) {
             user.consumeEnergy(need);
+            energyUsedThisTurn += need;
             user.setPosition(target);
             System.out.println("حرکت شد. انرژی=" + user.getEnergy());
             if (user.getEnergy().getCurrentEnergy() == 0) user.faint();
         } else user.faintAlong(path);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    public Result saveGame() {
-        return null;
-    }
-
-    public Result forceTerminate() {
-        return null;
-    }
-
-    public Result nextTurn() {
-        updateGameState();
-        return null;
-    }
-
-    // Current Game State
-    // TODO : Update the game state such as turns, time, weather ,etc.
-    private void updateGameState() {
-    }
-
-    public Result walk() {
-
-        // if (energy <= 0)
-        faint();
-        return null;
-    }
-
-    public Result printMap() {
-        return null;
-    }
-
-    public Result helpReadingMap() {
-        return null;
-    }
-
-    public Result showEnergy() {
-        return null;
-    }
-
-    private Result faint() {
-        return null;
-    }
-
-
-    // cheat functions :
 }

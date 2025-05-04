@@ -20,14 +20,14 @@ public class User {
     private String gender;
     private boolean stayLoggedIn;
     private Tile position;
-    private Energy energy;
+    private Energy energy = new Energy();
     private List<Skill> skills;
-    private Inventory inventory;
-    private List<Game> games;
+    private Inventory inventory = new Inventory();
+    private List<Game> games = new ArrayList<>();
     private List<String> craftInstructions;
     private List<String> cookRecipes;
     private Map<User, Integer> friendshipXpsWithoutUsers;
-    private Map<Npc, Integer> friendshipLevelsWithNPCs;
+    private Map<Npc, Integer> friendshipXpsWithNPCs;
     private HashMap<User,String> unreadMessages;
     private HashMap<User,StringBuilder> allMessages;
     private List<Item> refrigeratorItems;
@@ -39,6 +39,9 @@ public class User {
     private List<Tools> tools;
     private Item equippedTool;
     private List<Item> backpackItems;
+
+    private Game currentGame;
+    private Farm farm;
 
 
     // Registration part
@@ -256,12 +259,12 @@ public class User {
         friendshipXpsWithoutUsers.put(user, friendshipXpsWithoutUsers.get(user) + xp);
     }
 
-    public Map<Npc, Integer> getFriendshipLevelsWithNPCs() {
-        return friendshipLevelsWithNPCs;
+    public void increaseFriendshipXpsWithNpc (Npc npc, Integer xp) {
+        friendshipXpsWithNPCs.put(npc, friendshipXpsWithNPCs.get(npc) + xp);
     }
 
-    public void setFriendshipLevelsWithNPCs(Map<Npc, Integer> friendshipLevelsWithNPCs) {
-        this.friendshipLevelsWithNPCs = friendshipLevelsWithNPCs;
+    public int getFriendshipLevelWithNpc (Npc npc) {
+        return friendshipXpsWithNPCs.get(npc) / 200;
     }
 
     public List<Item> getRefrigeratorItems() {
@@ -383,5 +386,35 @@ public class User {
     }
     public String showTalkHistory(User user) {
         return allMessages.get(user).toString();
+    }
+
+    public Game getCurrentGame() {
+        return currentGame;
+    }
+
+    public void setCurrentGame(Game game) {
+        this.currentGame = game;
+    }
+
+    public void equipTool(int toolId) {
+        Item tool = getBackpackItems().stream()
+                .filter(item -> item.getId() == toolId)
+                .findFirst()
+                .orElse(null);
+
+        if (tool != null) {
+            setEquippedTool(tool);
+            System.out.println("Equipped: " + tool.getName());
+        } else {
+            System.out.println("Tool not found in backpack!");
+        }
+    }
+
+    public Farm getFarm() {
+        return farm;
+    }
+
+    public void setFarm(Farm farm) {
+        this.farm = farm;
     }
 }

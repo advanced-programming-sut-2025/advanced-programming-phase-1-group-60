@@ -17,14 +17,19 @@ public class Farm {
     private final List<Item> staticItems = new ArrayList<Item>();
 
     public Farm(FarmTemplate tpl) {
-        for (int y = 0; y < FarmTemplate.HEIGHT; y++)
-            for (int x = 0; x < FarmTemplate.WIDTH; x++)
+        for (int y = 0; y < FarmTemplate.HEIGHT; y++) {
+            for (int x = 0; x < FarmTemplate.WIDTH; x++) {
                 tiles[y][x] = new Tile(x, y);
+            }
+            }
         // قرار دادن عناصر ثابت
         for (var p : tpl.getPlacements())
             for (int dy = 0; dy < p.h; dy++)
                 for (int dx = 0; dx < p.w; dx++)
-                    tiles[p.y + dy][p.x + dx].setStaticElement(p.element);
+                    if (p.y + dy < FarmTemplate.HEIGHT && p.y + dy >= 0
+                    && p.x + dx < FarmTemplate.WIDTH && p.x + dx >= 0) {
+                        tiles[p.y + dy][p.x + dx].setStaticElement(p.element);
+                    }
         // پخش یک عنصر رندوم یا خالی در هر کاشی
         scatter(100, Tree::new);
         scatter(80, Stone::new);

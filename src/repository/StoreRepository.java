@@ -13,7 +13,7 @@ public class StoreRepository {
     static {
 
         // blacksmith
-        Store blacksmithStore = new Store();
+        Store blacksmithStore = new Store("blacksmith");
         Item bsItem1 = new Item();
         bsItem1.setName("Copper");
         bsItem1.setId(13);
@@ -43,7 +43,7 @@ public class StoreRepository {
         blacksmithStore.setUpgradeBinsCosts(upgradeBinsCosts);
         // ---------------------------------------------------------------------------
         // marin's ranch
-        Store marinesRanchStore = new Store();
+        Store marinesRanchStore = new Store("marinesRanch");
         Item mrItem1 = new Item();
         mrItem1.setName("Hay");
         mrItem1.setId(220);

@@ -7,6 +7,7 @@ import repository.UserRepository;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 
 public class LoginMenuController {
     //Login
@@ -14,7 +15,7 @@ public class LoginMenuController {
     private User loggedInUser;
     private final UserRepository userRepository;
 
-    public LoginMenuController() {
+    public LoginMenuController(Scanner scanner) {
         users = new HashMap<>();
         this.userRepository = UserRepository.getInstance();
     }

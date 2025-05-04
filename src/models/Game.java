@@ -1,143 +1,149 @@
 package models;
 
-import java.util.List;
-import java.util.Map;
+import exceptions.GameException;
+import repository.UserRepository;
+
+import java.util.*;
 
 public class Game {
-    private User host;
-    private Map map;
-    private User currentTurn;
-    private TimeSystem timeSystem;
-    private String season;
-    private boolean isActive;
-
+    private static Game instance;
     private List<User> players;
+    private User creator;
+    private Map<User, Integer> selectedMaps = new HashMap<>();
+    private GameState state = GameState.LOBBY;
+    private int currentPlayerIndex = 0;
+    private GameMap currentMap;
+    private boolean forceTerminateVote = false;
+    private Set<User> terminationVotes = new HashSet<>();
 
-    //+++
-    private Map globalMap;
-    private Game state;
-    private int currentTurnPlayerIndex; //??
-    private List<Quest> activeQuests; //??
-    private TimeSystem startTime;
-    private TimeSystem lastSavedTime;
+    private Game() {}
 
-    public void startNewGame(User host, List<User> invitedPlayers) {  }
-    public void saveGame() {  }
-    public void loadGame(String gameId) {  }
-    public void endGame() {  }
-
-
-    public User getHost() {
-        return host;
+    public static synchronized Game getInstance() {
+        if (instance == null) {
+            instance = new Game();
+        }
+        return instance;
     }
 
-    public void setHost(User host) {
-        this.host = host;
+    public enum GameState {
+        LOBBY, MAP_SELECTION, IN_GAME, TERMINATED
     }
 
-    public Map getMap() {
-        return map;
+    // ایجاد بازی جدید
+    public void newGame(User creator, List<String> usernames) throws GameException {
+        validateNewGame(creator, usernames);
+
+        this.creator = creator;
+        this.players = new ArrayList<>();
+        this.players.add(creator);
+
+        for (String username : usernames) {
+            User user = UserRepository.getInstance().getUserByUsername(username);
+            if (user == null) throw new GameException("Invalid username: " + username);
+            if (user.getCurrentGame() != null) throw new GameException("User already in game: " + username);
+            this.players.add(user);
+        }
+
+        this.state = GameState.MAP_SELECTION;
     }
 
-    public void setMap(Map map) {
-        this.map = map;
+    private void validateNewGame(User creator, List<String> usernames) throws GameException {
+        if (usernames.size() < 1 || usernames.size() > 3) {
+            throw new GameException("Invalid number of players (1-3 required)");
+        }
+        if (creator.getCurrentGame() != null) {
+            throw new GameException("Creator is already in a game");
+        }
     }
 
-    public User getCurrentTurn() {
-        return currentTurn;
+    // انتخاب نقشه
+    public void selectMap(User user, int mapNumber) throws GameException {
+        if (state != GameState.MAP_SELECTION) {
+            throw new GameException("Map selection not allowed in current state");
+        }
+        if (mapNumber < 1 || mapNumber > 4) {
+            throw new GameException("Invalid map number (1-4)");
+        }
+        selectedMaps.put(user, mapNumber);
+
+        if (selectedMaps.size() == players.size()) {
+            initializeGameMap();
+            startGame();
+        }
     }
 
-    public void setCurrentTurn(User currentTurn) {
-        this.currentTurn = currentTurn;
+    private void initializeGameMap() {
+        FarmManager farmManager = new FarmManager();
+        List<Farm> farms = farmManager.getAllFarms();
+
+        for (User player : players) {
+            int mapId = selectedMaps.get(player);
+            Farm farm = farms.get(mapId - 1);
+            farm.setOwner(player);
+            player.setFarm(farm);
+        }
+
+        this.currentMap = new GameMap(farms, VillageTemplate.createDefaultVillage());
     }
 
-    public TimeSystem getTimeSystem() {
-        return timeSystem;
+    // شروع بازی
+    private void startGame() {
+        this.state = GameState.IN_GAME;
+        currentPlayerIndex = 0;
+        notifyPlayers("Game started! First turn: " + getCurrentPlayer().getUsername());
     }
 
-    public void setTimeSystem(TimeSystem timeSystem) {
-        this.timeSystem = timeSystem;
+    // مدیریت نوبت‌ها
+    public Integer nextTurn() {
+        currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
+        return currentPlayerIndex;
     }
 
-    public String getSeason() {
-        return season;
+    public User getCurrentPlayer() {
+        return players.get(currentPlayerIndex);
     }
 
-    public void setSeason(String season) {
-        this.season = season;
+    // سیستم رای‌گیری حذف
+    public void startTerminationVote(User initiator) {
+        if (state != GameState.IN_GAME) return;
+        forceTerminateVote = true;
+        terminationVotes.clear();
+        voteTermination(initiator);
     }
 
-    public boolean isActive() {
-        return isActive;
+    public void voteTermination(User user) {
+        if (!forceTerminateVote) return;
+        terminationVotes.add(user);
+
+        if (terminationVotes.size() == players.size()) {
+            terminateGame();
+        }
     }
 
-    public void setActive(boolean active) {
-        isActive = active;
+    public void terminateGame() {
+        state = GameState.TERMINATED;
+        players.forEach(user -> user.setCurrentGame(null));
+        notifyPlayers("Game terminated by vote");
+    }
+
+    private void notifyPlayers(String message) {
+        players.forEach(player ->
+                System.out.println("[System] " + player.getUsername() + ": " + message));
+    }
+
+    public GameState getState () {
+        return state;
+    }
+
+    public User getCreator() {
+        return creator;
     }
 
     public List<User> getPlayers() {
         return players;
     }
 
-    public void setPlayers(List<User> players) {
-        this.players = players;
+    public GameMap getCurrentMap() {
+        return currentMap;
     }
-
-    public Map getGlobalMap() {
-        return globalMap;
-    }
-
-    public void setGlobalMap(Map globalMap) {
-        this.globalMap = globalMap;
-    }
-
-    public Game getState() {
-        return state;
-    }
-
-    public void setState(Game state) {
-        this.state = state;
-    }
-
-    public int getCurrentTurnPlayerIndex() {
-        return currentTurnPlayerIndex;
-    }
-
-    public void setCurrentTurnPlayerIndex(int currentTurnPlayerIndex) {
-        this.currentTurnPlayerIndex = currentTurnPlayerIndex;
-    }
-
-    public List<Quest> getActiveQuests() {
-        return activeQuests;
-    }
-
-    public void setActiveQuests(List<Quest> activeQuests) {
-        this.activeQuests = activeQuests;
-    }
-
-    public TimeSystem getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(TimeSystem startTime) {
-        this.startTime = startTime;
-    }
-
-    public TimeSystem getLastSavedTime() {
-        return lastSavedTime;
-    }
-
-    public void setLastSavedTime(TimeSystem lastSavedTime) {
-        this.lastSavedTime = lastSavedTime;
-    }
-
-    public void addPlayer(User player) { }
-    public void removePlayer(User player) { }
-
-
-    public void nextTurn() { }
-//    public User getCurrentTurnPlayer() { }
-    // public void updatePlayerPosition(User player, Point newPosition) { }
-
-
 }
