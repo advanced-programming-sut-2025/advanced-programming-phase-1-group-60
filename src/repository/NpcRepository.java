@@ -20,27 +20,27 @@ public class NpcRepository {
 
         npcsByName.put("Sebastian", new Npc(
                 "Sebastian", "angry",
-                Arrays.asList("Wool", "Pumpkin Pie", "Pizza")
+                Arrays.asList("Wool", "Pumpkin Pie", "Pizza"),4 , 19
         ));
         setDialogs(npcsByName.get("Sebastian"));
         npcsByName.put("Abigail", new Npc(
                 "Abigail", "calm",
-                Arrays.asList("Amethyst", "Pumpkin", "Coffee")
+                Arrays.asList("Amethyst", "Pumpkin", "Coffee"), 15, 19
         ));
         setDialogs(npcsByName.get("Abigail"));
         npcsByName.put("Harvey", new Npc(
                 "Harvey", "friendly",
-                Arrays.asList("Coffee", "Pickles", "Wine")
+                Arrays.asList("Coffee", "Pickles", "Wine"), 0, 17
         ));
         setDialogs(npcsByName.get("Harvey"));
         npcsByName.put("Leah", new Npc(
                 "Leah", "rude",
-                Arrays.asList("Salad", "Grapes", "Wine")
+                Arrays.asList("Salad", "Grapes", "Wine"), 19, 17
         ));
         setDialogs(npcsByName.get("Leah"));
         npcsByName.put("Robin", new Npc(
                 "Robin", "Sissy",
-                Arrays.asList("Spaghetti", "Wood", "Iron Bar")
+                Arrays.asList("Spaghetti", "Wood", "Iron Bar"), 10, 12
         ));
         setDialogs(npcsByName.get("Robin"));
     }
@@ -70,7 +70,6 @@ public class NpcRepository {
                         "I’m boiling in this heat—don’t bother me anymore.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -79,7 +78,6 @@ public class NpcRepository {
                         "Don’t walk on the leaves—the sound pisses me off.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -127,7 +125,6 @@ public class NpcRepository {
                         "It’s cold—let me bring you some borage tea.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -165,7 +162,6 @@ public class NpcRepository {
                         "Wow, it's snowing heavily man. Come under my umbrella.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -185,7 +181,6 @@ public class NpcRepository {
                         "Careful your ass doesn’t catch fire in this weather, idiot\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -203,7 +198,6 @@ public class NpcRepository {
                         "When I saw you coming from afar, I thought Santa was on his way—then I realized it wasn’t a reindeer, it was a damn donkey.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -223,7 +217,6 @@ public class NpcRepository {
                         "Wow, Sissy, this sun is so harsh, it's bad for my skin.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );
@@ -241,7 +234,6 @@ public class NpcRepository {
                         "Wow, Sissy, come on, don't catch a cold in this weather.\n",
                         List.of("", ""),
                         Map.of(
-                                "", "",
                                 "", ""
                         )
                 );

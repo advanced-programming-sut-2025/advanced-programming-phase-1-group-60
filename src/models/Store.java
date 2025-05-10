@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.time.LocalTime;
+import java.util.Map;
 
 public class Store implements StaticElement{
 
@@ -15,13 +16,17 @@ public class Store implements StaticElement{
     private List<Item> items = new ArrayList<>();
     private List<Product> products = new ArrayList<>();
     private int upgradeLevel;
+    private int leftCornerX;
+    private int leftCornerY;
 
-    public Store(String name) {
+    public Store(String name, int leftCornerX, int leftCornerY) {
         this.name = name;
+        this.leftCornerX = leftCornerX;
+        this.leftCornerY = leftCornerY;
     }
 
-    HashMap<Integer, Integer> upgradeCosts = new HashMap<>(); // for blacksmith
-    HashMap<Integer, Integer> upgradeBinsCosts = new HashMap<>(); // for blacksmith
+    Map<Integer, Integer> upgradeCosts = new HashMap<>(); // for blacksmith
+    Map<Integer, Integer> upgradeBinsCosts = new HashMap<>(); // for blacksmith
 
     public boolean isOpen(LocalTime currentTime) {
         int hour = currentTime.getHour();
@@ -69,6 +74,18 @@ public class Store implements StaticElement{
 
     ;
 
+    public String getName () {
+        return name;
+    }
+
+    public int getLeftCornerX() {
+        return leftCornerX;
+    }
+
+    public int getLeftCornerY() {
+        return leftCornerY;
+    }
+
     public boolean hasProductInStock(Product product, int quantity) {
         return false;
     }
@@ -114,11 +131,11 @@ public class Store implements StaticElement{
         return items;
     }
 
-    public void setUpgradeCosts(HashMap<Integer, Integer> upgradeCosts) {
+    public void setUpgradeCosts(Map<Integer, Integer> upgradeCosts) {
         this.upgradeCosts = upgradeCosts;
     }
 
-    public void setUpgradeBinsCosts(HashMap<Integer, Integer> upgradeBinsCosts) {
+    public void setUpgradeBinsCosts(Map<Integer, Integer> upgradeBinsCosts) {
         this.upgradeBinsCosts = upgradeBinsCosts;
     }
 

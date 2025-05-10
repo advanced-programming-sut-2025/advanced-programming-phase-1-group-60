@@ -1,6 +1,6 @@
 package models;
 
 public interface StaticElement {
-    char symbol();       // نمایش نقشه
+    char symbol();
     boolean isPassable();
 }
