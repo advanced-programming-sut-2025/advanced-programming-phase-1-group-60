@@ -1,6 +1,9 @@
 // models/VillageTemplate.java
 package models;
 
+import repository.NpcRepository;
+import repository.StoreRepository;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,16 +49,40 @@ public class VillageTemplate {
     }
 
     public static VillageTemplate createDefaultVillage() {
+        StoreRepository storeRepo = StoreRepository.getInstance();
         List<Placement> placements = new ArrayList<>();
 
-        // ایجاد 7 استور با مکان‌های فرضی
-        placements.add(new Placement(new Store("General Store"), 2, 2, 4, 4));
-        placements.add(new Placement(new Store("Blacksmith"), 8, 2, 4, 4));
-        placements.add(new Placement(new Store("Carpenter"), 14, 2, 4, 4));
-        placements.add(new Placement(new Store("Saloon"), 2, 8, 4, 4));
-        placements.add(new Placement(new Store("Hospital"), 8, 8, 4, 4));
-        placements.add(new Placement(new Store("Animal Shop"), 14, 8, 4, 4));
-        placements.add(new Placement(new Store("Wizard Tower"), 8, 14, 4, 4));
+        // 1) ثبت فروشگاه‌ها با استفاده از کانستراکتور صحیح
+        List<Store> defaultStores = List.of(
+                new Store("General Store", 2, 2),
+                new Store("Blacksmith", 8, 2),
+                new Store("Carpenter", 14, 2),
+                new Store("Saloon", 2, 8),
+                new Store("Hospital", 8, 8),
+                new Store("Animal Shop", 14, 8),
+                new Store("Wizard Tower", 8, 14)
+        );
+        for (Store store : defaultStores) {
+            storeRepo.addStore(store);
+            placements.add(new Placement(
+                    store,
+                    store.getLeftCornerX(),
+                    store.getLeftCornerY(),
+                    4, 4
+            ));
+        }
+        // مقداردهی آیتم‌ها پس از ثبت
+        storeRepo.initializeStoreItems();
+
+
+        for (Npc npc : repository.NpcRepository.getInstance().getAllNpcs()) {
+            placements.add(new Placement(
+                    npc,
+                    npc.getPositionX(),
+                    npc.getPositionY(),
+                    1, 1
+            ));
+        }
 
         return new VillageTemplate(20, 20, placements);
     }
