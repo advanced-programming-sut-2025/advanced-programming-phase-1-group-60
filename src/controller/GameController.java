@@ -2,6 +2,7 @@ package controller;
 
 import exceptions.GameException;
 import models.Game;
+import models.Tools;
 import models.User;
 
 import java.util.*;
@@ -58,6 +59,11 @@ public class GameController {
             }
         }
         game.newGame(creator, players);
+        for (User user : game.getPlayers()) {
+            Tools.addBeginnerHoeToInventory(user.getInventory());
+            Tools.addBeginnerPickaxeToInventory(user.getInventory());
+            Tools.addBeginnerAxeToInventory(user.getInventory());
+        }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {
                 String input = scanner.nextLine();

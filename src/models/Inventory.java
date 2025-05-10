@@ -1,5 +1,6 @@
 package models;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -10,7 +11,9 @@ public class Inventory {
     private int currentSize;
     private User owner;
 
-
+    public Inventory() {
+        items = new ArrayList<>(); // Ensure items is never null
+    }
     public List<Item> getItems() {
         return items;
     }

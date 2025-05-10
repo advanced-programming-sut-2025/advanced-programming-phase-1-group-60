@@ -8,9 +8,144 @@ public class Tools extends Item {
     private HashMap<String, Object> attributes;
     private int upgradeCost;
     private int energyCost;
+    private HoeStage hoeStage;
+    private AxeStage axeStage;
+    private PickaxeStage pickaxeStage;
+    private WateringcanStage wateringcanStage;
+    private int currentUsage;
+    private int maxUsage;
+    private int radius;
 
+    public static enum HoeStage {
+        BEGINNER, COPPER, IRON, GOLD, IRIDIUM
+    }
+    public static enum AxeStage {
+        BEGINNER, COPPER, IRON, GOLD, IRIDIUM
+    }
+    public static enum PickaxeStage {
+        BEGINNER, COPPER, IRON, GOLD, IRIDIUM
+    }
+    public static enum WateringcanStage {
+        BEGINNER, COPPER, IRON, GOLD, IRIDIUM
+    }
+    public static void addBeginnerHoeToInventory(Inventory inventory) {
+        Tools hoe = new Tools();
+        hoe.setId(1);
+        hoe.setName("Beginner Hoe");
+        hoe.setType("Tool");
+        hoe.setQuantity(1);
+        // remember to add other attr
+        inventory.getItems().add(hoe);
+    }
+    public static void addBeginnerPickaxeToInventory(Inventory inventory) {
+        Tools pickaxe = new Tools();
+        pickaxe.setId(2);
+        pickaxe.setName("Beginner Pickaxe");
+        pickaxe.setType("Tool");
+        pickaxe.setQuantity(1);
+        // remember to add other attr
+        inventory.getItems().add(pickaxe);
+    }
 
+    public static void addBeginnerAxeToInventory(Inventory inventory) {
+        Tools axe = new Tools();
+        axe.setId(3);
+        axe.setName("Beginner Axe");
+        axe.setType("Tool");
+        axe.setQuantity(1);
+        // remember to add other attr
+        inventory.getItems().add(axe);
+    }
+    public static void addBeginnerWateringcanToInventory(Inventory inventory) {
+        Tools wateringcan = new Tools();
+        wateringcan.setId(4);
+        wateringcan.setName("Beginner Wateringcan");
+        wateringcan.setType("Tool");
+        wateringcan.setQuantity(1);
+        wateringcan.setWateringcanStage(WateringcanStage.BEGINNER);
+        wateringcan.setMaxUsage(40);
+        wateringcan.setCurrentUsage(40);
+        wateringcan.setRadius(40);
+        inventory.getItems().add(wateringcan);
+    }
 
+    public Tools() {
+        // Default to Beginner Hoe
+        this.hoeStage = HoeStage.BEGINNER;
+        this.energyCost = 5;
+        setName("Hoe");
+        setType("Tool");
+    }
+    public HoeStage getHoeStage() {
+        return hoeStage;
+    }
+    public AxeStage getAxeStage() {
+        return axeStage;
+    }
+    public PickaxeStage getPickaxeStage() {
+        return pickaxeStage;
+    }
+    public void setHoeStage(HoeStage hoeStage) {
+        this.hoeStage = hoeStage;
+        switch (hoeStage) {
+            case BEGINNER: this.energyCost = 5; break;
+            case COPPER: this.energyCost = 4; break;
+            case IRON: this.energyCost = 3; break;
+            case GOLD: this.energyCost = 2; break;
+            case IRIDIUM: this.energyCost = 1; break;
+        }
+    }
+    public void setAxeStage(AxeStage axeStage) {
+        this.axeStage = axeStage;
+        switch (axeStage) {
+            case BEGINNER: this.energyCost = 5; break;
+            case COPPER: this.energyCost = 4; break;
+            case IRON: this.energyCost = 3; break;
+            case GOLD: this.energyCost = 2; break;
+            case IRIDIUM: this.energyCost = 1; break;
+        }
+    }
+    public void setPickaxeStage(PickaxeStage pickaxeStage) {
+        this.pickaxeStage = pickaxeStage;
+        switch (pickaxeStage) {
+            case BEGINNER: this.energyCost = 5; break;
+            case COPPER: this.energyCost = 4; break;
+            case IRON: this.energyCost = 3; break;
+            case GOLD: this.energyCost = 2; break;
+            case IRIDIUM: this.energyCost = 1; break;
+        }
+    }
+    public void setWateringcanStage(WateringcanStage wateringcanStage) {
+        this.wateringcanStage = wateringcanStage;
+        switch (wateringcanStage) {
+            case BEGINNER:
+                this.energyCost = 5;
+                this.maxUsage = 40;
+                this.radius = 40;
+                break;
+            case COPPER:
+                this.energyCost = 4;
+                this.maxUsage = 40;
+                this.radius = 55;
+                break;
+            case IRON:
+                this.energyCost = 3;
+                this.maxUsage = 40;
+                this.radius = 70;
+                break;
+            case GOLD:
+                this.energyCost = 2;
+                this.maxUsage = 40;
+                this.radius = 85;
+                break;
+            case IRIDIUM:
+                this.energyCost = 1;
+                this.maxUsage = 40;
+                this.radius = 100;
+                break;
+        }
+        this.currentUsage = this.maxUsage;
+    }
     private void initDefaultAttributes() {
 
     }
@@ -21,7 +156,29 @@ public class Tools extends Item {
 
     private void updateAttributesAfterUpgrade() {}
 
+    public int getCurrentUsage() {
+        return currentUsage;
+    }
 
+    public void setCurrentUsage(int currentUsage) {
+        this.currentUsage = currentUsage;
+    }
+
+    public int getMaxUsage() {
+        return maxUsage;
+    }
+
+    public void setMaxUsage(int maxUsage) {
+        this.maxUsage = maxUsage;
+    }
+
+    public int getRadius() {
+        return radius;
+    }
+
+    public void setRadius(int radius) {
+        this.radius = radius;
+    }
 
     public void use() {}
 
