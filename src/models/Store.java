@@ -83,6 +83,12 @@ public class Store implements StaticElement {
 
                         // بررسی مواد اولیه
                         Map<String, Integer> materials = (Map<String, Integer>) item.getProperties().get("materials");
+                        Map<String, Integer> lowerCaseMap = new HashMap<>();
+                        for (Map.Entry<String, Integer> entry : materials.entrySet()) {
+                            String lowerKey = entry.getKey().toLowerCase();
+                            lowerCaseMap.put(lowerKey, entry.getValue());
+                        }
+                        materials = lowerCaseMap;
                         boolean hasAllMaterials = true;
                         List<Item> requiredItems = new ArrayList<>();
 
