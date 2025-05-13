@@ -1,7 +1,6 @@
 // src/main/java/controller/GiftController.java
 package controller;
 
-import models.Item;
 import models.Npc;
 import models.TimeSystem;
 import models.User;
@@ -17,13 +16,12 @@ public class GiftController {
     // کلید: "giverName#receiverName#date"
     private Set<String> dailyGifts = new HashSet<>();
 
-    private GiftController() {}
-
     public static GiftController getInstance() {
         return INSTANCE;
     }
 
     public String giftToNpc(User player, String npcName, String item, Integer quantity) {
+        npcName = npcName.toUpperCase();
         Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
         if (npc == null) {
             return "NPC not found.";
@@ -37,7 +35,7 @@ public class GiftController {
         if (dailyGifts.contains(key)) {
             return applyGiftEffect(player, npc, item, false);
         }
-        player.getInventory().removeItem(item, quantity);
+        player.getInventory().removeItemByName(item, quantity);
         dailyGifts.add(key);
         return applyGiftEffect(player, npc, item, true);
     }
@@ -67,11 +65,13 @@ public class GiftController {
         if (to == null) {
             return "Target player not found.";
         }
+
+        if (from.getFriendshipXpsWithUsers(to) < 100)
         if (!from.getInventory().hasItem(item, quantity)) {
             return "You do not have enough of this item.";
         }
-        from.getInventory().removeItem(item, quantity);
-        to.getInventory().addItem(item, quantity);
+        from.getInventory().removeItemByName(item, quantity);
+        to.getInventory().addItemByName(item, quantity);
 
         String key = from.getUsername() + "#" + toUsername + "#" + TimeSystem.getInstance().getCurrentDate();
         int xp;

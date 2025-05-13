@@ -208,12 +208,12 @@ public class TradeController {
         if (accept) {
             // جابجایی آیتم‌ها
             for (Item it : target.getOfferedItems()) {
-                invFrom.removeItem(it.getName(), it.getQuantity());
-                invTo.addItem(it.getName(), it.getQuantity());
+                invFrom.removeItemByName(it.getName(), it.getQuantity());
+                invTo.addItemByName(it.getName(), it.getQuantity());
             }
             for (Item it : target.getRequestedItems()) {
-                invTo.removeItem(it.getName(), it.getQuantity());
-                invFrom.addItem(it.getName(), it.getQuantity());
+                invTo.removeItemByName(it.getName(), it.getQuantity());
+                invFrom.addItemByName(it.getName(), it.getQuantity());
             }
             // جابجایی پول
             int moneyOff = target.getOfferedMoney();

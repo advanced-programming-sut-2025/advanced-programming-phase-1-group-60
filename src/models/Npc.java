@@ -54,18 +54,27 @@ public class Npc implements StaticElement {
         dialogs.put(season, new Dialog(prompt, validReplies, npcAnswers));
     }
 
-    public String converse(User user, String reply) {
+    public String startConversation(User user) {
         String season = TimeSystem.getInstance().getCurrentSeason();
         String date = TimeSystem.getInstance().getCurrentDate();
         Dialog d = dialogs.get(season);
-        if (d == null) return "…";
-
+        if (d == null) {
+            return "…";
+        }
         String key = user.getUsername() + "#" + name + "#" + date;
         if (!spokenToday.contains(key)) {
             user.increaseFriendshipXpsWithNpc(this, 20);
             spokenToday.add(key);
         }
+        return d.prompt;
+    }
 
+    public String replyConversation(String reply) {
+        String season = TimeSystem.getInstance().getCurrentSeason();
+        Dialog d = dialogs.get(season);
+        if (d == null) {
+            return "…";
+        }
         if (d.validReplies.contains(reply)) {
             return d.npcAnswers.get(reply);
         } else {

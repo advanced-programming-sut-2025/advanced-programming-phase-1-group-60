@@ -1,5 +1,6 @@
 package models;
 
+import repository.NpcRepository;
 import repository.UserRepository;
 
 import java.security.MessageDigest;
@@ -26,7 +27,8 @@ public class User {
     private List<Game> games = new ArrayList<>();
     private List<String> craftInstructions;
     private List<String> cookRecipes;
-    private Map<User, Integer> friendshipXpsWithoutUsers;
+    private Map<User, Integer> friendshipLevelWithUsers;
+    private Map<User, Integer> friendshipXpsWithUsers;
     private Map<Npc, Integer> friendshipXpsWithNPCs;
     private HashMap<User,String> unreadMessages;
     private HashMap<User,StringBuilder> allMessages;
@@ -40,8 +42,20 @@ public class User {
     private Item equippedTool;
     private List<Item> backpackItems;
 
+    private List<Animal> animals = new ArrayList<>();
+    private List<Item> animalPlaces = new ArrayList<>();
+
+    public void addAnimal(Animal animal) {
+        animals.add(animal);
+    }
+
+    public List<Animal> getAnimals() {
+        return animals;
+    }
+
     private Game currentGame;
     private Farm farm;
+    public boolean isInVillage = false;
 
 
     // Registration part
@@ -54,23 +68,37 @@ public class User {
         this.email = email;
         this.gender = gender;
         this.securityQuestions = new ArrayList<>();
-        this.friendshipXpsWithoutUsers = new HashMap<>();
+        this.friendshipXpsWithUsers = new HashMap<>();
         this.unreadMessages = new HashMap<>();
         this.allMessages = new HashMap<>();
+        this.friendshipXpsWithNPCs = new HashMap<>();
+        this.friendshipXpsWithUsers = new HashMap<>();
 
-        // Create friendship entries with existing users
         for (User existingUser : UserRepository.getInstance().getAllUsers()) {
-            // Add friendship entry to new user's map
-            this.friendshipXpsWithoutUsers.put(existingUser, 0);
-            // Add friendship entry to existing user's map
-            existingUser.getFriendshipXpsWithoutUsers().put(this, 0);
+            this.friendshipLevelWithUsers.put(existingUser, 0);
+            existingUser.friendshipLevelWithUsers.put(this, 0);
+        }
+
+
+        for (User existingUser : UserRepository.getInstance().getAllUsers()) {
+            this.friendshipXpsWithUsers.put(existingUser, 0);
+            existingUser.getFriendshipXpsWithUsers().put(this, 0);
+        }
+
+        for (Npc existingNpc : NpcRepository.getInstance().getAllNpcs()) {
+            this.friendshipXpsWithNPCs.put(existingNpc, 0);
+        }
+
+        for (User user : UserRepository.getInstance().getAllUsers()) {
+            this.allMessages.put(user, new StringBuilder());
+            this.unreadMessages.put(user, "");
         }
     }
     public String getPlainPassword() {
         return plainPassword;
     }
-    public Map<User, Integer> getFriendshipXpsWithoutUsers() {
-        return friendshipXpsWithoutUsers;
+    public Map<User, Integer> getFriendshipXpsWithUsers() {
+        return friendshipXpsWithUsers;
     }
     public static boolean verifyEmail(String email) {
         String regex = "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$";
@@ -232,13 +260,6 @@ public class User {
         return craftInstructions;
     }
 
-    public void setFriendshipXpsWithoutUsers(User user, Integer xp) {
-        friendshipXpsWithoutUsers.put(user, xp);
-    }
-
-    public Integer getFriendshipXpsWithThisUser(User user) {
-        return friendshipXpsWithoutUsers.get(user);
-    }
 
     public void setcraftInstructions(List<String> craftInstructions) {
         this.craftInstructions = craftInstructions;
@@ -252,11 +273,12 @@ public class User {
         this.cookRecipes = cookRecipes;
     }
 
-    public int getFriendshipLevelsWithUsers(User user) {
-        return friendshipXpsWithoutUsers.get(user) / 100;
+    public int getFriendshipXpsWithUsers(User user) {
+        return friendshipXpsWithUsers.get(user);
     }
+
     public void increaseFriendshipXpsWithUsers(User user, Integer xp) {
-        friendshipXpsWithoutUsers.put(user, friendshipXpsWithoutUsers.get(user) + xp);
+        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.get(user) + xp);
     }
 
     public void increaseFriendshipXpsWithNpc (Npc npc, Integer xp) {
@@ -265,6 +287,18 @@ public class User {
 
     public int getFriendshipLevelWithNpc (Npc npc) {
         return friendshipXpsWithNPCs.get(npc) / 200;
+    }
+
+    public void setFriendshipLevelWithUsers (User user, int level) {
+        friendshipLevelWithUsers.put(user, level);
+    }
+
+    public int getFriendshipLevelWithUsers (User user) {
+        if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
+        int xp = friendshipXpsWithUsers.getOrDefault(user, 0);
+        if (xp < 100) return 0;
+        if (xp > 100 && xp < 300) return 1;
+        else return 2;
     }
 
     public List<Item> getRefrigeratorItems() {
@@ -333,42 +367,71 @@ public class User {
 
     public String showFriendshipLevelsWithUsers() {
         StringBuilder sb = new StringBuilder();
-        for (User user : friendshipXpsWithoutUsers.keySet()) {
-            sb.append(user.getNickname()).append(": ").append(friendshipXpsWithoutUsers.get(user)).append("\n");
+        for (User user : friendshipXpsWithUsers.keySet()) {
+            sb.append(user.getNickname()).append(": ").append(friendshipXpsWithUsers.get(user)).append("\n");
         }
         return sb.toString();
     }
 
-    public Result talk(User user, String message) {
+    public String showFriendshipLevelsWithNpcs() {
+        StringBuilder sb = new StringBuilder();
+        for (Npc npc : friendshipXpsWithNPCs.keySet()) {
+            sb.append(npc.getName()).append(": ").append(friendshipXpsWithNPCs.get(npc)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    public Result talk(User receiver, String message) {
         Result result = new Result();
-        if (Math.abs(position.getPositionX() - user.getPosition().getPositionX()) > 1
-                || Math.abs(position.getPositionY() - user.getPosition().getPositionY()) > 1) {
+
+        if (Math.abs(position.getPositionX() - receiver.getPosition().getPositionX()) > 1 ||
+                Math.abs(position.getPositionY() - receiver.getPosition().getPositionY()) > 1) {
             result.setSuccess(false);
-            result.setMessage("You are far away!");
+            result.setMessage("You are too far away to talk!");
             return result;
         }
+
+        receiver.requestToTalk(this, message);
+
+        friendshipXpsWithUsers.put(receiver, friendshipXpsWithUsers.getOrDefault(receiver, 0) + 20);
+        receiver.friendshipXpsWithUsers.put(this, receiver.friendshipXpsWithUsers.getOrDefault(this, 0) + 20);
+
         result.setSuccess(true);
-        user.requestToTalk(this, message);
-        friendshipXpsWithoutUsers.put(user, friendshipXpsWithoutUsers.get(user) + 20);
-        user.increaseFriendshipXpsWithUsers(this, 20);
+        result.setMessage("Message delivered successfully");
         return result;
     }
 
-    public void requestToTalk(User user, String message) {
-        unreadMessages.put(user,message);
-        StringBuilder sb = new StringBuilder();
-        sb.append(allMessages.get(user).toString());
-        sb.append("\n");
-        sb.append(message);
+    public void requestToTalk(User sender, String message) {
+        unreadMessages.put(sender, message);
+        StringBuilder history = allMessages.getOrDefault(sender, new StringBuilder());
+        if (history.length() > 0) {
+            history.append("\n");
+        }
+        history.append(sender.getNickname()).append(": ").append(message);
+        allMessages.put(sender, history);
+        sender.allMessages.put(this, history);
     }
 
     public String getUnreadMessage() {
+        if (unreadMessages.isEmpty()) return "";
+
         StringBuilder sb = new StringBuilder();
-        for (User user : unreadMessages.keySet()) {
-            sb.append(user.getNickname()).append(": ").append(unreadMessages.get(user)).append("\n");
+        for (Map.Entry<User, String> entry : new HashMap<>(unreadMessages).entrySet()) {
+            if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+                sb.append(entry.getKey().getNickname())
+                        .append(": ")
+                        .append(entry.getValue())
+                        .append("\n");
+            }
         }
+        unreadMessages.clear();
         return sb.toString();
     }
+
+    public StringBuilder getAllMessages(User target) {
+        return allMessages.getOrDefault(target, new StringBuilder());
+    }
+
     public Item getEquippedTool() {
         return equippedTool;
     }
@@ -416,5 +479,103 @@ public class User {
 
     public void setFarm(Farm farm) {
         this.farm = farm;
+    }
+
+    public void addAnimalPlace (Item animalPlace) {
+        animalPlaces.add(animalPlace);
+    }
+
+    public void removeAnimalPlace (Item animalPlace) {
+        animalPlaces.remove(animalPlace);
+    }
+
+    public List<Item> getAnimalPlaces() {
+        return animalPlaces;
+    }
+
+    // marriage part :
+    private User spouse;
+
+    public void setSpouse(User spouse) { this.spouse = spouse; }
+    public User getSpouse() { return spouse; }
+    private Map<User, MarriageRequest> marriageRequests = new HashMap<>();
+    public void addMarriageRequest(User sender, Item ring) {
+        marriageRequests.put(sender, new MarriageRequest(ring));
+    }
+
+    public Map<User, MarriageRequest> getMarriageRequests() {
+        return marriageRequests;
+    }
+
+    public static class MarriageRequest {
+        private Item ring;
+        private boolean responded;
+
+        public MarriageRequest(Item ring) {
+            this.ring = ring;
+        }
+
+        public boolean isResponded() { return responded; }
+        public void setResponded(boolean responded) { this.responded = responded; }
+        public Item getRing() { return ring; }
+    }
+
+    private String penaltyStartSeason;
+    private int penaltyStartDay;
+    private int penaltyStartYear;
+    private boolean hasEnergyPenalty;
+
+    public void applyEnergyPenalty() {
+        TimeSystem time = TimeSystem.getInstance();
+        this.penaltyStartSeason = time.getCurrentSeason();
+        this.penaltyStartDay = time.getCurrentDay();
+        this.penaltyStartYear = time.getCurrentYear();
+        this.hasEnergyPenalty = true;
+    }
+
+    public boolean isEnergyPenaltyActive() {
+        if (!hasEnergyPenalty) return false;
+
+        TimeSystem time = TimeSystem.getInstance();
+        int currentDay = time.getCurrentDay();
+        String currentSeason = time.getCurrentSeason();
+        int currentYear = time.getCurrentYear();
+
+        int startTotal = calculateTotalDays(penaltyStartSeason, penaltyStartDay, penaltyStartYear);
+        int currentTotal = calculateTotalDays(currentSeason, currentDay, currentYear);
+
+        if (currentTotal - startTotal >= 7) {
+            hasEnergyPenalty = false;
+            return false;
+        }
+        return true;
+    }
+
+    private int calculateTotalDays(String season, int day, int year) {
+        int seasonIndex = seasonToIndex(season);
+        return (year - 1) * 112 + seasonIndex * 28 + day;
+    }
+
+    private int seasonToIndex(String season) {
+        return switch (season) {
+            case "Spring" -> 0;
+            case "Summer" -> 1;
+            case "Fall" -> 2;
+            case "Winter" -> 3;
+            default -> throw new IllegalArgumentException("Invalid season");
+        };
+    }
+
+    public String getUnreadMarriageRequests() {
+        StringBuilder sb = new StringBuilder();
+        for (User requester : marriageRequests.keySet()) {
+            if (!marriageRequests.get(requester).isResponded()) {
+                sb.append(requester.getNickname())
+                        .append(" wants to marry you (Ring: ")
+                        .append(marriageRequests.get(requester).getRing().getName())
+                        .append(")\n");
+            }
+        }
+        return sb.toString();
     }
 }

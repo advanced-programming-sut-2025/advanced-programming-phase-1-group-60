@@ -108,4 +108,9 @@ public class GameMap {
         }
     }
 
+    public int getVilX() { return vilX; }
+    public int getVilY() { return vilY; }
+    public int getVilW() { return vilW; }
+    public int getVilH() { return vilH; }
+
 }

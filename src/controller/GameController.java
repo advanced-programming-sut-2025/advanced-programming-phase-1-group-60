@@ -4,6 +4,7 @@ import exceptions.GameException;
 import models.Game;
 import models.Tools;
 import models.User;
+import repository.QuestRepository;
 
 import java.util.*;
 
@@ -94,6 +95,9 @@ public class GameController {
     }
 
     private void handleInGame () {
+        // initialization
+        QuestRepository.getInstance().initialize();
+
         int index = 0;
         for (User user : game.getPlayers()) {
             controllers.put(user, new GamePlayController(user.getFarm(), user, scanner, game));

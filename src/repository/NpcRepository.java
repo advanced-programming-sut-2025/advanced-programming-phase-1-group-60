@@ -18,31 +18,31 @@ public class NpcRepository {
 
     private void initializeNpcs() {
 
-        npcsByName.put("Sebastian", new Npc(
+        npcsByName.put("SEBASTIAN", new Npc(
                 "Sebastian", "angry",
                 Arrays.asList("Wool", "Pumpkin Pie", "Pizza"),4 , 19
         ));
-        setDialogs(npcsByName.get("Sebastian"));
-        npcsByName.put("Abigail", new Npc(
+        setDialogs(npcsByName.get("SEBASTIAN"));
+        npcsByName.put("ABIGAIL", new Npc(
                 "Abigail", "calm",
                 Arrays.asList("Amethyst", "Pumpkin", "Coffee"), 15, 19
         ));
-        setDialogs(npcsByName.get("Abigail"));
-        npcsByName.put("Harvey", new Npc(
+        setDialogs(npcsByName.get("ABIGAIL"));
+        npcsByName.put("HARVEY", new Npc(
                 "Harvey", "friendly",
                 Arrays.asList("Coffee", "Pickles", "Wine"), 0, 17
         ));
-        setDialogs(npcsByName.get("Harvey"));
-        npcsByName.put("Leah", new Npc(
+        setDialogs(npcsByName.get("HARVEY"));
+        npcsByName.put("LEAH", new Npc(
                 "Leah", "rude",
                 Arrays.asList("Salad", "Grapes", "Wine"), 19, 17
         ));
-        setDialogs(npcsByName.get("Leah"));
-        npcsByName.put("Robin", new Npc(
+        setDialogs(npcsByName.get("LEAH"));
+        npcsByName.put("ROBIN", new Npc(
                 "Robin", "Sissy",
                 Arrays.asList("Spaghetti", "Wood", "Iron Bar"), 10, 12
         ));
-        setDialogs(npcsByName.get("Robin"));
+        setDialogs(npcsByName.get("ROBIN"));
     }
 
     public Npc getNpcByName(String name) {
