@@ -4,6 +4,7 @@ import models.*;
 import repository.NpcRepository;
 import repository.UserRepository;
 
+import java.util.List;
 import java.util.Scanner;
 
 public class GamePlayController {
@@ -161,7 +162,15 @@ public class GamePlayController {
                 buyFromStore(parts[2], Integer.parseInt(parts[4]));
             }else if (input.startsWith("place")) {
                 System.out.println(placeAnimalPlace(parts[1], user.getPosition().getPositionX(), user.getPosition().getPositionY()));
-            }else {
+            }
+            else if (input.equalsIgnoreCase("inventory show")){
+                showInventory(user);
+            }
+            else if (input.startsWith("inventory trash")) {
+                String[] args = input.replaceFirst("inventory trash", "").trim().split(" ");
+                System.out.println(processTrashCommand(args));
+            }
+            else {
                 System.out.println("Unknown command.");
             }
         }
@@ -465,7 +474,14 @@ public class GamePlayController {
         }
         upgradeT(t);
     }
-
+    private void showInventory(User player) {
+        Inventory inventory = player.getInventory();
+        List<Item> items = inventory.getItems();
+        System.out.println("Inventory (" + items.size() + "/" + inventory.getCapacity() + "):");
+        for (Item item : items) {
+            System.out.println(item.getName() + " x" + item.getQuantity());
+        }
+    }
     // Upgrade logic for each tool type
     private void upgradeT (Tools t) {
         if (t.getName().toLowerCase().contains("hoe")) {
@@ -565,11 +581,94 @@ public class GamePlayController {
                     return;
             }
             System.out.println("Fishing pole upgraded to " + t.getFishingpoleStage());
-        } else {
+        }
+        else if (t.getName().toLowerCase().contains("trash") || t.getName().toLowerCase().contains("bin")) {
+            Tools.TrashbinStage stage = t.getTrashbinStage();
+            switch (stage) {
+                case BEGINNER:
+                    t.setTrashbinStage(Tools.TrashbinStage.COPPER);
+                    break;
+                case COPPER:
+                    t.setTrashbinStage(Tools.TrashbinStage.IRON);
+                    break;
+                case IRON:
+                    t.setTrashbinStage(Tools.TrashbinStage.GOLD);
+                    break;
+                case GOLD:
+                    t.setTrashbinStage(Tools.TrashbinStage.IRIDIUM);
+                    break;
+                case IRIDIUM:
+                    System.out.println("Already at max stage.");
+                    return;
+            }
+            System.out.println("Trash can upgraded to " + t.getTrashbinStage());
+        }
+        else {
             System.out.println("Unknown tool type.");
         }
     }
+    private String processTrashCommand(String[] args) {
+        String itemName = null;
+        Integer number = null;
 
+        // Parse arguments
+        for (int i = 0; i < args.length; i++) {
+            if (args[i].equals("-i") && i + 1 < args.length) {
+                itemName = args[i + 1];
+            }
+            if (args[i].equals("-n") && i + 1 < args.length) {
+                try {
+                    number = Integer.parseInt(args[i + 1]);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        if (itemName == null) return "Item name required (-i <item's name>)";
+
+        Item item = null;
+        for (Item it : user.getInventory().getItems()) {
+            if (it.getName().equalsIgnoreCase(itemName)) {
+                item = it;
+                break;
+            }
+        }
+        if (item == null) return "Item not found: " + itemName;
+
+        int removeCount = (number == null) ? item.getQuantity() : Math.min(number, item.getQuantity());
+
+        // Get Trashbin stage
+        Tools trashbin = null;
+        for (Item it : user.getInventory().getItems()) {
+            if (it instanceof Tools tool && tool.getName().equalsIgnoreCase("Trashbin")) {
+                trashbin = tool;
+                break;
+            }
+        }
+        Tools.TrashbinStage stage = (trashbin != null && trashbin.getTrashbinStage() != null)
+                ? trashbin.getTrashbinStage()
+                : Tools.TrashbinStage.BEGINNER;
+
+        double percent = switch (stage) {
+            case BEGINNER -> 0.0;
+            case COPPER -> 0.15;
+            case IRON -> 0.30;
+            case GOLD -> 0.45;
+            case IRIDIUM -> 0.60;
+        };
+
+        // TODO: Replace with actual item value logic
+        int itemValue = 100; // Placeholder value
+        int moneyBack = (int) (removeCount * itemValue * percent);
+
+        // Remove item(s)
+        user.getInventory().removeItemByName(itemName, removeCount);
+
+        // Add money if any
+        if (moneyBack > 0) {
+            user.setMoney(user.getMoney() + moneyBack);
+        }
+
+        return "Trashed " + removeCount + " " + itemName + (moneyBack > 0 ? (", received " + moneyBack + " money") : "");
+    }
     public void walkTo(int tx, int ty) {
         if (tx < 0 || ty < 0 || ty >= tiles.length || tx >= tiles[0].length) {
             System.out.println("خارج از مرز مزرعه!");

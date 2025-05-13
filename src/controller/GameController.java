@@ -70,6 +70,7 @@ public class GameController {
             Tools.addBeginnerScytheToInventory(user.getInventory());
             //Tools.addBeginnerMilkPailToInventory(user.getInventory());
             //Tools.addBeginnerShearToInventory(user.getInventory());
+            Tools.addBeginnerTrashbinToInventory(user.getInventory());
             user.getInventory().addItemByName("stone", 50000);
             user.getInventory().addItemByName("wood", 50000);
         }
