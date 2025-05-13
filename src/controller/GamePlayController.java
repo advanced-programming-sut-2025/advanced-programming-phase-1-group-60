@@ -1,11 +1,9 @@
 package controller;
 
 import models.*;
-import repository.ItemRepository;
 import repository.NpcRepository;
 import repository.UserRepository;
 
-import java.util.List;
 import java.util.Scanner;
 
 public class GamePlayController {
@@ -53,8 +51,10 @@ public class GamePlayController {
                 else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
                     try {
                         int toolId = Integer.parseInt(parts[2]);
-                        boolean force = parts.length >= 4 && parts[3].equalsIgnoreCase("-f");
-                        upgradeToolById(toolId, force);
+                        boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
+
+                        int level = Integer.parseInt(parts[3]);
+                        upgradeToolById(toolId, force, level);
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid tool ID.");
                     }
@@ -157,7 +157,9 @@ public class GamePlayController {
                 String response = parts[1];
                 String username = parts[3];
                 System.out.println(processRespondCommand(response, username));
-            } else {
+            } else if (input.startsWith("buy")) {
+                buyFromStore(parts[2], Integer.parseInt(parts[4]));
+            }else {
                 System.out.println("Unknown command.");
             }
         }
@@ -419,7 +421,7 @@ public class GamePlayController {
         }
     }
     // Add this method to GamePlayController
-    private void upgradeToolById(int toolId, boolean force) {
+    private void upgradeToolById(int toolId, boolean force, int level) {
         Item tool = user.getInventory().getItems().stream()
                 .filter(i -> i instanceof Tools && i.getId() == toolId)
                 .findFirst().orElse(null);
@@ -428,71 +430,143 @@ public class GamePlayController {
             return;
         }
         Tools t = (Tools) tool;
+        int playerX = user.getPosition().getPositionX();
+        int playerY = user.getPosition().getPositionY();
+        GameMap map = currentGame.getCurrentMap();
 
         // If not force, check for blacksmith (to be implemented)
         if (!force) {
-            if (t.getName().toLowerCase().contains("fishingpole")){
-                System.out.println("You must be in Willy's Workshop.");
-                return;
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dy = -1; dy <= 1; dy++) {
+                    if (dx == 0 && dy == 0) continue;
+
+                    int x = playerX + dx;
+                    int y = playerY + dy;
+                    if (t.getName().toLowerCase().contains("fishingpole")) {
+                        System.out.println("You must be in Willy's Workshop.");
+                        return;
+                    }
+
+                    Tile tile = map.getTile(x + 50, y + 50);
+                    if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
+                        Result result = store.upgradeTools(user, level, t);
+                        if (result.isSuccess()) upgradeT(t);
+                        System.out.println(result.getMessage());
+                        return;
+                    }
+                }
             }
+
             System.out.println("You must be at the blacksmith to upgrade .");
             return;
         }
+        upgradeT(t);
+    }
 
-        // Upgrade logic for each tool type
+    // Upgrade logic for each tool type
+    private void upgradeT (Tools t) {
         if (t.getName().toLowerCase().contains("hoe")) {
             Tools.HoeStage stage = t.getHoeStage();
             switch (stage) {
-                case BEGINNER: t.setHoeStage(Tools.HoeStage.COPPER); break;
-                case COPPER: t.setHoeStage(Tools.HoeStage.IRON); break;
-                case IRON: t.setHoeStage(Tools.HoeStage.GOLD); break;
-                case GOLD: t.setHoeStage(Tools.HoeStage.IRIDIUM); break;
-                case IRIDIUM: System.out.println("Already at max stage."); return;
+                case BEGINNER:
+                    t.setHoeStage(Tools.HoeStage.COPPER);
+                    break;
+                case COPPER:
+                    t.setHoeStage(Tools.HoeStage.IRON);
+                    break;
+                case IRON:
+                    t.setHoeStage(Tools.HoeStage.GOLD);
+                    break;
+                case GOLD:
+                    t.setHoeStage(Tools.HoeStage.IRIDIUM);
+                    break;
+                case IRIDIUM:
+                    System.out.println("Already at max stage.");
+                    return;
             }
             System.out.println("Hoe upgraded to " + t.getHoeStage());
         } else if (t.getName().toLowerCase().contains("pickaxe")) {
             Tools.PickaxeStage stage = t.getPickaxeStage();
             switch (stage) {
-                case BEGINNER: t.setPickaxeStage(Tools.PickaxeStage.COPPER); break;
-                case COPPER: t.setPickaxeStage(Tools.PickaxeStage.IRON); break;
-                case IRON: t.setPickaxeStage(Tools.PickaxeStage.GOLD); break;
-                case GOLD: t.setPickaxeStage(Tools.PickaxeStage.IRIDIUM); break;
-                case IRIDIUM: System.out.println("Already at max stage."); return;
+                case BEGINNER:
+                    t.setPickaxeStage(Tools.PickaxeStage.COPPER);
+                    break;
+                case COPPER:
+                    t.setPickaxeStage(Tools.PickaxeStage.IRON);
+                    break;
+                case IRON:
+                    t.setPickaxeStage(Tools.PickaxeStage.GOLD);
+                    break;
+                case GOLD:
+                    t.setPickaxeStage(Tools.PickaxeStage.IRIDIUM);
+                    break;
+                case IRIDIUM:
+                    System.out.println("Already at max stage.");
+                    return;
             }
             System.out.println("Pickaxe upgraded to " + t.getPickaxeStage());
         } else if (t.getName().toLowerCase().contains("axe")) {
             Tools.AxeStage stage = t.getAxeStage();
             switch (stage) {
-                case BEGINNER: t.setAxeStage(Tools.AxeStage.COPPER); break;
-                case COPPER: t.setAxeStage(Tools.AxeStage.IRON); break;
-                case IRON: t.setAxeStage(Tools.AxeStage.GOLD); break;
-                case GOLD: t.setAxeStage(Tools.AxeStage.IRIDIUM); break;
-                case IRIDIUM: System.out.println("Already at max stage."); return;
+                case BEGINNER:
+                    t.setAxeStage(Tools.AxeStage.COPPER);
+                    break;
+                case COPPER:
+                    t.setAxeStage(Tools.AxeStage.IRON);
+                    break;
+                case IRON:
+                    t.setAxeStage(Tools.AxeStage.GOLD);
+                    break;
+                case GOLD:
+                    t.setAxeStage(Tools.AxeStage.IRIDIUM);
+                    break;
+                case IRIDIUM:
+                    System.out.println("Already at max stage.");
+                    return;
             }
             System.out.println("Axe upgraded to " + t.getAxeStage());
         } else if (t.getName().toLowerCase().contains("wateringcan")) {
             Tools.WateringcanStage stage = t.getWateringcanStage();
             switch (stage) {
-                case BEGINNER: t.setWateringcanStage(Tools.WateringcanStage.COPPER); break;
-                case COPPER: t.setWateringcanStage(Tools.WateringcanStage.IRON); break;
-                case IRON: t.setWateringcanStage(Tools.WateringcanStage.GOLD); break;
-                case GOLD: t.setWateringcanStage(Tools.WateringcanStage.IRIDIUM); break;
-                case IRIDIUM: System.out.println("Already at max stage."); return;
+                case BEGINNER:
+                    t.setWateringcanStage(Tools.WateringcanStage.COPPER);
+                    break;
+                case COPPER:
+                    t.setWateringcanStage(Tools.WateringcanStage.IRON);
+                    break;
+                case IRON:
+                    t.setWateringcanStage(Tools.WateringcanStage.GOLD);
+                    break;
+                case GOLD:
+                    t.setWateringcanStage(Tools.WateringcanStage.IRIDIUM);
+                    break;
+                case IRIDIUM:
+                    System.out.println("Already at max stage.");
+                    return;
             }
             System.out.println("Watering can upgraded to " + t.getWateringcanStage());
         } else if (t.getName().toLowerCase().contains("fishingpole")) {
             Tools.FishingpoleStage stage = t.getFishingpoleStage();
             switch (stage) {
-                case LEARNING: t.setFishingpoleStage(Tools.FishingpoleStage.BAMBO); break;
-                case BAMBO: t.setFishingpoleStage(Tools.FishingpoleStage.FIBERGLASS); break;
-                case FIBERGLASS: t.setFishingpoleStage(Tools.FishingpoleStage.IRIDIUM); break;
-                case IRIDIUM: System.out.println("Already at max stage."); return;
+                case TRAINING:
+                    t.setFishingpoleStage(Tools.FishingpoleStage.BAMBO);
+                    break;
+                case BAMBO:
+                    t.setFishingpoleStage(Tools.FishingpoleStage.FIBERGLASS);
+                    break;
+                case FIBERGLASS:
+                    t.setFishingpoleStage(Tools.FishingpoleStage.IRIDIUM);
+                    break;
+                case IRIDIUM:
+                    System.out.println("Already at max stage.");
+                    return;
             }
             System.out.println("Fishing pole upgraded to " + t.getFishingpoleStage());
         } else {
             System.out.println("Unknown tool type.");
         }
     }
+
     public void walkTo(int tx, int ty) {
         if (tx < 0 || ty < 0 || ty >= tiles.length || tx >= tiles[0].length) {
             System.out.println("خارج از مرز مزرعه!");
@@ -1157,6 +1231,25 @@ public class GamePlayController {
             user.setFriendshipLevelWithUsers(sender, 0);
             sender.applyEnergyPenalty();
             return "Marriage rejected. Friendship reset.";
+        }
+    }
+
+    private void buyFromStore (String productName, int amount) {
+        int playerX = user.getPosition().getPositionX();
+        int playerY = user.getPosition().getPositionY();
+        GameMap map = currentGame.getCurrentMap();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+
+                int x = playerX + dx;
+                int y = playerY + dy;
+
+                Tile tile = map.getTile(x + 50, y + 50);
+                if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
+                   System.out.println(store.purchaseProduct(user, productName, amount).getMessage());
+                }
+            }
         }
     }
 }

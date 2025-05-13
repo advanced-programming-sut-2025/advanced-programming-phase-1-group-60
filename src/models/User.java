@@ -33,7 +33,7 @@ public class User {
     private HashMap<User,String> unreadMessages;
     private HashMap<User,StringBuilder> allMessages;
     private List<Item> refrigeratorItems;
-    private int money;
+    private int money = 3000000;
     private List<Question> securityQuestions;
     private String securityAnswer;
     private List<Quest> activeQuests;
@@ -73,6 +73,7 @@ public class User {
         this.allMessages = new HashMap<>();
         this.friendshipXpsWithNPCs = new HashMap<>();
         this.friendshipXpsWithUsers = new HashMap<>();
+        this.friendshipLevelWithUsers = new HashMap<>();
 
         for (User existingUser : UserRepository.getInstance().getAllUsers()) {
             this.friendshipLevelWithUsers.put(existingUser, 0);
@@ -578,4 +579,11 @@ public class User {
         }
         return sb.toString();
     }
+
+
+    // SKILLS
+    int fishingSkillsXp;
+    public int getFishingSkills() { return fishingSkillsXp / 50; }
+    public void increaseFishingSkills(int amount) { fishingSkillsXp += amount; }
+
 }

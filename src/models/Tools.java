@@ -30,7 +30,7 @@ public class Tools extends Item {
         BEGINNER, COPPER, IRON, GOLD, IRIDIUM
     }
     public static enum FishingpoleStage {
-        LEARNING, BAMBO, FIBERGLASS, IRIDIUM
+        TRAINING, BAMBO, FIBERGLASS, IRIDIUM
     }
     public static void addBeginnerHoeToInventory(Inventory inventory) {
         Tools hoe = new Tools();
@@ -78,7 +78,7 @@ public class Tools extends Item {
         fishingpole.setName("fishingpole");
         fishingpole.setType("Tool");
         fishingpole.setQuantity(1);
-        fishingpole.setFishingpoleStage(FishingpoleStage.LEARNING); // Add this line
+        fishingpole.setFishingpoleStage(FishingpoleStage.TRAINING); // Add this line
         inventory.getItems().add(fishingpole);
     }
     public static void addBeginnerScytheToInventory(Inventory inventory) {
@@ -194,7 +194,7 @@ public class Tools extends Item {
     public void setFishingpoleStage(FishingpoleStage fishingpoleStage) {
         this.fishingpoleStage = fishingpoleStage;
         switch (fishingpoleStage) {
-            case LEARNING: this.energyCost = 8; break;
+            case TRAINING: this.energyCost = 8; break;
             case BAMBO: this.energyCost = 8; break;
             case FIBERGLASS: this.energyCost = 6; break;
             case IRIDIUM: this.energyCost = 4; break;

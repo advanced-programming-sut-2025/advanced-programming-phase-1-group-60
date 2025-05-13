@@ -2,6 +2,7 @@ package controller;
 
 import exceptions.GameException;
 import models.Game;
+import models.TimeSystem;
 import models.Tools;
 import models.User;
 import repository.QuestRepository;
@@ -69,6 +70,8 @@ public class GameController {
             Tools.addBeginnerScytheToInventory(user.getInventory());
             //Tools.addBeginnerMilkPailToInventory(user.getInventory());
             //Tools.addBeginnerShearToInventory(user.getInventory());
+            user.getInventory().addItemByName("stone", 50000);
+            user.getInventory().addItemByName("wood", 50000);
         }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {
@@ -109,6 +112,7 @@ public class GameController {
             GamePlayController controller = controllers.get(indexes.get(currentTurn));
             controller.getAndProcessInput();
             currentTurn = game.nextTurn();
+            TimeSystem.getInstance().advanceTime(1);
         }
     }
 }
