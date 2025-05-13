@@ -12,6 +12,7 @@ public class Tools extends Item {
     private AxeStage axeStage;
     private PickaxeStage pickaxeStage;
     private WateringcanStage wateringcanStage;
+    private FishingpoleStage fishingpoleStage;
     private int currentUsage;
     private int maxUsage;
     private int radius;
@@ -28,38 +29,41 @@ public class Tools extends Item {
     public static enum WateringcanStage {
         BEGINNER, COPPER, IRON, GOLD, IRIDIUM
     }
+    public static enum FishingpoleStage {
+        LEARNING, BAMBO, FIBERGLASS, IRIDIUM
+    }
     public static void addBeginnerHoeToInventory(Inventory inventory) {
         Tools hoe = new Tools();
         hoe.setId(1);
-        hoe.setName("Beginner Hoe");
+        hoe.setName("Hoe");
         hoe.setType("Tool");
         hoe.setQuantity(1);
-        // remember to add other attr
+        hoe.setHoeStage(HoeStage.BEGINNER); // Add this line
         inventory.getItems().add(hoe);
     }
     public static void addBeginnerPickaxeToInventory(Inventory inventory) {
         Tools pickaxe = new Tools();
         pickaxe.setId(2);
-        pickaxe.setName("Beginner Pickaxe");
+        pickaxe.setName("Pickaxe");
         pickaxe.setType("Tool");
         pickaxe.setQuantity(1);
-        // remember to add other attr
+        pickaxe.setPickaxeStage(PickaxeStage.BEGINNER); // Add this line
         inventory.getItems().add(pickaxe);
     }
 
     public static void addBeginnerAxeToInventory(Inventory inventory) {
         Tools axe = new Tools();
         axe.setId(3);
-        axe.setName("Beginner Axe");
+        axe.setName("Axe");
         axe.setType("Tool");
         axe.setQuantity(1);
-        // remember to add other attr
+        axe.setAxeStage(AxeStage.BEGINNER); // Add this line
         inventory.getItems().add(axe);
     }
     public static void addBeginnerWateringcanToInventory(Inventory inventory) {
         Tools wateringcan = new Tools();
         wateringcan.setId(4);
-        wateringcan.setName("Beginner Wateringcan");
+        wateringcan.setName("Wateringcan");
         wateringcan.setType("Tool");
         wateringcan.setQuantity(1);
         wateringcan.setWateringcanStage(WateringcanStage.BEGINNER);
@@ -68,7 +72,42 @@ public class Tools extends Item {
         wateringcan.setRadius(40);
         inventory.getItems().add(wateringcan);
     }
-
+    public static void addLearningFishingpoleToInventory(Inventory inventory) {
+        Tools fishingpole = new Tools();
+        fishingpole.setId(5);
+        fishingpole.setName("fishingpole");
+        fishingpole.setType("Tool");
+        fishingpole.setQuantity(1);
+        fishingpole.setFishingpoleStage(FishingpoleStage.LEARNING); // Add this line
+        inventory.getItems().add(fishingpole);
+    }
+    public static void addBeginnerScytheToInventory(Inventory inventory) {
+        Tools scythe = new Tools();
+        scythe.setId(6); // Use a unique ID not used by other tools
+        scythe.setName("Scythe");
+        scythe.setType("Tool");
+        scythe.setQuantity(1);
+        scythe.setEnergyCost(2);
+        inventory.getItems().add(scythe);
+    }
+    public static void addBeginnerMilkPailToInventory(Inventory inventory) {
+        Tools milkPail = new Tools();
+        milkPail.setId(7); // Use a unique ID not used by other tools
+        milkPail.setName("Milk Pail");
+        milkPail.setType("Tool");
+        milkPail.setQuantity(1);
+        milkPail.setEnergyCost(4);
+        inventory.getItems().add(milkPail);
+    }
+    public static void addBeginnerShearToInventory(Inventory inventory) {
+        Tools shear = new Tools();
+        shear.setId(8);
+        shear.setName("shear");
+        shear.setType("Tool");
+        shear.setQuantity(1);
+        shear.setEnergyCost(4);
+        inventory.getItems().add(shear);
+    }
     public Tools() {
         // Default to Beginner Hoe
         this.hoeStage = HoeStage.BEGINNER;
@@ -84,6 +123,12 @@ public class Tools extends Item {
     }
     public PickaxeStage getPickaxeStage() {
         return pickaxeStage;
+    }
+    public WateringcanStage getWateringcanStage() {
+        return wateringcanStage;
+    }
+    public FishingpoleStage getFishingpoleStage() {
+        return fishingpoleStage;
     }
     public void setHoeStage(HoeStage hoeStage) {
         this.hoeStage = hoeStage;
@@ -145,6 +190,15 @@ public class Tools extends Item {
                 break;
         }
         this.currentUsage = this.maxUsage;
+    }
+    public void setFishingpoleStage(FishingpoleStage fishingpoleStage) {
+        this.fishingpoleStage = fishingpoleStage;
+        switch (fishingpoleStage) {
+            case LEARNING: this.energyCost = 8; break;
+            case BAMBO: this.energyCost = 8; break;
+            case FIBERGLASS: this.energyCost = 6; break;
+            case IRIDIUM: this.energyCost = 4; break;
+        }
     }
     private void initDefaultAttributes() {
 

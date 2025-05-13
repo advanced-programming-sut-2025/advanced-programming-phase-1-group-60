@@ -33,7 +33,11 @@ public class Tile {
             if (!e.isPassable()) passable = false;
         }
     }
-
+    public void setToNormalTile() {
+        this.randomElement = null;
+        this.type = ".";
+        this.passable = true;
+    }
     // متدهای getter و setter
     public int getPositionX() {
         return positionX;

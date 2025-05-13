@@ -373,8 +373,8 @@ public class User {
         return equippedTool;
     }
 
-    public void setEquippedTool(Item equippedTool) {
-        this.equippedTool = equippedTool;
+    public void setEquippedTool(Item tool) {
+        this.equippedTool = tool;
     }
 
     public List<Item> getBackpackItems() {

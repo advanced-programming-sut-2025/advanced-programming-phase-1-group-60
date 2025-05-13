@@ -63,6 +63,11 @@ public class GameController {
             Tools.addBeginnerHoeToInventory(user.getInventory());
             Tools.addBeginnerPickaxeToInventory(user.getInventory());
             Tools.addBeginnerAxeToInventory(user.getInventory());
+            Tools.addBeginnerWateringcanToInventory(user.getInventory());
+            //Tools.addLearningFishingpoleToInventory(user.getInventory());
+            Tools.addBeginnerScytheToInventory(user.getInventory());
+            //Tools.addBeginnerMilkPailToInventory(user.getInventory());
+            //Tools.addBeginnerShearToInventory(user.getInventory());
         }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {
