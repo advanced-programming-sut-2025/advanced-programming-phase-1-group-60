@@ -1,7 +1,6 @@
 package controller;
 
 import models.*;
-import repository.ItemRepository;
 import repository.NpcRepository;
 import repository.UserRepository;
 
@@ -321,6 +320,7 @@ public class GamePlayController {
                 return;
             }
             user.consumeEnergy(tool.getEnergyCost());
+
             System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
         }
         else if (tool.getName().toLowerCase().contains("shear")) {
