@@ -280,8 +280,9 @@ public class Store implements StaticElement {
     }
 
     // use only for blacksmith store
-    public Result upgradeTools(User player, int level, String toolName) {
+    public Result upgradeTools(User player, int level, Tools tool) {
         Result result = new Result();
+        String toolName = tool.getName();
 
         boolean isBin = toolName.equalsIgnoreCase("Trash can");
         if (isBin) {
@@ -298,62 +299,58 @@ public class Store implements StaticElement {
             }
         }
 
-        for (Tools tool : player.getTools()) {
-            if (tool.getName().equals(toolName)) {
-                int cost = 0;
-                for (Integer grade : upgradeCosts.keySet()) {
-                    if (grade == level) {
-                        if (toolName.equals("Trash can")) {
-                            cost += upgradeBinsCosts.get(grade);
-                        } else {
-                            cost = upgradeCosts.get(grade);
-                        }
-                        break;
-                    }
+        int cost = 0;
+        for (Integer grade : upgradeCosts.keySet()) {
+            if (grade == level) {
+                if (toolName.equals("Trash can")) {
+                    cost += upgradeBinsCosts.get(grade);
+                } else {
+                    cost = upgradeCosts.get(grade);
                 }
-                String neededIngredient = "";
-                Item ingredient = null;
-                switch (level) {
-                    case 1:
-                        neededIngredient = "copperBar";
-                        break;
-                    case 2:
-                        neededIngredient = "ironBar";
-                        break;
-                    case 3:
-                        neededIngredient = "goldBar";
-                        break;
-                    case 4:
-                        neededIngredient = "iridiumBar";
-                }
+                break;
+            }
+        }
+        String neededIngredient = "";
+        Item ingredient = null;
+        switch (level) {
+            case 1:
+                neededIngredient = "copperBar";
+                break;
+            case 2:
+                neededIngredient = "ironBar";
+                break;
+            case 3:
+                neededIngredient = "goldBar";
+                break;
+            case 4:
+                neededIngredient = "iridiumBar";
+        }
 
-                boolean hasIngredient = false;
+        boolean hasIngredient = false;
 
-                for (Item item : player.getInventory().getItems()) {
-                    if (item.getName().equals(neededIngredient)) {
-                        if (item.getQuantity() >= 5) {
-                            hasIngredient = true;
-                            ingredient = item;
-                            break;
-                        }
-                    }
-                }
-
-                if (player.getMoney() >= cost && tool.getToolLevel() == (level - 1) && hasIngredient) {
-                    tool.upgrade();
-                    result.setSuccess(true);
-                    ingredient.setQuantity(ingredient.getQuantity() - 5);
-                    player.setMoney(player.getMoney() - cost);
-                    result.setMessage("Upgrade successful");
-                    if (isBin) {
-                        soldBinsUpgrades.put(level, soldBinsUpgrades.getOrDefault(level, 0) + 1);
-                    } else {
-                        soldUpgrades.put(level, soldUpgrades.getOrDefault(level, 0) + 1);
-                    }
-                    return result;
+        for (Item item : player.getInventory().getItems()) {
+            if (item.getName().equals(neededIngredient)) {
+                if (item.getQuantity() >= 5) {
+                    hasIngredient = true;
+                    ingredient = item;
+                    break;
                 }
             }
         }
+
+        if (player.getMoney() >= cost && tool.getToolLevel() == (level - 1) && !hasIngredient) {
+            tool.upgrade();
+            result.setSuccess(true);
+            player.setMoney(player.getMoney() - cost);
+            result.setMessage("Upgrade successful");
+            if (isBin) {
+                soldBinsUpgrades.put(level, soldBinsUpgrades.getOrDefault(level, 0) + 1);
+            } else {
+                soldUpgrades.put(level, soldUpgrades.getOrDefault(level, 0) + 1);
+            }
+            return result;
+        }
+
         result.setSuccess(false);
         result.setMessage("Upgrade failed");
         return result;
