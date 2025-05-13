@@ -159,6 +159,8 @@ public class GamePlayController {
                 System.out.println(processRespondCommand(response, username));
             } else if (input.startsWith("buy")) {
                 buyFromStore(parts[2], Integer.parseInt(parts[4]));
+            }else if (input.startsWith("place")) {
+                System.out.println(placeAnimalPlace(parts[1], user.getPosition().getPositionX(), user.getPosition().getPositionY()));
             }else {
                 System.out.println("Unknown command.");
             }
@@ -839,10 +841,13 @@ public class GamePlayController {
 
     private String placeAnimalPlace(String animalPlaceName, int x, int y) {
 
-        Item animalPlace = user.getAnimalPlaces().stream()
-                .filter(item -> item.getName().equals(animalPlaceName))
-                .findFirst()
-                .orElse(null);
+        Item animalPlace = null;
+
+        for (Item animalP : user.getAnimalPlaces()) {
+            if (animalP.getName().equals(animalPlaceName)) {
+                animalPlace = animalP;
+            }
+        }
 
         if (animalPlace == null) {
             return "Error: Animal place not found";
@@ -868,7 +873,7 @@ public class GamePlayController {
 
         for (int i = x; i < x + width; i++) {
             for (int j = y; j < y + height; j++) {
-                Tile tile = tiles[i][j];
+                Tile tile = tiles[j][i];
                 if (!tile.isPassable() || tile.isOccupied()) {
                     return "Error: Tile at (" + i + ", " + j + ") is blocked or occupied";
                 }
@@ -884,7 +889,7 @@ public class GamePlayController {
 
         for (int i = x; i < x + width; i++) {
             for (int j = y; j < y + height; j++) {
-                Tile tile = tiles[i][j];
+                Tile tile = tiles[j][i];
                 tile.setStaticElement(element);
                 tile.setOccupied(true);
             }
