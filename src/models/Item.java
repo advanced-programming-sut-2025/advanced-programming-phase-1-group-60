@@ -8,6 +8,7 @@ public class Item {
     private String type;
     private int basePrice;
     private int quantity;
+    private int storePrice;
     private HashMap<String, Object> properties;
 
     public int getId() {
@@ -42,6 +43,14 @@ public class Item {
         this.basePrice = basePrice;
     }
 
+    public void setStorePrice(int storePrice) {
+        this.storePrice = storePrice;
+    }
+
+    public int getStorePrice() {
+        return storePrice;
+    }
+
     public int getPrice() {
         return basePrice * quantity;
     }
@@ -62,6 +71,6 @@ public class Item {
         this.properties = properties;
     }
 
-    public void use(){};
-
+    public void use() {
+    }
 }

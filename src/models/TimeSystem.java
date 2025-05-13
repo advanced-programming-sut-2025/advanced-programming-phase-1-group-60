@@ -97,4 +97,16 @@ public class TimeSystem {
     public synchronized String getCurrentSeason() {
         return currentSeason;
     }
+
+    public synchronized int getCurrentYear() {
+        return currentYear;
+    }
+
+    public synchronized int getCurrentHour() {
+        return currentHour;
+    }
+
+    public synchronized int getCurrentDay() {
+        return currentDay;
+    }
 }

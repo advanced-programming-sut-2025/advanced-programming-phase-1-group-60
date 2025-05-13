@@ -35,7 +35,28 @@ public class Inventory {
         this.currentSize = currentSize;
     }
 
-    public void addItem(String item, int count) {
+    public void addItem(Item item) {
+        for (Item i : items) {
+            if (i.getName().equalsIgnoreCase(item.getName())) {
+                i.setQuantity(i.getQuantity() + item.getQuantity());
+                return;
+            }
+        }
+        items.add(item);
+    }
+
+    public void removeItem(Item item) {
+        for (Item i : items) {
+            if (i.getName().equalsIgnoreCase(item.getName())) {
+                if (i.getQuantity() > item.getQuantity()) {
+                    i.setQuantity(i.getQuantity() - item.getQuantity());
+                    return;
+                } else items.remove(i);
+            }
+        }
+    }
+
+    public void addItemByName(String item, int count) {
         Item target = null;
         for (Item i : items) {
             if (i.getName().equals(item)) {
@@ -54,7 +75,7 @@ public class Inventory {
     }
 
 
-    public void removeItem(String item, int count) {
+    public void removeItemByName(String item, int count) {
         for (Item i : items) {
             if (i.getName().equals(item)) {
                 if (i.getQuantity() >= count) {

@@ -146,4 +146,8 @@ public class Game {
     public GameMap getCurrentMap() {
         return currentMap;
     }
+
+    public Map<User, Integer> getSelectedMaps() {
+        return selectedMaps;
+    }
 }

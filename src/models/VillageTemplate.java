@@ -54,9 +54,9 @@ public class VillageTemplate {
 
         // 1) ثبت فروشگاه‌ها با استفاده از کانستراکتور صحیح
         List<Store> defaultStores = List.of(
-                new Store("General Store", 2, 2),
-                new Store("Blacksmith", 8, 2),
-                new Store("Carpenter", 14, 2),
+                new Store("Blacksmith", 2, 2),
+                new Store("Marin'sRanch", 8, 2),
+                new Store("Carpenter'sShop", 14, 2),
                 new Store("Saloon", 2, 8),
                 new Store("Hospital", 8, 8),
                 new Store("Animal Shop", 14, 8),

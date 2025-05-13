@@ -6,20 +6,18 @@ import java.util.List;
 public class Quest {
     private int id;                          // شناسه یکتا
     private Npc giver;                       // NPC که این مأموریت را ارائه می‌دهد
-    private String description;              // شرح مأموریت
-    private List<Item> requiredItems;        // آیتم‌های مورد نیاز برای تکمیل
+    private Item requiredItem;        // آیتم‌های مورد نیاز برای تکمیل
     private Reward reward;                   // جایزه مأموریت
     private boolean completed;               // وضعیت اتمام مأموریت
     private int activationFriendLevel;       // سطح دوستی برای فعال‌سازی (برای مأموریت دوم)
     private int activationSeasonOffset;      // تعداد فصل بعد از دریافت برای فعال‌سازی مأموریت سوم (مثال: 1)
 
-    public Quest(int id, Npc giver, String description,
-                 List<Item> requiredItems, Reward reward,
+    public Quest(int id, Npc giver,
+                Item requiredItem, Reward reward,
                  int activationFriendLevel, int activationSeasonOffset) {
         this.id = id;
         this.giver = giver;
-        this.description = description;
-        this.requiredItems = requiredItems;
+        this.requiredItem = requiredItem;
         this.reward = reward;
         this.completed = false;
         this.activationFriendLevel = activationFriendLevel;
@@ -29,8 +27,7 @@ public class Quest {
     // گترها
     public int getId() { return id; }
     public Npc getGiver() { return giver; }
-    public String getDescription() { return description; }
-    public List<Item> getRequiredItems() { return requiredItems; }
+    public Item getRequiredItems() { return requiredItem; }
     public Reward getReward() { return reward; }
     public boolean isCompleted() { return completed; }
     public int getActivationFriendLevel() { return activationFriendLevel; }
@@ -39,5 +36,14 @@ public class Quest {
     // علامت‌گذاری به‌عنوان انجام شده
     public void complete() {
         this.completed = true;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("ID: ").append(id).append("\n");
+        sb.append("Giver: ").append(giver.getName()).append("\n");
+        sb.append("RequiredItem: ").append(requiredItem.getName()).append(" ").append(requiredItem.getQuantity()).append("\n");
+        return sb.toString();
     }
 }
