@@ -16,12 +16,16 @@ public class Farm {
     private final List<Item> randomItem = new ArrayList<Item>();
     private final List<Item> staticItems = new ArrayList<Item>();
 
-    public Farm(FarmTemplate tpl) {
+    private int homeX, homeY;
+
+    public Farm(FarmTemplate tpl, int homeX, int homeY) {
         for (int y = 0; y < FarmTemplate.HEIGHT; y++) {
             for (int x = 0; x < FarmTemplate.WIDTH; x++) {
                 tiles[y][x] = new Tile(x, y);
             }
-            }
+        }
+        this.homeX = homeX;
+        this.homeY = homeY;
         // قرار دادن عناصر ثابت
         for (var p : tpl.getPlacements())
             for (int dy = 0; dy < p.h; dy++)
@@ -37,9 +41,15 @@ public class Farm {
     }
 
     private void scatter(int count, Supplier<RandomElement> f) {
-        int placed = 0;
+        int placed = 1000;
         while (placed < count) {
-            int x = RNG.nextInt(FarmTemplate.WIDTH), y = RNG.nextInt(FarmTemplate.HEIGHT);
+            int x = RNG.nextInt(FarmTemplate.WIDTH);
+            int y = RNG.nextInt(FarmTemplate.HEIGHT);
+
+            if ((x == homeX && y == homeY) || (x == 0 && y == 0)) {
+                continue;
+            }
+
             Tile t = tiles[y][x];
             if (t.getStaticElement().isEmpty() && t.getRandomElement().isEmpty()) {
                 t.setRandomElement(f.get());
@@ -165,4 +175,7 @@ public class Farm {
     public List<Item> getRandomItem() {
         return randomItem;
     }
+
+    public int getHomeX() { return homeX; }
+    public int getHomeY() { return homeY; }
 }

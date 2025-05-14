@@ -112,7 +112,14 @@ public class GameController {
             GamePlayController controller = controllers.get(indexes.get(currentTurn));
             controller.getAndProcessInput();
             currentTurn = game.nextTurn();
+
             TimeSystem.getInstance().advanceTime(1);
+            boolean dayChanged = TimeSystem.getInstance().advanceTime(1);
+            if (dayChanged) {
+                for (User user : game.getPlayers()) {
+                    controllers.get(user).initializeNextDay();
+                }
+            }
         }
     }
 }

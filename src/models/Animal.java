@@ -12,6 +12,7 @@ public class Animal {
     private int positionY;
     private String type; // مانند Chicken, Cow, Sheep
     private String buildingType; // Barn یا Coop
+    private String[] buildings;
     private int friendship;
     private boolean isFed;
     private boolean isPettedToday;
@@ -23,10 +24,9 @@ public class Animal {
     private boolean hasProducedToday;
     private Item currentProduct;
 
-    public Animal(User owner, String name, String type, String buildingType, int basePrice) {
-        this.owner = owner;
-        this.name = name;
+    public Animal(String type, String buildingType,String buildings[], int basePrice) {
         this.type = type;
+        this.buildings = buildings;
         this.buildingType = buildingType;
         this.friendship = 0;
         this.baseProductPrice = basePrice;
@@ -100,9 +100,49 @@ public class Animal {
         }
     }
 
-    // تولید محصول
     public void produce() {
-        if (!isFed || hasProducedToday) return;
+        if (!isFed || hasProducedToday || currentProduct != null) {
+            return;
+        }
+
+        boolean canProduce = false;
+        int requiredDays = 0;
+
+        switch (this.type) {
+            case "Chicken":
+            case "Cow":
+                requiredDays = 1;
+                canProduce = (daysSinceLastProduct >= requiredDays);
+                break;
+            case "Duck":
+            case "Goat":
+                requiredDays = 2;
+                canProduce = (daysSinceLastProduct >= requiredDays);
+                break;
+            case "Rabbit":
+                requiredDays = 4;
+                canProduce = (daysSinceLastProduct >= requiredDays);
+                break;
+            case "Dinosaur":
+                requiredDays = 7;
+                canProduce = (daysSinceLastProduct >= requiredDays);
+                break;
+            case "Sheep":
+                requiredDays = 3;
+                canProduce = (daysSinceLastProduct >= requiredDays) && (friendship >= 700);
+                break;
+            case "Pig":
+                TimeSystem timeSystem = TimeSystem.getInstance();
+                String currentSeason = timeSystem.getCurrentSeason();
+                canProduce = isOutside && !currentSeason.equals("Winter");
+                break;
+            default:
+                canProduce = false;
+        }
+
+        if (!canProduce) {
+            return;
+        }
 
         currentProduct = new Item();
         currentProduct.setName(determineProductType());
@@ -115,6 +155,10 @@ public class Animal {
         currentProduct.setProperties(properties);
 
         hasProducedToday = true;
+
+        if (!this.type.equals("Pig")) {
+            daysSinceLastProduct = 0;
+        }
     }
 
     private String determineProductType() {
@@ -160,6 +204,7 @@ public class Animal {
     }
 
     public void resetDailyStatus() {
+        produce();
         if (!isFed) decreaseFriendship(20);
         if (!isPettedToday) decreaseFriendship(10);
 
@@ -173,17 +218,30 @@ public class Animal {
     public String getType() { return type; }
     public int getPositionX () { return positionX;}
     public int getPositionY () { return positionY;}
-    public void setPositionX (int newPositionX) { positionX = newPositionX; }
+    public void setPositionX (int newPositionX) { positionX = newPositionX; produce(); }
     public void setPositionY (int newPositionY) { positionY = newPositionY; }
     public int getFriendship() { return friendship; }
     public boolean isFed() { return isFed; }
     public void setOutside(boolean outside) { isOutside = outside; }
     public boolean hasProducedToday () { return hasProducedToday; }
     public Item getCurrentProduct () { return currentProduct; }
+    public int getPrice() { return baseProductPrice; }
+    public String[] getBuildings() { return buildings; }
+    public String getBuildingType() { return buildingType; }
 
     public void setFriendship(int friendship) {
         this.friendship = Math.min(1000, Math.max(0, friendship));
     }
+
+    public void setOwner (User owner) {
+        this.owner = owner;
+    }
+
+    public void setName (String newName) {
+        name = newName;
+    }
+
+
 
     @Override
     public String toString() {

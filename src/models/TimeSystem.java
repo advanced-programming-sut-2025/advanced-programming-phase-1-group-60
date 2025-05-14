@@ -29,31 +29,33 @@ public class TimeSystem {
      * جلو بردن زمان بازی به تعداد ساعت مشخص
      * @param hours تعداد ساعت (عدد منفی غیرمجاز است)
      */
-    public synchronized void advanceTime(int hours) {
-        if (hours < 0) {
-            throw new IllegalArgumentException("Cannot advance negative hours");
-        }
+    public synchronized boolean advanceTime(int hours) {
+        if (hours < 0) throw new IllegalArgumentException();
+
+        int previousDay = currentDay;
         currentHour += hours;
-        while (currentHour >= 24) {
-            currentHour -= 24;
+
+        while (currentHour >= 22) {
+            currentHour -= 13;
             advanceDate(1);
         }
+
+        return (currentDay != previousDay);
     }
 
-    /**
-     * جلو بردن تاریخ بازی به تعداد روز مشخص
-     * @param days تعداد روز (عدد منفی غیرمجاز است)
-     */
-    public synchronized void advanceDate(int days) {
-        if (days < 0) {
-            throw new IllegalArgumentException("Cannot advance negative days");
-        }
+    public synchronized boolean advanceDate(int days) {
+        if (days < 0) throw new IllegalArgumentException();
+
+        int previousDay = currentDay;
         currentDay += days;
+
         while (currentDay > 28) {
             currentDay -= 28;
             updateSeason();
         }
+
         calculateDayOfWeek();
+        return (currentDay != previousDay);
     }
 
     // محاسبه روز هفته براساس currentDay
@@ -109,4 +111,16 @@ public class TimeSystem {
     public synchronized int getCurrentDay() {
         return currentDay;
     }
+
+
+    public synchronized void setCurrentSeason(String season) {
+        currentSeason = season;
+    }
+
+    public synchronized void setCurrentYear(int year) {
+        currentYear = year;
+    }
+    public synchronized void setCurrentHour(int hour) { this.currentHour = hour; }
+    public synchronized void setCurrentDay(int day) { this.currentDay = day;}
+    public synchronized void setDayOfWeek(String day) { this.dayOfWeek = day; }
 }

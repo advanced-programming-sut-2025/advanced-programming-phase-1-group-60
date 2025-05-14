@@ -10,9 +10,17 @@ import java.util.Random;
 import java.util.Set;
 
 public class WeatherController {
-    private Set<String> weathersSet = new HashSet<>(Arrays.asList("sunny", "rain", "snow", "storm"));
+    private static WeatherController instance;
+    private final Set<String> weathersSet = new HashSet<>(Arrays.asList("sunny", "rain", "snow", "storm"));
     private String currentWeather;
     private String forecastWeather;
+
+    public static WeatherController getInstance() {
+        if (instance == null) {
+            instance = new WeatherController();
+        }
+        return instance;
+    }
 
     public String handleCommand(WeatherCommands command) {
         switch (command) {
@@ -27,7 +35,7 @@ public class WeatherController {
 
     public boolean updateWeather() {
         if (currentWeather == null) {
-            currentWeather = "sunny"; // پیش‌فرض
+            currentWeather = "sunny";
         }
         Random random = new Random();
         String[] weatherOptions = weathersSet.toArray(new String[0]);
@@ -69,4 +77,6 @@ public class WeatherController {
     public Result irrigation() {
         return new Result(true,"Crops irrigated successfully.");
     }
+
+    public String getCurrentWeather() { return currentWeather; }
 }
