@@ -10,7 +10,7 @@ public class Tile {
     private boolean passable = true;
     private String type;
     private boolean isOccupied;
-    private FruitsAndVegtables plantedPlant;
+    private FruitsAndVegetables plantedPlant;
     private Item placedItem;
     private boolean isWatered;
     private boolean isFertilized;

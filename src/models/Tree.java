@@ -1,6 +1,99 @@
 package models;
 
+import java.util.List;
+
 public class Tree implements RandomElement {
+    private String name;
+    private String source;
+    private int[] stages;
+    private int totalHarvestTime;
+    private String fruit;
+    private int fruitHarvestCycle;
+    private int fruitBaseSellPrice;
+    private boolean isFruitEdible;
+    private int fruitEnergy;
+    private List<String> suitableSeasons;
+
     public char symbol() { return 'T'; }
     public boolean isPassable() { return false; }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public int[] getStages() {
+        return stages;
+    }
+
+    public void setStages(int[] stages) {
+        this.stages = stages;
+    }
+
+    public int getTotalHarvestTime() {
+        return totalHarvestTime;
+    }
+
+    public void setTotalHarvestTime(int totalHarvestTime) {
+        this.totalHarvestTime = totalHarvestTime;
+    }
+
+    public String getFruit() {
+        return fruit;
+    }
+
+    public void setFruit(String fruit) {
+        this.fruit = fruit;
+    }
+
+    public int getFruitHarvestCycle() {
+        return fruitHarvestCycle;
+    }
+
+    public void setFruitHarvestCycle(int fruitHarvestCycle) {
+        this.fruitHarvestCycle = fruitHarvestCycle;
+    }
+
+    public int getFruitBaseSellPrice() {
+        return fruitBaseSellPrice;
+    }
+
+    public void setFruitBaseSellPrice(int fruitBaseSellPrice) {
+        this.fruitBaseSellPrice = fruitBaseSellPrice;
+    }
+
+    public boolean isFruitEdible() {
+        return isFruitEdible;
+    }
+
+    public void setFruitEdible(boolean fruitEdible) {
+        isFruitEdible = fruitEdible;
+    }
+
+    public int getFruitEnergy() {
+        return fruitEnergy;
+    }
+
+    public void setFruitEnergy(int fruitEnergy) {
+        this.fruitEnergy = fruitEnergy;
+    }
+
+    public List<String> getSuitableSeasons() {
+        return suitableSeasons;
+    }
+
+    public void setSuitableSeasons(List<String> suitableSeasons) {
+        this.suitableSeasons = suitableSeasons;
+    }
 }

@@ -170,6 +170,15 @@ public class GamePlayController {
                 String[] args = input.replaceFirst("inventory trash", "").trim().split(" ");
                 System.out.println(processTrashCommand(args));
             }
+            else if (parts[0].equalsIgnoreCase("craftinfo") && parts.length >= 3 && parts[1].equals("-n")) {
+                StringBuilder nameBuilder = new StringBuilder();
+                for (int i = 2; i < parts.length; i++) {
+                    nameBuilder.append(parts[i]);
+                    if (i < parts.length - 1) nameBuilder.append(" ");
+                }
+                String cropName = nameBuilder.toString();
+                showCraftInfo(cropName);
+            }
             else {
                 System.out.println("Unknown command.");
             }
@@ -481,6 +490,78 @@ public class GamePlayController {
         for (Item item : items) {
             System.out.println(item.getName() + " x" + item.getQuantity());
         }
+    }
+    private void showCraftInfo(String name) {
+        // Check FruitsAndVegetables (All Crops)
+        FruitsAndVegetables crop = repository.FruitsAndVegetablesRepository.crops.stream()
+                .filter(c -> c.getName().equalsIgnoreCase(name))
+                .findFirst().orElse(null);
+        if (crop != null) {
+            System.out.println("Type: Crop");
+            System.out.println("Name: " + crop.getName());
+            System.out.println("Source (Seed): " + crop.getSource());
+            System.out.print("Growth Stages: ");
+            int[] stages = crop.getGrowthStages();
+            for (int i = 0; i < stages.length; i++) {
+                System.out.print(stages[i]);
+                if (i < stages.length - 1) System.out.print("-");
+            }
+            System.out.println();
+            System.out.println("Total Harvest Time: " + crop.getTotalHarvestTime());
+            System.out.println("One Time: " + crop.isOneTime());
+            System.out.println("Regrowth Time: " + (crop.getRegrowthTime() == null ? "N/A" : crop.getRegrowthTime()));
+            System.out.println("Base Sell Price: " + crop.getSellPrice());
+            System.out.println("Is Edible: " + crop.isEdible());
+            System.out.println("Energy: " + crop.getBaseEnergy());
+            System.out.println("Season(s): " + String.join(", ", crop.getSuitableSeasons()));
+            System.out.println("Can Become Giant: " + crop.isCanBeGiant());
+            return;
+        }
+
+        // Check Trees
+        models.Tree tree = repository.TreeRepository.trees.stream()
+                .filter(t -> t.getName().equalsIgnoreCase(name))
+                .findFirst().orElse(null);
+        if (tree != null) {
+            System.out.println("Type: Tree");
+            System.out.println("Name: " + tree.getName());
+            System.out.println("Source: " + tree.getSource());
+            System.out.println("Stages: " + java.util.Arrays.toString(tree.getStages()));
+            System.out.println("Total Harvest Time: " + tree.getTotalHarvestTime());
+            System.out.println("Fruit: " + tree.getFruit());
+            System.out.println("Fruit Harvest Cycle: " + tree.getFruitHarvestCycle());
+            System.out.println("Fruit Base Sell Price: " + tree.getFruitBaseSellPrice());
+            System.out.println("Is Fruit Edible: " + tree.isFruitEdible());
+            System.out.println("Fruit Energy: " + tree.getFruitEnergy());
+            System.out.println("Season(s): " + String.join(", ", tree.getSuitableSeasons()));
+            return;
+        }
+
+        // Check Foraging Crops
+        models.ForagingCrop foragingCrop = repository.ForagingRepository.foragingCrops.stream()
+                .filter(fc -> fc.getName().equalsIgnoreCase(name))
+                .findFirst().orElse(null);
+        if (foragingCrop != null) {
+            System.out.println("Type: Foraging Crop");
+            System.out.println("Name: " + foragingCrop.getName());
+            System.out.println("Base Sell Price: " + foragingCrop.getBaseSellPrice());
+            System.out.println("Energy: " + foragingCrop.getEnergy());
+            System.out.println("Season(s): " + String.join(", ", foragingCrop.getSuitableSeasons()));
+            return;
+        }
+
+        // Check Foraging Trees
+        models.ForagingTree foragingTree = repository.ForagingRepository.foragingTrees.stream()
+                .filter(ft -> ft.getName().equalsIgnoreCase(name))
+                .findFirst().orElse(null);
+        if (foragingTree != null) {
+            System.out.println("Type: Foraging Tree");
+            System.out.println("Name: " + foragingTree.getName());
+            System.out.println("Season(s): " + String.join(", ", foragingTree.getSuitableSeasons()));
+            return;
+        }
+
+        System.out.println("Item not found: " + name);
     }
     // Upgrade logic for each tool type
     private void upgradeT (Tools t) {

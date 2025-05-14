@@ -1,14 +1,18 @@
 package models;
 
-public class FruitsAndVegtables extends Item {
+import java.util.List;
+
+public class FruitsAndVegetables extends Item {
+    private String name;
     private String source;
     private int[] growthStages;
     private int totalHarvestTime;
     private boolean isOneTime;
     private Integer regrowthTime;
+    private Integer sellPrice;
     private boolean isEdible;
     private int baseEnergy;
-    private String suitableSeason;
+    private List<String> suitableSeasons;
     private boolean canBeGiant;
 
 
@@ -17,8 +21,8 @@ public class FruitsAndVegtables extends Item {
         return source;
     }
 
-    public void setSuitableSeason(String suitableSeason) {
-        this.suitableSeason = suitableSeason;
+    public List<String> getSuitableSeasons() {
+        return suitableSeasons;
     }
 
     public void setSource(String source) {
@@ -35,6 +39,10 @@ public class FruitsAndVegtables extends Item {
 
     public int getTotalHarvestTime() {
         return totalHarvestTime;
+    }
+
+    public int getSellPrice(){
+        return sellPrice;
     }
 
     public void setTotalHarvestTime(int totalHarvestTime) {
@@ -73,8 +81,12 @@ public class FruitsAndVegtables extends Item {
         this.baseEnergy = baseEnergy;
     }
 
-    public String getSuitableSeason() {
-        return suitableSeason;
+    public void setSuitableSeasons(List<String> suitableSeasons) {
+        this.suitableSeasons = suitableSeasons;
+    }
+
+    public void setSellPrice(int sellPrice) {
+        this.sellPrice = sellPrice;
     }
 
     public boolean isCanBeGiant() {
