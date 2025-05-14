@@ -9,13 +9,24 @@ public class Inventory {
     private List<Item> items;
     private int capacity;
     private int currentSize;
+    private InventoryType type;
     private User owner;
 
-    public Inventory() {
-        items = new ArrayList<>(); // Ensure items is never null
+    public Inventory(InventoryType type) {
+        this.type = type;
+        items = new ArrayList<>();
+        switch (type) {
+            case NORMAL -> capacity = 12;
+            case BIG -> capacity = 24;
+            case DELUXE -> capacity = Integer.MAX_VALUE;
+        }
     }
     public List<Item> getItems() {
         return items;
+    }
+
+    public enum InventoryType {
+        NORMAL, BIG, DELUXE
     }
 
     public void setItems(List<Item> items) {
@@ -30,12 +41,17 @@ public class Inventory {
         this.capacity = capacity;
     }
 
-    public int getCurrentSize() {
-        return currentSize;
+    public InventoryType getType() {
+        return type;
     }
 
-    public void setCurrentSize(int currentSize) {
-        this.currentSize = currentSize;
+    public void setType(InventoryType type) {
+        this.type = type;
+        switch (type) {
+            case NORMAL -> capacity = 12;
+            case BIG -> capacity = 24;
+            case DELUXE -> capacity = Integer.MAX_VALUE;
+        }
     }
 
     public void addItem(Item item) {
@@ -45,59 +61,65 @@ public class Inventory {
                 return;
             }
         }
-        items.add(item);
+        if (type == InventoryType.DELUXE || items.size() < capacity) {
+            items.add(item);
+        } else {
+            System.out.println("Inventory is full!");
+        }
     }
 
     public void removeItem(Item item) {
-        for (Item i : items) {
+        for (int idx = 0; idx < items.size(); idx++) {
+            Item i = items.get(idx);
             if (i.getName().equalsIgnoreCase(item.getName())) {
                 if (i.getQuantity() > item.getQuantity()) {
                     i.setQuantity(i.getQuantity() - item.getQuantity());
-                    return;
-                } else items.remove(i);
+                } else {
+                    items.remove(idx);
+                }
+                return;
             }
         }
     }
 
-    public void addItemByName(String item, int count) {
-        Item target = null;
+    public void addItemByName(String itemName, int count) {
         for (Item i : items) {
-            if (i.getName().equals(item)) {
-                target = i;
+            if (i.getName().equalsIgnoreCase(itemName)) {
+                i.setQuantity(i.getQuantity() + count);
+                return;
             }
         }
-        if (target == null) {
+        if (type == InventoryType.DELUXE || items.size() < capacity) {
             Item i = new Item();
-            i.setName(item);
+            i.setName(itemName);
             i.setQuantity(count);
             items.add(i);
-        }
-        else {
-            target.setQuantity(target.getQuantity() + count);
+        } else {
+            System.out.println("Inventory is full!");
         }
     }
 
 
-    public void removeItemByName(String item, int count) {
-        for (Item i : items) {
-            if (i.getName().equals(item)) {
-                if (i.getQuantity() >= count) {
+    public void removeItemByName(String itemName, int count) {
+        String normalized = itemName.trim().toLowerCase();
+        for (int idx = 0; idx < items.size(); idx++) {
+            Item i = items.get(idx);
+            if (i.getName().trim().toLowerCase().equals(normalized)) {
+                if (i.getQuantity() > count) {
                     i.setQuantity(i.getQuantity() - count);
+                } else {
+                    items.remove(idx);
                 }
-                else {
-                    items.remove(i);
-                }
+                return;
             }
         }
     }
 
 
-    public boolean hasItem(String item, int count) {
+    public boolean hasItem(String itemName, int count) {
         for (Item i : items) {
-            if (i.getName().equals(item)) {
-                if (i.getQuantity() >= count) {
-                    return true;
-                }
+            if (i.getName().equalsIgnoreCase(itemName) && i.getQuantity() >= count) {
+                return true;
             }
         }
         return false;
@@ -105,11 +127,20 @@ public class Inventory {
 
 
     public int getItemCount(Item item) {
+        for (Item i : items) {
+            if (i.getName().equalsIgnoreCase(item.getName())) {
+                return i.getQuantity();
+            }
+        }
         return 0;
     }
 
 
     public HashMap<Item, Integer> getAllItems() {
-        return null;
+        HashMap<Item, Integer> map = new HashMap<>();
+        for (Item i : items) {
+            map.put(i, i.getQuantity());
+        }
+        return map;
     }
 }

@@ -23,7 +23,7 @@ public class User {
     private Tile position;
     private Energy energy = new Energy();
     private List<Skill> skills;
-    private Inventory inventory = new Inventory();
+    private Inventory inventory = new Inventory(Inventory.InventoryType.NORMAL);
     private List<Game> games = new ArrayList<>();
     private List<String> craftInstructions;
     private List<String> cookRecipes;
@@ -40,7 +40,6 @@ public class User {
     private int selectedMapId;
     private List<Tools> tools;
     private Item equippedTool;
-    private List<Item> backpackItems;
 
     private Game currentGame;
     private Farm farm;
@@ -430,13 +429,6 @@ public class User {
         this.equippedTool = tool;
     }
 
-    public List<Item> getBackpackItems() {
-        return backpackItems;
-    }
-
-    public void setBackpackItems(List<Item> backpackItems) {
-        this.backpackItems = backpackItems;
-    }
     public String showTalkHistory(User user) {
         return allMessages.get(user).toString();
     }
@@ -449,19 +441,6 @@ public class User {
         this.currentGame = game;
     }
 
-    public void equipTool(int toolId) {
-        Item tool = getBackpackItems().stream()
-                .filter(item -> item.getId() == toolId)
-                .findFirst()
-                .orElse(null);
-
-        if (tool != null) {
-            setEquippedTool(tool);
-            System.out.println("Equipped: " + tool.getName());
-        } else {
-            System.out.println("Tool not found in backpack!");
-        }
-    }
 
     public Farm getFarm() {
         return farm;

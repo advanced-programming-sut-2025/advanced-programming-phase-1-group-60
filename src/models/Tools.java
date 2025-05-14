@@ -13,6 +13,7 @@ public class Tools extends Item {
     private PickaxeStage pickaxeStage;
     private WateringcanStage wateringcanStage;
     private FishingpoleStage fishingpoleStage;
+    private TrashbinStage trashbinStage;
     private int currentUsage;
     private int maxUsage;
     private int radius;
@@ -31,6 +32,9 @@ public class Tools extends Item {
     }
     public static enum FishingpoleStage {
         TRAINING, BAMBO, FIBERGLASS, IRIDIUM
+    }
+    public static enum TrashbinStage {
+        BEGINNER, COPPER, IRON, GOLD, IRIDIUM
     }
     public static void addBeginnerHoeToInventory(Inventory inventory) {
         Tools hoe = new Tools();
@@ -108,6 +112,15 @@ public class Tools extends Item {
         shear.setEnergyCost(4);
         inventory.getItems().add(shear);
     }
+    public static void addBeginnerTrashbinToInventory(Inventory inventory) {
+        Tools trashbin = new Tools();
+        trashbin.setId(9); // Use a unique ID
+        trashbin.setName("Trashbin");
+        trashbin.setType("Tool");
+        trashbin.setQuantity(1);
+        trashbin.setTrashbinStage(TrashbinStage.BEGINNER);
+        inventory.getItems().add(trashbin);
+    }
     public Tools() {
         // Default to Beginner Hoe
         this.hoeStage = HoeStage.BEGINNER;
@@ -129,6 +142,9 @@ public class Tools extends Item {
     }
     public FishingpoleStage getFishingpoleStage() {
         return fishingpoleStage;
+    }
+    public TrashbinStage getTrashbinStage() {
+        return trashbinStage;
     }
     public void setHoeStage(HoeStage hoeStage) {
         this.hoeStage = hoeStage;
@@ -199,6 +215,9 @@ public class Tools extends Item {
             case FIBERGLASS: this.energyCost = 6; break;
             case IRIDIUM: this.energyCost = 4; break;
         }
+    }
+    public void setTrashbinStage(TrashbinStage trashbinStage) {
+        this.trashbinStage = trashbinStage;
     }
     private void initDefaultAttributes() {
 
