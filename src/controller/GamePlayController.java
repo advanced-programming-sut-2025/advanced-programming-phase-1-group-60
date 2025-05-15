@@ -11,7 +11,7 @@ import java.util.Scanner;
 public class GamePlayController {
     Scanner sc;
 
-    private final Tile[][] tiles;
+    private Tile[][] tiles;
     private final User user;
     private int energyUsedThisTurn;
     private Game currentGame;
@@ -25,7 +25,8 @@ public class GamePlayController {
         u.setPosition(tiles[0][0]);
         energyUsedThisTurn = 0;
         currentGame = game;
-        homeX = f.getHomeX(); homeY = f.getHomeY();
+        homeX = f.getHomeX();
+        homeY = f.getHomeY();
     }
 
     public void initializeNextDay() {
@@ -43,7 +44,7 @@ public class GamePlayController {
         energyUsedThisTurn = 0;
         user.setPosition(tiles[0][0]);
         while (energyUsedThisTurn <= energyLimitPerTurn) {
-            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")" );
+            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
             String unread = user.getUnreadMessage();
             if (!unread.isEmpty()) {
                 System.out.println("You have unread messages: \n" + unread);
@@ -66,8 +67,7 @@ public class GamePlayController {
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid tool ID.");
                     }
-                }
-                else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
+                } else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
                     try {
                         int toolId = Integer.parseInt(parts[2]);
                         boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
@@ -77,17 +77,14 @@ public class GamePlayController {
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid tool ID.");
                     }
-                }
-                else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
+                } else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
                     useEquippedToolRefillOnly();
-                }
-                else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
+                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
                     showCurrentTool();
                 } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
                     showAvailableTools();
 
-                }
-                else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
+                } else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
                     try {
                         int direction = Integer.parseInt(parts[3]);
                         boolean refill = parts.length >= 5 && parts[4].equalsIgnoreCase("-r");
@@ -95,8 +92,7 @@ public class GamePlayController {
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid direction.");
                     }
-                }
-                else {
+                } else {
                     System.out.println("Unknown tool command.");
                 }
             } else if (parts[0].equalsIgnoreCase("walk")) {
@@ -131,7 +127,10 @@ public class GamePlayController {
                 System.out.println(user.showFriendshipLevelsWithUsers());
             } else if (input.startsWith("quests list")) {
                 listQuests(parts[2]);
-            } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("-u")) {
+            } else if (input.startsWith("quest complete")) {
+                // quest complete -i id -n npcName
+                completeQuest(Integer.parseInt(parts[3]), parts[5]);
+            }else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("-u")) {
                 String targetUsername = parts[2];
                 User target = UserRepository.getInstance().getUserByUsername(targetUsername);
                 if (target == null) {
@@ -178,7 +177,7 @@ public class GamePlayController {
                 System.out.println(processRespondCommand(response, username));
             } else if (input.startsWith("buy")) {
                 buyFromStore(input);
-            }else if (input.startsWith("place")) {
+            } else if (input.startsWith("place")) {
                 String placeName = parts[2];
                 if (parts.length > 2) {
                     StringBuilder sb = new StringBuilder();
@@ -186,13 +185,21 @@ public class GamePlayController {
                     placeName = sb.toString();
                 }
                 System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
-            }else if (input.startsWith("cheat")) {
+            } else if (input.startsWith("cheat")) {
                 processCheatCommand(parts);
-            }else if (parts[0].equalsIgnoreCase("animal")) {
+            } else if (parts[0].equalsIgnoreCase("animal")) {
                 System.out.println(processAnimalCommands(input));
-            }else if (parts[0].equalsIgnoreCase("kitchen")) {
+            } else if (parts[0].equalsIgnoreCase("kitchen")) {
+                if (!isInHome()) {
+                    System.out.println("go home first");
+                    continue;
+                }
                 CookController cookController = new CookController();
                 System.out.println(cookController.handleCommand(user, input));
+            } else if (input.equalsIgnoreCase("go to spouse farm")) {
+                goToSpouseFarm();
+            } else if (input.equalsIgnoreCase("go to my farm")) {
+                goToMyFarm();
             } else {
                 System.out.println("Unknown command.");
             }
@@ -219,6 +226,7 @@ public class GamePlayController {
         user.setEquippedTool(tool);
         System.out.println("Equipped tool: " + tool.getName());
     }
+
     private void useEquippedTool(int direction, boolean refill) {
         Item equipped = user.getEquippedTool();
         if (!(equipped instanceof Tools)) {
@@ -275,10 +283,9 @@ public class GamePlayController {
             // Optionally, you can add logic to remove the stone here if needed
             user.consumeEnergy(energyCost);
             System.out.println("Used pickaxe on stone at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("axe")) {
+        } else if (tool.getName().toLowerCase().contains("axe")) {
             if ((!('T' == target.getRandomElement().map(RandomElement::symbol).orElse(' '))) &&
-                    (!('F' == target.getRandomElement().map(RandomElement::symbol).orElse(' '))))  {
+                    (!('F' == target.getRandomElement().map(RandomElement::symbol).orElse(' ')))) {
                 System.out.println("Axe can only be used on trees ('F') or branches ('T').");
                 return;
             }
@@ -296,8 +303,7 @@ public class GamePlayController {
             user.consumeEnergy(energyCost);
             System.out.println("Used axe on " + (target.getType().equals("F") ? "tree" : "branch") +
                     " at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("wateringcan")) {
+        } else if (tool.getName().toLowerCase().contains("wateringcan")) {
             // Watering logic as before...
             int radius = tool.getRadius();
             int centerX = user.getPosition().getPositionX() + dx[direction - 1];
@@ -315,8 +321,7 @@ public class GamePlayController {
             tool.setCurrentUsage(tool.getCurrentUsage() - 1);
             user.consumeEnergy(tool.getEnergyCost());
             System.out.println("Watered " + watered + " tiles. Usage left: " + tool.getCurrentUsage() + ". Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("fishingpole")) {
+        } else if (tool.getName().toLowerCase().contains("fishingpole")) {
             boolean isLake = target.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'L'
                     || target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L';
             if (!isLake) {
@@ -335,8 +340,7 @@ public class GamePlayController {
                 // Optionally: add fish to inventory here
             }
             System.out.println("Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("scythe")) {
+        } else if (tool.getName().toLowerCase().contains("scythe")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the scythe.");
                 return;
@@ -350,27 +354,25 @@ public class GamePlayController {
             } else {
                 System.out.println("Scythe can only be used on branches ('T') for now.");
             }
-        }
-        else if (tool.getName().toLowerCase().contains("milk pail")) {
+        } else if (tool.getName().toLowerCase().contains("milk pail")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the milk pail.");
                 return;
             }
             user.consumeEnergy(tool.getEnergyCost());
             System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("shear")) {
+        } else if (tool.getName().toLowerCase().contains("shear")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the shear.");
                 return;
             }
             user.consumeEnergy(tool.getEnergyCost());
             System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
-        }
-        else {
+        } else {
             System.out.println("Wrong Tool!");
         }
     }
+
     private void useEquippedToolRefillOnly() {
         Item equipped = user.getEquippedTool();
         if (!(equipped instanceof Tools) || !equipped.getName().toLowerCase().contains("wateringcan")) {
@@ -402,6 +404,7 @@ public class GamePlayController {
             System.out.println("You must be next to a lake (L) tile to refill.");
         }
     }
+
     private void showCurrentTool() {
         Item currentTool = user.getEquippedTool();
         if (!(currentTool instanceof Tools)) {
@@ -454,6 +457,7 @@ public class GamePlayController {
             }
         }
     }
+
     // Add this method to GamePlayController
     private void upgradeToolById(int toolId, boolean force, int level) {
         Item tool = user.getInventory().getItems().stream()
@@ -526,7 +530,7 @@ public class GamePlayController {
     }
 
     // Upgrade logic for each tool type
-    private void upgradeT (Tools t) {
+    private void upgradeT(Tools t) {
         if (t.getName().toLowerCase().contains("hoe")) {
             Tools.HoeStage stage = t.getHoeStage();
             switch (stage) {
@@ -823,7 +827,7 @@ public class GamePlayController {
         if (isThereNpc) {
             String result = GiftController.getInstance().giftToNpc(user, npcName, itemName, quantity);
             System.out.println(result);
-        }
+        } else System.out.println("far away");
     }
 
     private void listQuests(String npcName) {
@@ -838,6 +842,74 @@ public class GamePlayController {
             }
             System.out.println(quests.toString());
         } else System.out.println("No npc found.");
+    }
+
+    public void completeQuest(int questId, String npcName) {
+        npcName = npcName.toUpperCase();
+        GameMap map = currentGame.getCurrentMap();
+        boolean isThereNpc = isNpcAvailable(npcName, map);
+        if (!isThereNpc) {
+            System.out.println("npc not available.");
+            return;
+        }
+        Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
+
+        Quest quest = null;
+        for (Quest quest1 : npc.getQuests()) {
+            if (quest1.getId() == questId) {
+                quest = quest1;
+            }
+        }
+        if (quest == null) {
+            System.out.println("Quest " + questId + " not found for " + npc.getName());
+            return;
+        }
+        if (quest.isCompleted()) {
+            System.out.println("Quest already completed.");
+            return;
+        }
+
+        int currentFriendshipXp = user.getFriendshipXpsWithNPCs().getOrDefault(npc, 0);
+        int requiredFriendshipLevel = quest.getActivationFriendLevel();
+        if (currentFriendshipXp < requiredFriendshipLevel * 200) {
+            System.out.println("Insufficient friendship level.");
+            return;
+        }
+
+        if (questId == 3 && !TimeSystem.getInstance().oneSeasonPassed) {
+            System.out.println("quest not available.");
+            return;
+        }
+
+        Item requiredItem = quest.getRequiredItems();
+        if (requiredItem != null) {
+            boolean hasItem = user.getInventory().hasItem(requiredItem.getName(), requiredItem.getQuantity());
+            if (!hasItem) {
+                System.out.println("Required items not found.");
+                return;
+            }
+            user.getInventory().removeItemByName(requiredItem.getName(), requiredItem.getQuantity());
+        }
+
+        Reward reward = quest.getReward();
+        if (reward != null) {
+
+            if (reward.getMoney() > 0) {
+                user.setMoney(user.getMoney() + reward.getMoney());
+            }
+
+            Item rewardItem = reward.getItems();
+            if (rewardItem != null) {
+                user.getInventory().addItemByName(rewardItem.getName(), rewardItem.getQuantity());
+            }
+
+            if (reward.getFriendshipXp() > 0) {
+                user.increaseFriendshipXpsWithNpc(npc, reward.getFriendshipXp());
+            }
+        }
+
+        quest.complete();
+        System.out.println("Quest " + questId + " completed successfully!");
     }
 
     private boolean isNpcAvailable(String npcName, GameMap map) {
@@ -1331,6 +1403,11 @@ public class GamePlayController {
         user.increaseFriendshipXpsWithUsers(UTo, 60);
         UTo.increaseFriendshipXpsWithUsers(user, 60);
 
+        if (user.getSpouse() != null && user.getSpouse().getUsername().equals(to)) {
+            user.getEnergy().increaseEnergy(50);
+            UTo.getEnergy().increaseEnergy(50);
+        }
+
         return user.getNickname() + " hugged " + UTo.getNickname();
     }
 
@@ -1420,7 +1497,7 @@ public class GamePlayController {
         }
     }
 
-    private void buyFromStore (String input) {
+    private void buyFromStore(String input) {
         int playerX = user.getPosition().getPositionX();
         int playerY = user.getPosition().getPositionY();
         GameMap map = currentGame.getCurrentMap();
@@ -1433,8 +1510,8 @@ public class GamePlayController {
 
                 Tile tile = map.getTile(x + 50, y + 50);
                 if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
-                   System.out.println(store.purchaseProduct(user, input).getMessage());
-                   return;
+                    System.out.println(store.purchaseProduct(user, input).getMessage());
+                    return;
                 }
             }
         }
@@ -1465,27 +1542,32 @@ public class GamePlayController {
             case "time" -> {
                 switch (parts[2]) {
                     //cheat time hour value
-                    case "hour": boolean isDayChanged = TimeSystem.getInstance().advanceTime(Integer.parseInt(parts[3]));
-                    if (isDayChanged) initializeNextDay();
-                    System.out.println("current hour: " + TimeSystem.getInstance().getCurrentHour());
-                    break;
+                    case "hour":
+                        boolean isDayChanged = TimeSystem.getInstance().advanceTime(Integer.parseInt(parts[3]));
+                        if (isDayChanged) initializeNextDay();
+                        System.out.println("current hour: " + TimeSystem.getInstance().getCurrentHour());
+                        break;
                     //cheat time year value
-                    case "year": TimeSystem.getInstance().setCurrentYear(Integer.parseInt(parts[3]));
-                    System.out.println("current year: " + TimeSystem.getInstance().getCurrentYear());
-                    break;
+                    case "year":
+                        TimeSystem.getInstance().setCurrentYear(Integer.parseInt(parts[3]));
+                        System.out.println("current year: " + TimeSystem.getInstance().getCurrentYear());
+                        break;
                     //cheat time season value
-                    case "season": TimeSystem.getInstance().setCurrentSeason(parts[3]);
-                    System.out.println("current season: " + TimeSystem.getInstance().getCurrentSeason());
-                    break;
+                    case "season":
+                        TimeSystem.getInstance().setCurrentSeason(parts[3]);
+                        System.out.println("current season: " + TimeSystem.getInstance().getCurrentSeason());
+                        break;
                     //cheat time day value
-                    case "day": boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
-                    if (isDayChanged2) initializeNextDay();
-                    System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
-                    break;
+                    case "day":
+                        boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
+                        if (isDayChanged2) initializeNextDay();
+                        System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
+                        break;
                     //cheat time week day value
-                    case "weak": TimeSystem.getInstance().setDayOfWeek(parts[4]);
-                    System.out.println("current weak: " + TimeSystem.getInstance().getDayOfWeek());
-                    break;
+                    case "weak":
+                        TimeSystem.getInstance().setDayOfWeek(parts[4]);
+                        System.out.println("current weak: " + TimeSystem.getInstance().getDayOfWeek());
+                        break;
                 }
             }
             case "thunder" -> {
@@ -1495,8 +1577,8 @@ public class GamePlayController {
             case "item" -> {
                 // parts[0] = "cheat", parts[1] = "item"
                 String itemName = "";
-                int amount      = 0;
-                String type     = "";
+                int amount = 0;
+                String type = "";
 
                 int i = 2;
                 while (i < parts.length) {
@@ -1555,7 +1637,7 @@ public class GamePlayController {
                     }
                     case "-n" -> {
                         // // cheat friend -n NPCname -a amount
-                        Npc npc = NpcRepository.getInstance().getNpcByName(parts[3]);
+                        Npc npc = NpcRepository.getInstance().getNpcByName(parts[3].toUpperCase());
                         user.increaseFriendshipXpsWithNpc(npc, Integer.parseInt(parts[5]));
                         System.out.println("friendship added with " + npc.getName());
                     }
@@ -1564,9 +1646,25 @@ public class GamePlayController {
         }
     }
 
-    private boolean isInHome () {
+    private boolean isInHome() {
         boolean yCheck = user.getPosition().getPositionY() >= homeY && user.getPosition().getPositionY() <= (homeY + 4);
         boolean xCheck = user.getPosition().getPositionX() >= homeX && user.getPosition().getPositionX() <= (homeX + 4);
         return yCheck && xCheck;
+    }
+
+    private void goToSpouseFarm() {
+        if (user.getSpouse() == null) {
+            System.out.println("khhh tavahomi");
+            return;
+        }
+        this.tiles = user.getSpouse().getFarm().getTiles();
+        user.setPosition(tiles[0][0]);
+        System.out.println("you are now in your spouse farm");
+    }
+
+    public void goToMyFarm() {
+        this.tiles = user.getFarm().getTiles();
+        user.setPosition(tiles[0][0]);
+        System.out.println("you are now in your farm");
     }
 }

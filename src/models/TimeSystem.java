@@ -10,6 +10,7 @@ public class TimeSystem {
     private String currentSeason;
     private String dayOfWeek;
     private int currentYear;
+    public boolean oneSeasonPassed = false;
 
     // سازنده خصوصی با مقداردهی اولیه
     private TimeSystem() {
@@ -52,6 +53,7 @@ public class TimeSystem {
         while (currentDay > 28) {
             currentDay -= 28;
             updateSeason();
+            oneSeasonPassed = true;
         }
 
         calculateDayOfWeek();

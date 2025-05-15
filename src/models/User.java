@@ -269,6 +269,10 @@ public class User {
         return friendshipXpsWithNPCs.get(npc) / 200;
     }
 
+    public Map<Npc, Integer> getFriendshipXpsWithNPCs() {
+        return friendshipXpsWithNPCs;
+    }
+
     public void setFriendshipLevelWithUsers (User user, int level) {
         friendshipLevelWithUsers.put(user, level);
     }

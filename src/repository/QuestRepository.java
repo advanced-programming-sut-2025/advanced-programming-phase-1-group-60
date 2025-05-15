@@ -30,11 +30,8 @@ public class  QuestRepository {
         Item s2item = new Item();
         s2item.setName("pumpkin pie");
         s2item.setQuantity(1);
-        Item sR2Item = new Item();
-        sR2Item.setName("Gold");
-        sR2Item.setQuantity(5000);
         Reward s2Reward = new Reward();
-        s2Reward.setItem(sR2Item);
+        s2Reward.setMoney(5000);
         Quest s2quest = new Quest(2, sebastian, s2item, s2Reward, 1, 0);
 
         Item s3item = new Item();
@@ -62,11 +59,8 @@ public class  QuestRepository {
         Item a2Req = new Item();
         a2Req.setName("Pumpkin");
         a2Req.setQuantity(1);
-        Item aR2Item = new Item();
-        aR2Item.setName("Gold");
-        aR2Item.setQuantity(500);
         Reward a2Reward = new Reward();
-        a2Reward.setItem(aR2Item);
+        a2Reward.setMoney(500);
         Quest a2 = new Quest(2, abigail, a2Req, a2Reward, 1, 0);
 
         Item a3Req = new Item();
@@ -88,11 +82,8 @@ public class  QuestRepository {
         Item h1Req = new Item();
         h1Req.setType("foraging");
         h1Req.setQuantity(12);
-        Item hR1Item = new Item();
-        hR1Item.setName("Gold");
-        hR1Item.setQuantity(750);
         Reward h1Reward = new Reward();
-        h1Reward.setItem(hR1Item);
+        h1Reward.setMoney(750);
         Quest h1 = new Quest(1, harvey, h1Req, h1Reward, 0, 0);
 
         Item h2Req = new Item();
@@ -120,11 +111,8 @@ public class  QuestRepository {
         Item l1Req = new Item();
         l1Req.setName("Hardwood");
         l1Req.setQuantity(10);
-        Item lR1Item = new Item();
-        lR1Item.setName("Gold");
-        lR1Item.setQuantity(500);
         Reward l1Reward = new Reward();
-        l1Reward.setItem(lR1Item);
+        l1Reward.setMoney(500);
         Quest l1 = new Quest(1, leah, l1Req, l1Reward, 0, 0);
 
         Item l2Req = new Item();
@@ -152,11 +140,8 @@ public class  QuestRepository {
         Item r1Req = new Item();
         r1Req.setName("Wood");
         r1Req.setQuantity(80);
-        Item rR1Item = new Item();
-        rR1Item.setName("Gold");
-        rR1Item.setQuantity(1000);
         Reward r1Reward = new Reward();
-        r1Reward.setItem(rR1Item);
+        r1Reward.setMoney(1000);
         Quest r1 = new Quest(1, robin, r1Req, r1Reward, 0, 0);
 
         Item r2Req = new Item();
@@ -172,11 +157,8 @@ public class  QuestRepository {
         Item r3Req = new Item();
         r3Req.setName("Wood");
         r3Req.setQuantity(1000);
-        Item rR3Item = new Item();
-        rR3Item.setName("Gold");
-        rR3Item.setQuantity(25000);
         Reward r3Reward = new Reward();
-        r3Reward.setItem(rR3Item);
+        r3Reward.setMoney(25000);
         Quest r3 = new Quest(3, robin, r3Req, r3Reward, 0, 1);
 
         robin.addQuest(r1); robin.addQuest(r2); robin.addQuest(r3);
