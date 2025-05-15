@@ -1,5 +1,6 @@
 package models;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Tree implements RandomElement {
@@ -13,6 +14,30 @@ public class Tree implements RandomElement {
     private boolean isFruitEdible;
     private int fruitEnergy;
     private List<String> suitableSeasons;
+    public Tree() {
+        this.name = "";
+        this.source = "";
+        this.stages = new int[0];
+        this.totalHarvestTime = 0;
+        this.fruit = "";
+        this.fruitHarvestCycle = 0;
+        this.fruitBaseSellPrice = 0;
+        this.isFruitEdible = false;
+        this.fruitEnergy = 0;
+        this.suitableSeasons = new ArrayList<>();
+    }
+    public Tree(Tree other) {
+        this.setName(other.getName());
+        this.setSource(other.getSource());
+        this.setStages(other.getStages().clone());
+        this.setTotalHarvestTime(other.getTotalHarvestTime());
+        this.setFruit(other.getFruit());
+        this.setFruitHarvestCycle(other.getFruitHarvestCycle());
+        this.setFruitBaseSellPrice(other.getFruitBaseSellPrice());
+        this.setFruitEdible(other.isFruitEdible());
+        this.setFruitEnergy(other.getFruitEnergy());
+        this.setSuitableSeasons(new ArrayList<>(other.getSuitableSeasons()));
+    }
 
     public char symbol() { return 'T'; }
     public boolean isPassable() { return false; }

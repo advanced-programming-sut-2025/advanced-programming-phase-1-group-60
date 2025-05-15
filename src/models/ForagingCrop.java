@@ -14,7 +14,12 @@ public class ForagingCrop extends ForageItem {
         this.baseSellPrice = baseSellPrice;
         this.energy = energy;
     }
-
+    public ForagingCrop(ForagingCrop other) {
+        this.name = other.name;
+        this.suitableSeasons = other.suitableSeasons;
+        this.baseSellPrice = other.baseSellPrice;
+        this.energy = other.energy;
+    }
     public ForagingCrop() {}
 
     public String getName() {

@@ -1,5 +1,7 @@
 package models;
 
+import repository.TreeRepository;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -31,9 +33,13 @@ public class Farm {
                         tiles[p.y + dy][p.x + dx].setStaticElement(p.element);
                     }
         // پخش یک عنصر رندوم یا خالی در هر کاشی
-        scatter(100, Tree::new);
+        scatter(100, () -> {
+            var repo = TreeRepository.trees;
+            int idx = RNG.nextInt(repo.size());
+            return new Tree(repo.get(idx));
+        });
         scatter(80, Stone::new);
-        scatter(60, ForageItem::new);
+        scatterForageItems(60);
     }
 
     private void scatter(int count, Supplier<RandomElement> f) {
@@ -47,7 +53,30 @@ public class Farm {
             }
         }
     }
-
+    private void scatterForageItems(int count) {
+        int placed = 0;
+        while (placed < count) {
+            int x = RNG.nextInt(FarmTemplate.WIDTH), y = RNG.nextInt(FarmTemplate.HEIGHT);
+            Tile t = tiles[y][x];
+            if (t.getStaticElement().isEmpty() && t.getRandomElement().isEmpty()) {
+                RandomElement forage;
+                if (RNG.nextBoolean()) {
+                    // Randomly select a ForagingCrop from the repository
+                    var crops = repository.ForagingRepository.foragingCrops;
+                    int idx = RNG.nextInt(crops.size());
+                    forage = new ForagingCrop(crops.get(idx));
+                } else {
+                    // Randomly select a Seeds from FruitsAndVegetablesRepository
+                    var seeds = repository.FruitsAndVegetablesRepository.seeds;
+                    int idx = RNG.nextInt(seeds.size());
+                    forage = seeds.get(idx);
+                }
+                t.setRandomElement(forage);
+                t.setType("F");
+                placed++;
+            }
+        }
+    }
     public Tile getTile(int x, int y) {
         return tiles[y][x];
     }

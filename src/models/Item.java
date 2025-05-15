@@ -10,6 +10,9 @@ public class Item {
     private int quantity;
     private int storePrice;
     private HashMap<String, Object> properties;
+    private boolean edible;
+    private int energy;
+    private int sellPrice;
 
     public int getId() {
         return id;
@@ -69,6 +72,30 @@ public class Item {
 
     public void setProperties(HashMap<String, Object> properties) {
         this.properties = properties;
+    }
+
+    public boolean isEdible() {
+        return edible;
+    }
+
+    public void setEdible(boolean edible) {
+        this.edible = edible;
+    }
+
+    // Energy
+    public int getEnergy() {
+        return energy;
+    }
+
+    public int getSellPrice() {
+        return sellPrice;
+    }
+    public void setSellPrice(int sellPrice) {
+        this.sellPrice = sellPrice;
+    }
+
+    public void setEnergy(int energy) {
+        this.energy = energy;
     }
 
     public void use() {
