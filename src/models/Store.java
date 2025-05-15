@@ -32,20 +32,30 @@ public class Store implements StaticElement {
 
     // marin'sRanch
     boolean isHaySoldToday;
+    public List<Animal> animals = new ArrayList<>();
 
     // برای Carpenter'sShop
     public Map<String, Integer> soldBuildings = new HashMap<>(); // فروش روزانه
-    private static final int DEFAULT_DAILY_LIMIT = 1; // محدودیت پیش‌فرض
+
+    // برای Fish Shop
+    public Map<Integer, Integer> upgradePoleCosts = new HashMap<>();
+    public Map<Integer, Integer> soldPoleUpgrades = new HashMap<>();
+
+
 
     public boolean isOpen(LocalTime currentTime) {
         int hour = currentTime.getHour();
         return hour >= workTime.getOpenTime() && hour <= workTime.getCloseTime();
     }
 
-    public Result purchaseProduct(User player, String product, int quantity) {
+    public Result purchaseProduct(User player, String input) {
         Result result = new Result();
         switch (name) {
             case "Blacksmith" -> {
+                // buy -p productName -n amount
+                String[] parts = input.split(" ");
+                String product = parts[2];
+                int quantity = Integer.parseInt(parts[4]);
                 if (items != null) {
                     for (Item item : items) {
                         if (item.getName().equals(product)) {
@@ -67,6 +77,14 @@ public class Store implements StaticElement {
                 }
             }
             case "Carpenter'sShop" -> {
+                // buy -p productName
+                String[] parts = input.split(" ");
+                String product = parts[2];
+                if (parts.length > 3) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(parts[2]).append(" ").append(parts[3]);
+                    product = sb.toString();
+                }
                 for (Item item : items) {
                     if (item.getName().equals(product)) {
                         int sold = soldBuildings.getOrDefault(product, 0);
@@ -152,6 +170,67 @@ public class Store implements StaticElement {
                             result.setMessage("not enough materials");
                         }
                     }
+                }
+            }
+            case "Marin'sRanch" -> {
+                //buy -p productName [-n amount | -n name]
+                String[] parts = input.split(" ");
+                String product = parts[2];
+                switch (product) {
+                    case "Hay" , "Milk Pail" , "Shears" -> {
+                        int quantity = Integer.parseInt(parts[4]);
+                        Item itemTOsell = null;
+                        for (Item item : items) {
+                            if (item.getName().equals(product)) {
+                                itemTOsell = item;
+                            }
+                        }
+                        if (itemTOsell == null) {
+                            result.setMessage(product + " not available");
+                            result.setSuccess(false);
+                            return result;
+                        }
+
+                        if (player.getMoney() < quantity * itemTOsell.getStorePrice()) {
+                            result.setMessage("not enough money");
+                            result.setSuccess(false);
+                            return result;
+                        }
+                        itemTOsell.setQuantity(quantity);
+                        player.getInventory().addItem(itemTOsell);
+                        player.setMoney(player.getMoney() - quantity * itemTOsell.getStorePrice());
+                        result.setSuccess(true);
+                        result.setMessage("bought " + product);
+                        return result;
+                    }
+                    default -> {
+                        String name = parts[4];
+                        Animal animalToSell = null;
+                        for (Animal a : animals) {
+                            if (a.getType().equals(product)) {
+                                animalToSell = a;
+                                break;
+                            }
+                        }
+                        if (animalToSell == null) {
+                            result.setMessage(product + " not available");
+                            result.setSuccess(false);
+                            return result;
+                        }
+
+                        if (player.getMoney() < animalToSell.getPrice()) {
+                            result.setMessage("not enough money");
+                            result.setSuccess(false);
+                            return result;
+                        }
+                        animalToSell.setOwner(player);
+                        animalToSell.setName(name);
+                        player.getAnimals().add(animalToSell);
+                        result.setSuccess(true);
+                        result.setMessage("bought " + product);
+                        return result;
+                    }
+
                 }
             }
         }
@@ -285,10 +364,76 @@ public class Store implements StaticElement {
 
     }
 
-    // use only for blacksmith store
+    // use only for blacksmith and Fish shop store
     public Result upgradeTools(User player, int level, Tools tool) {
         Result result = new Result();
         String toolName = tool.getName();
+
+        if (toolName.toLowerCase().contains("rod") || toolName.toLowerCase().contains("pole")) {
+            if (tool != null) {
+                int currentLevel = switch (tool.getFishingpoleStage()) {
+                    case BAMBO -> 1;
+                    case FIBERGLASS -> 2;
+                    case IRIDIUM -> 3;
+                    default -> 0;
+                };
+                if (currentLevel != level - 1) {
+                    result.setMessage("upgrade level by level");
+                    result.setSuccess(false);
+                    return result;
+                }
+
+                if (player.getMoney() <= upgradeCosts.get(level)) {
+                    result.setMessage("not enough money");
+                    result.setSuccess(false);
+                    return result;
+                }
+
+                if ((toolName.toLowerCase().contains("fiberglass") && player.getFishingSkills() < 2) ||
+                        toolName.toLowerCase().contains("iridium") && player.getFishingSkills() < 4) {
+                    result.setMessage("not enough skills");
+                    result.setSuccess(false);
+                    return result;
+                }
+
+                int soldToday = soldPoleUpgrades.getOrDefault(level, 0);
+                if (soldToday >= 1) {
+                    result.setMessage("This fishing pole upgrade is sold out for today.");
+                    result.setSuccess(false);
+                    return result;
+                }
+
+                soldPoleUpgrades.put(level, soldToday + 1);
+                player.setMoney(player.getMoney() - upgradeCosts.get(level));
+                result.setSuccess(true);
+                result.setMessage("bought " + toolName);
+                return result;
+            } else {
+                if (level != 0) {
+                    result.setMessage("first buy training");
+                    result.setSuccess(false);
+                    return result;
+                }
+
+                if (player.getMoney() <= upgradeCosts.get(level)) {
+                    result.setMessage("not enough money");
+                    result.setSuccess(false);
+                    return result;
+                }
+
+                int soldToday = soldPoleUpgrades.getOrDefault(level, 0);
+                if (soldToday >= 1) {
+                    result.setMessage("This fishing pole is sold out for today.");
+                    result.setSuccess(false);
+                    return result;
+                }
+                soldPoleUpgrades.put(level, soldToday + 1);
+                player.setMoney(player.getMoney() - upgradeCosts.get(level));
+                result.setSuccess(true);
+                result.setMessage("bought " + toolName);
+                return result;
+            }
+        }
 
         boolean isBin = toolName.equalsIgnoreCase("Trash can");
         if (isBin) {

@@ -39,6 +39,15 @@ public class StoreRepository {
                         createItem(220, "Hay", 50),
                         createItem(227, "Milk Pail", 1000),
                         createItem(228, "Shears", 1000)
+                ));store.animals.addAll(List.of(
+                        new Animal("Chicken", "Coop", new String[]{"Coop"}, 800),
+                        new Animal("Duck", "Coop", new String[]{"Big Coop","Deluxe Coop"}, 1200),
+                        new Animal("Rabbit", "Coop", new String[]{"Deluxe Coop"}, 8000),
+                        new Animal("Dinosaur", "Coop", new String[]{"Big Coop"}, 14000),
+                        new Animal("Cow", "Barn", new String[]{"Barn"}, 1500),
+                        new Animal("Goat", "Barn", new String[]{"Big Barn","Deluxe"}, 4000),
+                        new Animal("Sheep", "Barn", new String[]{"Deluxe Barn"}, 8000),
+                        new Animal("Pig", "Barn", new String[]{"Deluxe Barn"}, 16000)
                 ));
             } else if ("Carpenter'sShop".equalsIgnoreCase(store.getName())) {
                 store.getItems().addAll(List.of(
@@ -52,6 +61,9 @@ public class StoreRepository {
                         createBuilding("Shipping Bin", 250, 1, 1, Map.of("Wood", 150))
                 ));
                 store.soldBuildings.clear();
+            } else if ("Fish Shop".equalsIgnoreCase(store.getName())) {
+                store.upgradePoleCosts = Map.of(0, 25, 1,500,2,1800,3,7500);
+                store.soldPoleUpgrades.clear();
             }
         }
     }

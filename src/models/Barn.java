@@ -25,6 +25,7 @@ public class Barn extends Item {
     public int getLeftCornerX() { return leftCornerX; }
     public int getLeftCornerY() { return leftCornerY; }
     public List<Animal> getAnimals() { return animals; }
+    public int getCapacity() { return capacity; }
 
     // Setters
     public void setPosition(int x, int y) {

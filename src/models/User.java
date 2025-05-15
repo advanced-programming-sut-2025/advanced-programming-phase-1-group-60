@@ -41,17 +41,6 @@ public class User {
     private List<Tools> tools;
     private Item equippedTool;
 
-    private List<Animal> animals = new ArrayList<>();
-    private List<Item> animalPlaces = new ArrayList<>();
-
-    public void addAnimal(Animal animal) {
-        animals.add(animal);
-    }
-
-    public List<Animal> getAnimals() {
-        return animals;
-    }
-
     private Game currentGame;
     private Farm farm;
     public boolean isInVillage = false;
@@ -557,6 +546,38 @@ public class User {
             }
         }
         return sb.toString();
+    }
+
+    // animals
+    private List<Animal> animals = new ArrayList<>();
+    private List<Item> animalPlaces = new ArrayList<>();
+
+    public void addAnimal(Animal animal) {
+        animals.add(animal);
+    }
+
+    public List<Animal> getAnimals() {
+        return animals;
+    }
+
+    private List<Item> placedAnimalPlaces = new ArrayList<>();
+
+    private List<Animal> putAnimals = new ArrayList<>();
+
+    public List<Animal> getPutAnimals() {
+        return putAnimals;
+    }
+
+    public void addPutAnimal(Animal putAnimal) {
+        putAnimals.add(putAnimal);
+    }
+
+    public List<Item> getPlacedAnimalPlaces() {
+        return placedAnimalPlaces;
+    }
+
+    public void addPlacedAnimalPlace(Item item) {
+        placedAnimalPlaces.add(item);
     }
 
 

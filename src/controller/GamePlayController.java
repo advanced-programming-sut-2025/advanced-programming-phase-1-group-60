@@ -4,9 +4,6 @@ import models.*;
 import repository.NpcRepository;
 import repository.UserRepository;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Scanner;
 
 public class GamePlayController {
@@ -16,6 +13,8 @@ public class GamePlayController {
     private final User user;
     private int energyUsedThisTurn;
     private Game currentGame;
+    private int energyLimitPerTurn = 50;
+    public int homeX, homeY;
 
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.tiles = f.getTiles();
@@ -24,10 +23,21 @@ public class GamePlayController {
         u.setPosition(tiles[0][0]);
         energyUsedThisTurn = 0;
         currentGame = game;
+        homeX = f.getHomeX(); homeY = f.getHomeY();
+    }
+
+    public void initializeNextDay() {
+        walkTo(homeX, homeY, true);
+        for (Animal animal : user.getPutAnimals()) {
+            animal.resetDailyStatus();
+        }
     }
 
     public void getAndProcessInput() {
-        while (energyUsedThisTurn <= 50) {
+        energyUsedThisTurn = 0;
+        user.setPosition(tiles[0][0]);
+        while (energyUsedThisTurn <= energyLimitPerTurn) {
+            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")" );
             String unread = user.getUnreadMessage();
             if (!unread.isEmpty()) {
                 System.out.println("You have unread messages: \n" + unread);
@@ -86,7 +96,7 @@ public class GamePlayController {
             } else if (parts[0].equalsIgnoreCase("walk")) {
                 int x = Integer.parseInt(parts[1]);
                 int y = Integer.parseInt(parts[2]);
-                walkTo(x, y);
+                walkTo(x, y, false);
             } else if (parts[0].equalsIgnoreCase("next")) {
                 break;
             } else if (input.startsWith("print map")) {
@@ -161,35 +171,20 @@ public class GamePlayController {
                 String username = parts[3];
                 System.out.println(processRespondCommand(response, username));
             } else if (input.startsWith("buy")) {
-                buyFromStore(parts[2], Integer.parseInt(parts[4]));
+                buyFromStore(input);
             }else if (input.startsWith("place")) {
-                System.out.println(placeAnimalPlace(parts[1], user.getPosition().getPositionX(), user.getPosition().getPositionY()));
-            }
-            else if (input.equalsIgnoreCase("inventory show")){
-                showInventory(user);
-            }
-            else if (input.startsWith("inventory trash")) {
-                String[] args = input.replaceFirst("inventory trash", "").trim().split(" ");
-                System.out.println(processTrashCommand(args));
-            }
-            else if (parts[0].equalsIgnoreCase("craftinfo") && parts.length >= 3 && parts[1].equals("-n")) {
-                StringBuilder nameBuilder = new StringBuilder();
-                for (int i = 2; i < parts.length; i++) {
-                    nameBuilder.append(parts[i]);
-                    if (i < parts.length - 1) nameBuilder.append(" ");
+                String placeName = parts[2];
+                if (parts.length > 2) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(parts[1]).append(" ").append(parts[2]);
+                    placeName = sb.toString();
                 }
-                String cropName = nameBuilder.toString();
-                showCraftInfo(cropName);
-            }
-            else if (parts[0].equalsIgnoreCase("showplant") && parts.length == 3 && parts[1].equals("-d")) {
-                try {
-                    int direction = Integer.parseInt(parts[2]);
-                    showPlantInDirection(direction);
-                } catch (NumberFormatException e) {
-                    System.out.println("Invalid direction. Use a number from 1 to 9.");
-                }
-            }
-            else {
+                System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
+            }else if (input.startsWith("cheat")) {
+                processCheatCommand(parts);
+            }else if (parts[0].equalsIgnoreCase("animal")) {
+                System.out.println(processAnimalCommands(input));
+            }else {
                 System.out.println("Unknown command.");
             }
         }
@@ -273,77 +268,25 @@ public class GamePlayController {
             System.out.println("Used pickaxe on stone at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
         }
         else if (tool.getName().toLowerCase().contains("axe")) {
-            RandomElement element = target.getRandomElement().orElse(null);
-            if (element instanceof Tree tree) {
-                // Add Wood to inventory
-                Item wood = new Item();
-                wood.setName("Wood");
-                wood.setQuantity(1);
-                user.getInventory().addItem(wood);
-
-                // Add Sapling to inventory
-                Item sapling = new Item();
-                sapling.setName(tree.getName() + " Sapling");
-                sapling.setType("Sapling");
-                sapling.setQuantity(1);
-                // Store tree growth info in properties
-                HashMap<String, Object> saplingProps = new HashMap<>();
-                saplingProps.put("stages", tree.getStages());
-                saplingProps.put("growsInto", tree.getName());
-                sapling.setProperties(saplingProps);
-
-                user.getInventory().addItem(sapling);
-
-                // Remove the tree from the tile
-                target.setToNormalTile();
-                target.setType(".");
-
-                user.consumeEnergy(tool.getEnergyCost());
-                System.out.println("Chopped down " + tree.getName() + ". Added Wood and " + tree.getName() + " Sapling to inventory.");
-            }
-            else if (element instanceof ForagingCrop crop) {
-                // Add the foraging crop to inventory
-                Item item = new Item();
-                item.setName(crop.getName());
-                item.setQuantity(1);
-                item.setSellPrice(crop.getBaseSellPrice());
-                item.setEdible(true);
-                item.setEnergy(crop.getEnergy());
-                user.getInventory().addItem(item);
-
-                // Remove the crop from the tile
-                target.setToNormalTile();
-                target.setType(".");
-
-                user.consumeEnergy(tool.getEnergyCost());
-                System.out.println("Collected " + crop.getName() + " and added to inventory.");
-            }
-            else if (element instanceof Seeds seed) {
-                // Add the seed to inventory
-                Seeds newSeed = new Seeds();
-                newSeed.setName(seed.getName());
-                newSeed.setGrowsInto(seed.getGrowsInto());
-                newSeed.setSuitableSeasons(new ArrayList<>(seed.getSuitableSeasons()));
-                newSeed.setTotalHarvestTime(seed.getTotalHarvestTime());
-                newSeed.setQuantity(1);
-                user.getInventory().addItem(newSeed);
-
-                // Remove the seed from the tile
-                target.setToNormalTile();
-                target.setType(".");
-
-                user.consumeEnergy(tool.getEnergyCost());
-                System.out.println("Collected " + seed.getName() + " seed and added to inventory.");
-            }
-            else if (element != null && element.symbol() == 'T') {
-                // Old branch logic
-                target.setToNormalTile();
-                target.setType(".");
-                user.consumeEnergy(tool.getEnergyCost());
-                System.out.println("Used axe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-            } else {
+            if ((!('T' == target.getRandomElement().map(RandomElement::symbol).orElse(' '))) &&
+                    (!('F' == target.getRandomElement().map(RandomElement::symbol).orElse(' '))))  {
                 System.out.println("Axe can only be used on trees ('F') or branches ('T').");
+                return;
             }
+            int energyCost = tool.getEnergyCost();
+            // If the tile is not plowed, watered, or fertilized, use 1 less energy
+            if (!target.isPlowed() && !target.isWatered() && !target.isFertilized()) {
+                energyCost = Math.max(1, energyCost - 1);
+            }
+            if (user.getEnergy().getCurrentEnergy() < energyCost && !user.getEnergy().isUnlimited()) {
+                System.out.println("Not enough energy to use the axe.");
+                return;
+            }
+            target.setToNormalTile();
+            target.setType(".");
+            user.consumeEnergy(energyCost);
+            System.out.println("Used axe on " + (target.getType().equals("F") ? "tree" : "branch") +
+                    " at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
         }
         else if (tool.getName().toLowerCase().contains("wateringcan")) {
             // Watering logic as before...
@@ -389,32 +332,14 @@ public class GamePlayController {
                 System.out.println("Not enough energy to use the scythe.");
                 return;
             }
-            // Only allow cutting 'T' (branches) or collecting fruit from trees
-            RandomElement element = target.getRandomElement().orElse(null);
-            if (element instanceof Tree tree) {
-                // Collect fruit
-                if (tree.getFruit() != null && !tree.getFruit().isEmpty()) {
-                    // Create fruit item
-                    Item fruit = new Item();
-                    fruit.setName(tree.getFruit());
-                    fruit.setSellPrice(tree.getFruitBaseSellPrice());
-                    fruit.setEdible(tree.isFruitEdible());
-                    fruit.setEnergy(tree.getFruitEnergy());
-                    fruit.setQuantity(1);
-                    user.getInventory().addItem(fruit);
-                    System.out.println("Collected " + fruit.getName() + " from the tree and added to inventory.");
-                } else {
-                    System.out.println("This tree has no fruit to collect.");
-                }
-                user.consumeEnergy(tool.getEnergyCost());
-            } else if (element != null && element.symbol() == 'T') {
-                // Old branch logic
+            // For now, only allow cutting 'T' (branches)
+            if (target.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'T') {
                 target.setToNormalTile();
                 target.setType(".");
                 user.consumeEnergy(tool.getEnergyCost());
                 System.out.println("Used scythe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
             } else {
-                System.out.println("Scythe can only be used on branches ('T') or to collect fruit from trees.");
+                System.out.println("Scythe can only be used on branches ('T') for now.");
             }
         }
         else if (tool.getName().toLowerCase().contains("milk pail")) {
@@ -423,7 +348,6 @@ public class GamePlayController {
                 return;
             }
             user.consumeEnergy(tool.getEnergyCost());
-
             System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
         }
         else if (tool.getName().toLowerCase().contains("shear")) {
@@ -526,123 +450,72 @@ public class GamePlayController {
         Item tool = user.getInventory().getItems().stream()
                 .filter(i -> i instanceof Tools && i.getId() == toolId)
                 .findFirst().orElse(null);
+
         if (!(tool instanceof Tools)) {
-            System.out.println("Tool not found.");
-            return;
+            if (toolId != 5) {
+                System.out.println("Tool not found.");
+                return;
+            }
         }
-        Tools t = (Tools) tool;
+
+        Tools t = tool instanceof Tools ? (Tools) tool : null;
+
         int playerX = user.getPosition().getPositionX();
         int playerY = user.getPosition().getPositionY();
         GameMap map = currentGame.getCurrentMap();
 
-        // If not force, check for blacksmith (to be implemented)
         if (!force) {
+            boolean foundValidStore = false;
+            Store suitableStore = null;
+            boolean isFishShopRequired = (toolId == 5);
+
+            loop:
             for (int dx = -1; dx <= 1; dx++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     if (dx == 0 && dy == 0) continue;
 
                     int x = playerX + dx;
                     int y = playerY + dy;
-                    if (t.getName().toLowerCase().contains("fishingpole")) {
-                        System.out.println("You must be in Willy's Workshop.");
-                        return;
-                    }
 
                     Tile tile = map.getTile(x + 50, y + 50);
                     if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
-                        Result result = store.upgradeTools(user, level, t);
-                        if (result.isSuccess()) upgradeT(t);
-                        System.out.println(result.getMessage());
-                        return;
+                        if (isFishShopRequired) {
+                            if (store.getName().equalsIgnoreCase("Fish Shop")) {
+                                suitableStore = store;
+                                foundValidStore = true;
+                                break loop;
+                            }
+                        } else {
+                            if (store.getName().equalsIgnoreCase("blacksmith")) {
+                                suitableStore = store;
+                                foundValidStore = true;
+                                break loop;
+                            }
+                        }
                     }
                 }
             }
 
-            System.out.println("You must be at the blacksmith to upgrade .");
+            if (!foundValidStore) {
+                if (isFishShopRequired) {
+                    System.out.println("go to Fish Shop to upgrade this tool");
+                } else {
+                    System.out.println("You must be at the blacksmith to upgrade.");
+                }
+                return;
+            }
+
+            Result result = suitableStore.upgradeTools(user, level, t);
+            if (result.isSuccess()) {
+                upgradeT(t);
+            }
+            System.out.println(result.getMessage());
             return;
         }
+        // Force upgrade logic
         upgradeT(t);
     }
-    private void showInventory(User player) {
-        Inventory inventory = player.getInventory();
-        List<Item> items = inventory.getItems();
-        System.out.println("Inventory (" + items.size() + "/" + inventory.getCapacity() + "):");
-        for (Item item : items) {
-            System.out.println(item.getName() + " x" + item.getQuantity());
-        }
-    }
-    private void showCraftInfo(String name) {
-        // Check FruitsAndVegetables (All Crops)
-        FruitsAndVegetables crop = repository.FruitsAndVegetablesRepository.crops.stream()
-                .filter(c -> c.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
-        if (crop != null) {
-            System.out.println("Type: Crop");
-            System.out.println("Name: " + crop.getName());
-            System.out.println("Source (Seed): " + crop.getSource());
-            System.out.print("Growth Stages: ");
-            int[] stages = crop.getGrowthStages();
-            for (int i = 0; i < stages.length; i++) {
-                System.out.print(stages[i]);
-                if (i < stages.length - 1) System.out.print("-");
-            }
-            System.out.println();
-            System.out.println("Total Harvest Time: " + crop.getTotalHarvestTime());
-            System.out.println("One Time: " + crop.isOneTime());
-            System.out.println("Regrowth Time: " + (crop.getRegrowthTime() == null ? "N/A" : crop.getRegrowthTime()));
-            System.out.println("Base Sell Price: " + crop.getSellPrice());
-            System.out.println("Is Edible: " + crop.isEdible());
-            System.out.println("Energy: " + crop.getBaseEnergy());
-            System.out.println("Season(s): " + String.join(", ", crop.getSuitableSeasons()));
-            System.out.println("Can Become Giant: " + crop.isCanBeGiant());
-            return;
-        }
 
-        // Check Trees
-        models.Tree tree = repository.TreeRepository.trees.stream()
-                .filter(t -> t.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
-        if (tree != null) {
-            System.out.println("Type: Tree");
-            System.out.println("Name: " + tree.getName());
-            System.out.println("Source: " + tree.getSource());
-            System.out.println("Stages: " + java.util.Arrays.toString(tree.getStages()));
-            System.out.println("Total Harvest Time: " + tree.getTotalHarvestTime());
-            System.out.println("Fruit: " + tree.getFruit());
-            System.out.println("Fruit Harvest Cycle: " + tree.getFruitHarvestCycle());
-            System.out.println("Fruit Base Sell Price: " + tree.getFruitBaseSellPrice());
-            System.out.println("Is Fruit Edible: " + tree.isFruitEdible());
-            System.out.println("Fruit Energy: " + tree.getFruitEnergy());
-            System.out.println("Season(s): " + String.join(", ", tree.getSuitableSeasons()));
-            return;
-        }
-
-        // Check Foraging Crops
-        models.ForagingCrop foragingCrop = repository.ForagingRepository.foragingCrops.stream()
-                .filter(fc -> fc.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
-        if (foragingCrop != null) {
-            System.out.println("Type: Foraging Crop");
-            System.out.println("Name: " + foragingCrop.getName());
-            System.out.println("Base Sell Price: " + foragingCrop.getBaseSellPrice());
-            System.out.println("Energy: " + foragingCrop.getEnergy());
-            System.out.println("Season(s): " + String.join(", ", foragingCrop.getSuitableSeasons()));
-            return;
-        }
-
-        // Check Foraging Trees
-        models.ForagingTree foragingTree = repository.ForagingRepository.foragingTrees.stream()
-                .filter(ft -> ft.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
-        if (foragingTree != null) {
-            System.out.println("Type: Foraging Tree");
-            System.out.println("Name: " + foragingTree.getName());
-            System.out.println("Season(s): " + String.join(", ", foragingTree.getSuitableSeasons()));
-            return;
-        }
-
-        System.out.println("Item not found: " + name);
-    }
     // Upgrade logic for each tool type
     private void upgradeT (Tools t) {
         if (t.getName().toLowerCase().contains("hoe")) {
@@ -742,153 +615,12 @@ public class GamePlayController {
                     return;
             }
             System.out.println("Fishing pole upgraded to " + t.getFishingpoleStage());
-        }
-        else if (t.getName().toLowerCase().contains("trash") || t.getName().toLowerCase().contains("bin")) {
-            Tools.TrashbinStage stage = t.getTrashbinStage();
-            switch (stage) {
-                case BEGINNER:
-                    t.setTrashbinStage(Tools.TrashbinStage.COPPER);
-                    break;
-                case COPPER:
-                    t.setTrashbinStage(Tools.TrashbinStage.IRON);
-                    break;
-                case IRON:
-                    t.setTrashbinStage(Tools.TrashbinStage.GOLD);
-                    break;
-                case GOLD:
-                    t.setTrashbinStage(Tools.TrashbinStage.IRIDIUM);
-                    break;
-                case IRIDIUM:
-                    System.out.println("Already at max stage.");
-                    return;
-            }
-            System.out.println("Trash can upgraded to " + t.getTrashbinStage());
-        }
-        else {
+        } else {
             System.out.println("Unknown tool type.");
         }
     }
-    private String processTrashCommand(String[] args) {
-        String itemName = null;
-        Integer number = null;
 
-        // Parse arguments
-        for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("-i") && i + 1 < args.length) {
-                itemName = args[i + 1];
-            }
-            if (args[i].equals("-n") && i + 1 < args.length) {
-                try {
-                    number = Integer.parseInt(args[i + 1]);
-                } catch (NumberFormatException ignored) {}
-            }
-        }
-        if (itemName == null) return "Item name required (-i <item's name>)";
-
-        Item item = null;
-        for (Item it : user.getInventory().getItems()) {
-            if (it.getName().equalsIgnoreCase(itemName)) {
-                item = it;
-                break;
-            }
-        }
-        if (item == null) return "Item not found: " + itemName;
-
-        int removeCount = (number == null) ? item.getQuantity() : Math.min(number, item.getQuantity());
-
-        // Get Trashbin stage
-        Tools trashbin = null;
-        for (Item it : user.getInventory().getItems()) {
-            if (it instanceof Tools tool && tool.getName().equalsIgnoreCase("Trashbin")) {
-                trashbin = tool;
-                break;
-            }
-        }
-        Tools.TrashbinStage stage = (trashbin != null && trashbin.getTrashbinStage() != null)
-                ? trashbin.getTrashbinStage()
-                : Tools.TrashbinStage.BEGINNER;
-
-        double percent = switch (stage) {
-            case BEGINNER -> 0.0;
-            case COPPER -> 0.15;
-            case IRON -> 0.30;
-            case GOLD -> 0.45;
-            case IRIDIUM -> 0.60;
-        };
-
-        // TODO: Replace with actual item value logic
-        int itemValue = 100; // Placeholder value
-        int moneyBack = (int) (removeCount * itemValue * percent);
-
-        // Remove item(s)
-        user.getInventory().removeItemByName(itemName, removeCount);
-
-        // Add money if any
-        if (moneyBack > 0) {
-            user.setMoney(user.getMoney() + moneyBack);
-        }
-
-        return "Trashed " + removeCount + " " + itemName + (moneyBack > 0 ? (", received " + moneyBack + " money") : "");
-    }
-    private void showPlantInDirection(int direction) {
-        int[] dx = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
-        int[] dy = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
-
-        if (direction < 1 || direction > 9) {
-            System.out.println("Invalid direction. Use 1-9.");
-            return;
-        }
-        int tx = user.getPosition().getPositionX() + dx[direction - 1];
-        int ty = user.getPosition().getPositionY() + dy[direction - 1];
-        if (ty < 0 || tx < 0 || ty >= tiles.length || tx >= tiles[0].length) {
-            System.out.println("Target tile is out of bounds.");
-            return;
-        }
-        Tile target = tiles[ty][tx];
-
-        // Check for Tree
-        if (target.getRandomElement().isPresent() && target.getRandomElement().get() instanceof Tree tree) {
-            printTreeInfo(tree);
-            return;
-        }
-
-        // Check for ForagingCrop
-        if (target.getRandomElement().isPresent() && target.getRandomElement().get() instanceof ForagingCrop crop) {
-            System.out.println("Type: Foraging Crop");
-            System.out.println("Name: " + crop.getName());
-            System.out.println("Base Sell Price: " + crop.getBaseSellPrice());
-            System.out.println("Energy: " + crop.getEnergy());
-            System.out.println("Season(s): " + String.join(", ", crop.getSuitableSeasons()));
-            return;
-        }
-
-        // Check for Seeds (ForagingSeed)
-        if (target.getRandomElement().isPresent() && target.getRandomElement().get() instanceof Seeds seed) {
-            System.out.println("Type: Foraging Seed");
-            System.out.println("Name: " + seed.getName());
-            System.out.println("Grows Into: " + seed.getGrowsInto());
-            System.out.println("Harvest Time: " + seed.getTotalHarvestTime());
-            System.out.println("Season(s): " + String.join(", ", seed.getSuitableSeasons()));
-            return;
-        }
-
-        System.out.println("No plant or foraging item found in that direction.");
-    }
-
-    private void printTreeInfo(Tree tree) {
-        System.out.println("Type: Tree");
-        System.out.println("Name: " + tree.getName());
-        System.out.println("Source: " + tree.getSource());
-        System.out.println("Stages: " + java.util.Arrays.toString(tree.getStages()));
-        System.out.println("Total Harvest Time: " + tree.getTotalHarvestTime());
-        System.out.println("Fruit: " + tree.getFruit());
-        System.out.println("Fruit Harvest Cycle: " + tree.getFruitHarvestCycle());
-        System.out.println("Fruit Base Sell Price: " + tree.getFruitBaseSellPrice());
-        System.out.println("Is Fruit Edible: " + tree.isFruitEdible());
-        System.out.println("Fruit Energy: " + tree.getFruitEnergy());
-        System.out.println("Season(s): " + String.join(", ", tree.getSuitableSeasons()));
-    }
-    public void walkTo(int tx, int ty) {
+    public void walkTo(int tx, int ty, boolean isForced) {
         if (tx < 0 || ty < 0 || ty >= tiles.length || tx >= tiles[0].length) {
             System.out.println("خارج از مرز مزرعه!");
             return;
@@ -907,7 +639,7 @@ public class GamePlayController {
         int need = (path.getDistance() + 10 * path.getTurns()) / 20;
         System.out.printf("مسافت=%d، پیچ=%d، انرژی=%d. ادامه؟ (y/n)\n",
                 path.getDistance(), path.getTurns(), need);
-        String response = sc.nextLine();
+        String response = isForced ? "y" : sc.nextLine();
         if (!response.equalsIgnoreCase("y")) return;
         if (user.getEnergy().getCurrentEnergy() >= need || user.getEnergy().isUnlimited()) {
             user.consumeEnergy(need);
@@ -1220,7 +952,128 @@ public class GamePlayController {
         }
 
         user.removeAnimalPlace(animalPlace);
+        user.addPlacedAnimalPlace(animalPlace);
         return "Successfully placed " + animalPlaceName + " at (" + x + ", " + y + ")";
+    }
+
+    public String handlePlaceAnimalCommand(String animalName) {
+        Animal targetAnimal = user.getAnimals().stream()
+                .filter(a -> a.getName().equals(animalName))
+                .findFirst()
+                .orElse(null);
+
+        if (targetAnimal == null) {
+            return "Error: Animal not found!";
+        }
+
+        int playerX = user.getPosition().getPositionX();
+        int playerY = user.getPosition().getPositionY();
+        GameMap map = currentGame.getCurrentMap();
+        Item nearbyBuilding = null;
+
+        // جستجوی ساختمانهای مجاور
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+
+                int x = playerX + dx;
+                int y = playerY + dy;
+
+                if (x < 0 || x >= 50 || y < 0 || y >= 50) continue;
+
+                Tile tile = map.getTile(x, y);
+                if (tile.getStaticElement().isPresent()) {
+                    StaticElement element = tile.getStaticElement().get();
+                    if (element instanceof CoopStaticElement || element instanceof BarnStaticElement) {
+                        // جستجو در ساختمانهای قرار داده شده
+                        for (Item building : user.getPlacedAnimalPlaces()) {
+                            if (building instanceof Coop) {
+                                Coop coop = (Coop) building;
+                                if (isWithinBuilding(x, y, coop)) {
+                                    nearbyBuilding = coop;
+                                    break;
+                                }
+                            } else if (building instanceof Barn) {
+                                Barn barn = (Barn) building;
+                                if (isWithinBuilding(x, y, barn)) {
+                                    nearbyBuilding = barn;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (nearbyBuilding != null) break;
+            }
+            if (nearbyBuilding != null) break;
+        }
+
+        if (nearbyBuilding == null) {
+            return "Error: Not near a coop/barn!";
+        }
+
+        // بررسی نوع ساختمان و نام
+        boolean isValid = false;
+        if (nearbyBuilding instanceof Coop) {
+            Coop coop = (Coop) nearbyBuilding;
+            if (!targetAnimal.getBuildingType().equals("Coop")) {
+                return "Error: Animal can't live here!";
+            }
+            for (String b : targetAnimal.getBuildings()) {
+                if (b.equals(coop.getName())) {
+                    isValid = true;
+                    break;
+                }
+            }
+        } else if (nearbyBuilding instanceof Barn) {
+            Barn barn = (Barn) nearbyBuilding;
+            if (!targetAnimal.getBuildingType().equals("Barn")) {
+                return "Error: Animal can't live here!";
+            }
+            for (String b : targetAnimal.getBuildings()) {
+                if (b.equals(barn.getName())) {
+                    isValid = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isValid) {
+            return "Error: Building not suitable!";
+        }
+
+        int capacity = nearbyBuilding instanceof Coop ? ((Coop) nearbyBuilding).getCapacity() : ((Barn) nearbyBuilding).getCapacity();
+        if (((nearbyBuilding instanceof Coop) ? ((Coop) nearbyBuilding).getAnimals().size() :
+                ((Barn) nearbyBuilding).getAnimals().size()) >= capacity) {
+            return "Error: Building is full!";
+        }
+
+        user.getAnimals().remove(targetAnimal);
+        user.addPutAnimal(targetAnimal);
+        if (nearbyBuilding instanceof Coop) {
+            ((Coop) nearbyBuilding).getAnimals().add(targetAnimal);
+            targetAnimal.setPositionX(((Coop) nearbyBuilding).getLeftCornerX());
+            targetAnimal.setPositionY(((Coop) nearbyBuilding).getLeftCornerY());
+        } else {
+            ((Barn) nearbyBuilding).getAnimals().add(targetAnimal);
+            targetAnimal.setPositionX(((Barn) nearbyBuilding).getLeftCornerX());
+            targetAnimal.setPositionY(((Barn) nearbyBuilding).getLeftCornerY());
+        }
+        targetAnimal.setOutside(false);
+
+        return "Animal placed successfully!";
+    }
+
+    private boolean isWithinBuilding(int x, int y, Item building) {
+        if (building instanceof Coop) {
+            Coop coop = (Coop) building;
+            return x >= coop.getLeftCornerX() && x < coop.getLeftCornerX() + coop.getWidth() &&
+                    y >= coop.getLeftCornerY() && y < coop.getLeftCornerY() + coop.getHeight();
+        } else {
+            Barn barn = (Barn) building;
+            return x >= barn.getLeftCornerX() && x < barn.getLeftCornerX() + barn.getWidth() &&
+                    y >= barn.getLeftCornerY() && y < barn.getLeftCornerY() + barn.getHeight();
+        }
     }
 
     public String processAnimalCommands(String command) {
@@ -1228,7 +1081,9 @@ public class GamePlayController {
         if (parts.length == 0) return "Invalid command";
 
         try {
-            switch (parts[0].toLowerCase()) {
+            switch (parts[1].toLowerCase()) {
+                case "put":
+                    return handlePlaceAnimalCommand(parts[2]);
                 case "pet":
                     return processPetCommand(parts);
                 case "shepherd":
@@ -1242,7 +1097,7 @@ public class GamePlayController {
                 case "sell":
                     return processSellCommand(parts);
                 case "cheat":
-                    return processCheatCommand(parts);
+                    return processAnimalsCheatCommand(parts);
                 case "animals":
                     return processAnimalsCommand();
                 default:
@@ -1254,12 +1109,9 @@ public class GamePlayController {
     }
 
     private String processPetCommand(String[] parts) {
-        if (parts.length < 3 || !parts[1].equals("-n")) {
-            return "Invalid pet command format. Use: pet -n <name>";
-        }
-        String name = parts[2];
+        String name = parts[3];
         Animal animal = null;
-        for (Animal a : user.getAnimals()) {
+        for (Animal a : user.getPutAnimals()) {
             if (a.getName().equalsIgnoreCase(name)) {
                 animal = a;
             }
@@ -1277,11 +1129,11 @@ public class GamePlayController {
     }
 
     private String processShepherdCommand(String[] parts) {
-        String name = parts[3];
-        String coordinates = parts[5];
+        String name = parts[4];
+        String coordinates = parts[6];
 
         if (name == null || coordinates == null) {
-            return "Invalid shepherd command format. Use: shepherd animals -n <name> -l <x,y>";
+            return "Invalid shepherd command format. Use: animal shepherd animals -n <name> -l <x,y>";
         }
 
         if (!coordinates.matches("\\d+,\\d+")) {
@@ -1289,7 +1141,7 @@ public class GamePlayController {
         }
 
         Animal animal = null;
-        for (Animal a : user.getAnimals()) {
+        for (Animal a : user.getPutAnimals()) {
             if (a.getName().equalsIgnoreCase(name)) {
                 animal = a;
                 break;
@@ -1315,12 +1167,12 @@ public class GamePlayController {
         // بررسی تایل فعلی (مبدا)
         int currentX = animal.getPositionX();
         int currentY = animal.getPositionY();
-        Tile currentTile = tiles[currentX][currentY];
+        Tile currentTile = tiles[currentY][currentX];
         char currentSymbol = currentTile.getStaticElement()
                 .map(StaticElement::symbol)
                 .orElse('\0');
 
-        Tile newTile = tiles[newX][newY];
+        Tile newTile = tiles[newY][newX];
         char newSymbol = newTile.getStaticElement()
                 .map(StaticElement::symbol)
                 .orElse('\0');
@@ -1341,7 +1193,6 @@ public class GamePlayController {
             animal.feed(true);
         }
 
-        // تولید پیام مناسب
         if (!newOutside && currentOutside) {
             return name + " has returned home at " + coordinates;
         } else if (newOutside && !currentOutside) {
@@ -1352,12 +1203,12 @@ public class GamePlayController {
     }
 
     private String processFeedCommand(String[] parts) {
-        if (parts.length < 3 || !parts[1].equals("hay") || !parts[2].equals("-n")) {
-            return "Invalid feed command format. Use: feed hay -n <name>";
+        if (parts.length < 5 || !parts[2].equals("hay") || !parts[3].equals("-n")) {
+            return "Invalid feed command format. Use:animal feed hay -n <name>";
         }
-        String name = parts[3];
+        String name = parts[4];
         Animal animal = null;
-        for (Animal a : user.getAnimals()) {
+        for (Animal a : user.getPutAnimals()) {
             if (a.getName().equalsIgnoreCase(name)) {
                 animal = a;
             }
@@ -1374,8 +1225,8 @@ public class GamePlayController {
 
         result.append("Animals with ready-to-collect products:\n");
 
-        for (Animal animal : user.getAnimals()) {
-            if (animal.hasProducedToday() && animal.getCurrentProduct() != null) {
+        for (Animal animal : user.getPutAnimals()) {
+            if (animal.getCurrentProduct() != null) {
                 anyProducts = true;
                 String productName = animal.getCurrentProduct().getName();
                 result.append(String.format(
@@ -1400,12 +1251,12 @@ public class GamePlayController {
     }
 
     private String processSellCommand(String[] parts) {
-        if (parts.length < 4 || !parts[1].equals("animal") || !parts[2].equals("-n")) {
-            return "Invalid sell command format. Use: sell animal -n <name>";
+        if (parts.length < 5 || !parts[2].equals("animal") || !parts[3].equals("-n")) {
+            return "Invalid sell command format. Use: animal sell animal -n <name>";
         }
-        String name = parts[3];
+        String name = parts[4];
         Animal animal = null;
-        for (Animal a : user.getAnimals()) {
+        for (Animal a : user.getPutAnimals()) {
             if (a.getName().equalsIgnoreCase(name)) {
                 animal = a;
             }
@@ -1414,12 +1265,12 @@ public class GamePlayController {
 
         int price = animal.calculateSellPrice();
         user.setMoney(price + user.getMoney());
-        user.getAnimals().remove(animal);
+        user.getPutAnimals().remove(animal);
         return "Sold " + name + " for " + price + " golds";
     }
 
-    private String processCheatCommand(String[] parts) {
-        if (parts.length < 6 || !parts[1].equals("set") || !parts[2].equals("friendship")) {
+    private String processAnimalsCheatCommand(String[] parts) {
+        if (parts.length < 8 || !parts[2].equals("set") || !parts[3].equals("friendship")) {
             return "Invalid cheat command format";
         }
         String name = null;
@@ -1434,7 +1285,7 @@ public class GamePlayController {
 
         if (name == null) return "Missing animal name";
         Animal animal = null;
-        for (Animal a : user.getAnimals()) {
+        for (Animal a : user.getPutAnimals()) {
             if (a.getName().equalsIgnoreCase(name)) {
                 animal = a;
             }
@@ -1447,7 +1298,7 @@ public class GamePlayController {
 
     private String processAnimalsCommand() {
         StringBuilder sb = new StringBuilder("Animals:\n");
-        for (Animal animal : user.getAnimals()) {
+        for (Animal animal : user.getPutAnimals()) {
             sb.append(animal.toString()).append("\n");
         }
         return sb.toString();
@@ -1558,7 +1409,7 @@ public class GamePlayController {
         }
     }
 
-    private void buyFromStore (String productName, int amount) {
+    private void buyFromStore (String input) {
         int playerX = user.getPosition().getPositionX();
         int playerY = user.getPosition().getPositionY();
         GameMap map = currentGame.getCurrentMap();
@@ -1571,9 +1422,66 @@ public class GamePlayController {
 
                 Tile tile = map.getTile(x + 50, y + 50);
                 if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
-                   System.out.println(store.purchaseProduct(user, productName, amount).getMessage());
+                   System.out.println(store.purchaseProduct(user, input).getMessage());
+                   return;
                 }
             }
+        }
+    }
+
+    private void processCheatCommand(String[] parts) {
+        switch (parts[1]) {
+            case "money" -> {
+                user.setMoney(Integer.parseInt(parts[2]));
+                System.out.println("current money: " + user.getMoney());
+            }
+            case "weather" -> {
+                WeatherController.getInstance().setWeather(parts[2]);
+                System.out.println("current weather:" + WeatherController.getInstance().getCurrentWeather());
+            }
+            case "energy" -> {
+                // cheat energy value
+                if (parts[2].equals("set")) {
+                    user.getEnergy().setCurrentEnergy(Integer.parseInt(parts[3]));
+                    System.out.println("current energy: " + user.getEnergy().getCurrentEnergy());
+                }
+                //cheat energy limit per turn value
+                else {
+                    energyLimitPerTurn = Integer.parseInt(parts[5]);
+                    System.out.println("current energy limit per turn: " + energyLimitPerTurn);
+                }
+            }
+            case "time" -> {
+                switch (parts[2]) {
+                    //cheat time hour value
+                    case "hour": boolean isDayChanged = TimeSystem.getInstance().advanceTime(Integer.parseInt(parts[3]));
+                    if (isDayChanged) initializeNextDay();
+                    System.out.println("current hour: " + TimeSystem.getInstance().getCurrentHour());
+                    break;
+                    //cheat time year value
+                    case "year": TimeSystem.getInstance().setCurrentYear(Integer.parseInt(parts[3]));
+                    System.out.println("current year: " + TimeSystem.getInstance().getCurrentYear());
+                    break;
+                    //cheat time season value
+                    case "season": TimeSystem.getInstance().setCurrentSeason(parts[3]);
+                    System.out.println("current season: " + TimeSystem.getInstance().getCurrentSeason());
+                    break;
+                    //cheat time day value
+                    case "day": boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
+                    if (isDayChanged2) initializeNextDay();
+                    System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
+                    break;
+                    //cheat time week day value
+                    case "weak": TimeSystem.getInstance().setDayOfWeek(parts[4]);
+                    System.out.println("current weak: " + TimeSystem.getInstance().getDayOfWeek());
+                    break;
+                }
+            }
+            case "thunder" -> {
+                //cheat thunder x y
+                WeatherController.getInstance().thunder(tiles[Integer.parseInt(parts[3])][Integer.parseInt(parts[4])]);
+            }
+
         }
     }
 }
