@@ -874,5 +874,12 @@ public class FruitsAndVegetablesRepository {
         ancientSeeds.setSuitableSeasons(List.of("Spring","Summer","Fall"));
         ancientSeeds.setTotalHarvestTime(28);
         seeds.add(ancientSeeds);
+
+        Seeds mixedSeeds = new Seeds();
+        mixedSeeds.setName("Mixed Seeds");
+        mixedSeeds.setGrowsInto("Mixed");
+        mixedSeeds.setSuitableSeasons(List.of("Spring", "Summer", "Fall", "Winter"));
+        mixedSeeds.setTotalHarvestTime(0);
+        seeds.add(mixedSeeds);
     }
 }

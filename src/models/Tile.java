@@ -10,12 +10,14 @@ public class Tile {
     private boolean passable = true;
     private String type;
     private boolean isOccupied;
-    private FruitsAndVegetables plantedPlant;
+    private Seeds plantedSeed;
     private Item placedItem;
     private boolean isWatered;
     private boolean isFertilized;
     private boolean isPlowed;
     private boolean isGreenHouseTile;
+    private boolean isGiantCrop = false;
+
 
     public Tile(int x, int y) { this.positionX= x; this.positionY = y; }
 
@@ -63,14 +65,18 @@ public class Tile {
         isOccupied = occupied;
     }
 
-//    public Plant getPlantedPlant() {
-//        return plantedPlant;
-//    }
+    public Seeds getPlantedSeed() {
+        return plantedSeed;
+    }
 
-//    public void setPlantedPlant(Plant plantedPlant) {
-//        this.plantedPlant = plantedPlant;
-//        this.isOccupied = (plantedPlant != null);
-//    }
+    public void setPlantedSeed(Seeds seed) {
+        this.plantedSeed = seed;
+        if (seed != null) {
+            this.type = "*";
+        } else {
+            this.type = ".";
+        }
+    }
 
     public Item getPlacedItem() {
         return placedItem;
@@ -114,14 +120,14 @@ public class Tile {
     }
 
     public void clearTile() {
-        this.plantedPlant = null;
         this.placedItem = null;
         this.isOccupied = false;
         this.isWatered = false;
         this.isFertilized = false;
         this.isPlowed = false;
     }
-
+    public boolean isGiantCrop() { return isGiantCrop; }
+    public void setGiantCrop(boolean giant) { this.isGiantCrop = giant; }
     public void applyWeatherEffect(String effect) {
     }
 
@@ -135,6 +141,7 @@ public class Tile {
 
     @Override
     public String toString() {
+        if (plantedSeed != null) return "*";
         String elementInfo = (staticElement != null)
                 ? staticElement.getClass().getSimpleName()
                 : "Empty";

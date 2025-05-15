@@ -37,17 +37,17 @@ public class Farm {
                         tiles[p.y + dy][p.x + dx].setStaticElement(p.element);
                     }
         // پخش یک عنصر رندوم یا خالی در هر کاشی
-        scatter(100, () -> {
+        scatter(30, () -> {
             var repo = TreeRepository.trees;
             int idx = RNG.nextInt(repo.size());
             return new Tree(repo.get(idx));
         });
-        scatter(80, Stone::new);
+        scatter(20, Stone::new);
         scatterForageItems(60);
     }
 
     private void scatter(int count, Supplier<RandomElement> f) {
-        int placed = 1000;
+        int placed = 0;
         while (placed < count) {
             int x = RNG.nextInt(FarmTemplate.WIDTH);
             int y = RNG.nextInt(FarmTemplate.HEIGHT);
