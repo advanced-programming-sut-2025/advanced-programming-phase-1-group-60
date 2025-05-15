@@ -9,7 +9,11 @@ public class Item {
     private int basePrice;
     private int quantity;
     private int storePrice;
-    private HashMap<String, Object> properties;
+    private HashMap<String, Object> properties = new HashMap<>();
+
+    public boolean isEdible() {
+        return "Food".equals(type) || "Ingredient".equals(type);
+    }
 
     public Item(String name, int quantity) {
         this.name = name;
