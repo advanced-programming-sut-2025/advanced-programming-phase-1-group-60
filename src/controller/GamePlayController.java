@@ -51,6 +51,32 @@ public class GamePlayController {
             String input = sc.nextLine();
             String[] parts = input.split("\\s+");
 
+            if (parts[0].equalsIgnoreCase("craft")) {
+                if (parts.length != 2) {
+                    System.out.println("Invalid craft command. Usage: craft <item_name>");
+                    continue;
+                }
+                String itemName = parts[1];
+                String result = HomeController.crafting(itemName, user);
+                System.out.println(result);
+            } else if (parts[0].equalsIgnoreCase("cheat") && parts[1].equalsIgnoreCase("add") && parts[2].equalsIgnoreCase("item")) {
+                if (parts.length != 6 || !parts[3].equalsIgnoreCase("-n") || !parts[5].equalsIgnoreCase("-c")) {
+                    System.out.println("Error: Invalid cheat command. Usage: cheat add item -n <item_name> -c <count>");
+                    continue;
+                }
+
+                String itemName = parts[4];
+                int count;
+                try {
+                    count = Integer.parseInt(parts[6]);
+                } catch (NumberFormatException e) {
+                    System.out.println("Error: Invalid count. It must be a number.");
+                    continue;
+                }
+
+                String result = HomeController.addItemToInventory(itemName, count, user);
+                System.out.println(result);
+            }
 
             if (parts[0].equalsIgnoreCase("tool")) {
                 if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {

@@ -11,6 +11,13 @@ public class Item {
     private int storePrice;
     private HashMap<String, Object> properties;
 
+    public Item(String name, int quantity) {
+        this.name = name;
+        this.quantity = quantity;
+    }
+
+    public Item() {}
+
     public int getId() {
         return id;
     }
