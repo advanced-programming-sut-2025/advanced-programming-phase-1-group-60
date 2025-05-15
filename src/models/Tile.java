@@ -17,7 +17,11 @@ public class Tile {
     private boolean isPlowed;
     private boolean isGreenHouseTile;
     private boolean isGiantCrop = false;
-
+    private int daysGrown = 0;
+    private int lastWateredDay = -1;
+    private boolean readyToHarvest = false;
+    private boolean harvested = false;
+    private int regrowthCounter = 0;
 
     public Tile(int x, int y) { this.positionX= x; this.positionY = y; }
 
@@ -137,6 +141,41 @@ public class Tile {
 
     public void setGreenHouseTile(boolean greenHouseTile) {
         isGreenHouseTile = greenHouseTile;
+    }
+    public int getLastWateredDay() { return lastWateredDay; }
+    public void setLastWateredDay(int day) { this.lastWateredDay = day; }
+    public void incrementDaysGrown() { daysGrown++; }
+    public int getDaysGrown() { return daysGrown; }
+    public void setReadyToHarvest(boolean readyToHarvest) {
+        this.readyToHarvest = readyToHarvest;
+    }
+    public boolean isHarvested() { return harvested; }
+    public void setDaysGrown(int daysGrown) {
+        this.daysGrown = daysGrown;
+    }
+    public void setHarvested(boolean harvested) { this.harvested = harvested; }
+    public void incrementRegrowthCounter() { regrowthCounter++; }
+    public int getRegrowthCounter() {
+        return regrowthCounter;
+    }
+    public void setRegrowthCounter(int regrowthCounter) {
+        this.regrowthCounter = regrowthCounter;
+    }
+    public void resetCropFields() {
+        daysGrown = 0;
+        lastWateredDay = -1;
+        readyToHarvest = false;
+        harvested = false;
+        regrowthCounter = 0;
+    }
+    public void resetForRegrowth() {
+        daysGrown = 0;
+        readyToHarvest = false;
+        harvested = false;
+        regrowthCounter = 0;
+    }
+    public boolean isReadyToHarvest() {
+        return readyToHarvest;
     }
 
     @Override

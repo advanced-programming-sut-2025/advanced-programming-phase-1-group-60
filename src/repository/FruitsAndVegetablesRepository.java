@@ -9,7 +9,14 @@ import java.util.List;
 public class FruitsAndVegetablesRepository {
     public static final List<FruitsAndVegetables> crops = new ArrayList<>();
     public static final List<Seeds> seeds = new ArrayList<>();
-
+    public static FruitsAndVegetables getCropByName(String name) {
+        for (FruitsAndVegetables crop : crops) {
+            if (crop.getName().equalsIgnoreCase(name)) {
+                return crop;
+            }
+        }
+        return null;
+    }
     static {
         //Blue jazz
         FruitsAndVegetables blueJazz = new FruitsAndVegetables();

@@ -1,6 +1,7 @@
 package controller;
 
 import models.*;
+import repository.FruitsAndVegetablesRepository;
 import repository.NpcRepository;
 import repository.UserRepository;
 
@@ -301,10 +302,12 @@ public class GamePlayController {
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
                 System.out.println("Tile plowed at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-            } else {
+            }
+            else {
                 System.out.println("Tile is already plowed.");
             }
-        } else if (tool.getName().toLowerCase().contains("pickaxe")) {
+        }
+        else if (tool.getName().toLowerCase().contains("pickaxe")) {
             if (target.isPlowed()) {
                 target.setPlowed(false);
                 System.out.println("Hoe effect removed from tile at (" + tx + ", " + ty + ").");
@@ -477,7 +480,43 @@ public class GamePlayController {
                 energyUsedThisTurn += tool.getEnergyCost();
                 user.consumeEnergy(tool.getEnergyCost());
                 System.out.println("Used scythe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-            } else {
+            }
+            else if (target.getPlantedSeed() != null && target.isReadyToHarvest()) {
+                Seeds seed = target.getPlantedSeed();
+                FruitsAndVegetables crop = FruitsAndVegetablesRepository.crops.stream()
+                        .filter(c -> c.getName().equalsIgnoreCase(seed.getGrowsInto()))
+                        .findFirst().orElse(null);
+                if (crop == null) {
+                    System.out.println("Crop info not found for: " + seed.getGrowsInto());
+                    return;
+                }
+                Item harvested = new Item();
+                harvested.setName(crop.getName());
+                harvested.setQuantity(1);
+                harvested.setSellPrice(crop.getSellPrice());
+                harvested.setEdible(crop.isEdible());
+                harvested.setEnergy(crop.getBaseEnergy());
+                user.getInventory().addItem(harvested);
+
+                // Use crop.isOneTime() and crop.getRegrowthTime()
+                if (crop.isOneTime()) {
+                    // Remove the crop from the tile
+                    target.setPlantedSeed(null);
+                    target.setToNormalTile();
+                    target.resetCropFields();
+                }
+                else {
+                    // Regrowable crop logic
+                    target.setHarvested(true);
+                    target.setReadyToHarvest(false);
+                    target.setRegrowthCounter(0);
+                    System.out.println("Harvested " + crop.getName() + ". The crop will regrow in " + crop.getRegrowthTime() + " days.");
+                }
+                user.consumeEnergy(tool.getEnergyCost());
+                energyUsedThisTurn += tool.getEnergyCost();
+                return;
+            }
+            else {
                 System.out.println("Scythe can only be used on branches ('T') or to collect fruit from trees.");
             }
         }
@@ -941,7 +980,6 @@ public class GamePlayController {
             return;
         }
         Tile target = tiles[ty][tx];
-
         // Check for Tree
         if (target.getRandomElement().isPresent() && target.getRandomElement().get() instanceof Tree tree) {
             printTreeInfo(tree);
@@ -969,10 +1007,18 @@ public class GamePlayController {
         }
         if (target.getPlantedSeed() != null) {
             Seeds seed = target.getPlantedSeed();
+            int totalHarvestTime = seed.getTotalHarvestTime();
+            int currentDay = TimeSystem.getInstance().getCurrentDay();
+            int daysSinceWatered = currentDay - target.getLastWateredDay();
+            int daysSincePlanted = target.getDaysGrown();
             System.out.println("Seed planted: " + seed.getName());
             System.out.println("Grows into: " + seed.getGrowsInto());
             System.out.println("Watered: " + (target.isWatered() ? "Yes" : "No"));
             System.out.println("Giant crop: " + (target.isGiantCrop() ? "Yes" : "No"));
+            System.out.println("Days since last watered: " + daysSinceWatered);
+            System.out.println("Days since planted: " + daysSincePlanted);
+            System.out.println("Total harvest time needed: " + totalHarvestTime);
+            System.out.println("Ready to harvest: " + (target.isReadyToHarvest() ? "Yes" : "No"));
             return;
         }
 
@@ -1095,11 +1141,14 @@ public class GamePlayController {
                 Seeds seed = tile.getPlantedSeed();
                 if (seed == null) continue;
 
+                FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(seed.getGrowsInto());
+                if (fv == null) continue;
+
                 // Check watering
-                if (currentDay - tile.getLastWateredDay() > 2) {
+                if (currentDay - tile.getLastWateredDay() > 50) {
                     tile.setPlantedSeed(null);
                     tile.setType(".");
-                    tile.resetCropFields(); // custom method to reset crop-related fields
+                    tile.resetCropFields();
                     continue;
                 }
 
@@ -1107,14 +1156,18 @@ public class GamePlayController {
                 tile.incrementDaysGrown();
 
                 // Check for harvest
-                if (tile.getDaysGrown() >= seed.getTotalHarvestTime()) {
-                    tile.setReadyToHarvest(true);
+                if (tile.getPlantedSeed() != null) {
+                    tile.setDaysGrown(tile.getDaysGrown() + 1);
+                    if (tile.getDaysGrown() >= tile.getPlantedSeed().getTotalHarvestTime()) {
+                        tile.setReadyToHarvest(true);
+                    }
                 }
 
                 // Regrowth logic
-                if (tile.isHarvested() && !seed.isOneTime()) {
+                if (tile.isHarvested() && !fv.isOneTime()) {
                     tile.incrementRegrowthCounter();
-                    if (tile.getRegrowthCounter() >= seed.getRegrowthTime()) {
+                    Integer regrowthTime = fv.getRegrowthTime();
+                    if (regrowthTime != null && tile.getRegrowthCounter() >= regrowthTime) {
                         tile.resetForRegrowth();
                     }
                 }
