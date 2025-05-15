@@ -4,6 +4,8 @@ import models.*;
 import repository.NpcRepository;
 import repository.UserRepository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class GamePlayController {
@@ -30,6 +32,10 @@ public class GamePlayController {
         walkTo(homeX, homeY, true);
         for (Animal animal : user.getPutAnimals()) {
             animal.resetDailyStatus();
+        }
+        user.getEnergy().resetEnergy();
+        if (user.isEnergyPenaltyActive()) {
+            user.getEnergy().setCurrentEnergy(user.getEnergy().getCurrentEnergy() / 2);
         }
     }
 
@@ -184,7 +190,10 @@ public class GamePlayController {
                 processCheatCommand(parts);
             }else if (parts[0].equalsIgnoreCase("animal")) {
                 System.out.println(processAnimalCommands(input));
-            }else {
+            }else if (parts[0].equalsIgnoreCase("kitchen")) {
+                CookController cookController = new CookController();
+                System.out.println(cookController.handleCommand(user, input));
+            } else {
                 System.out.println("Unknown command.");
             }
         }
@@ -1404,6 +1413,8 @@ public class GamePlayController {
             // رد درخواست
             sender.setFriendshipLevelWithUsers(user, 0);
             user.setFriendshipLevelWithUsers(sender, 0);
+            sender.getFriendshipXpsWithUsers().put(user, 0);
+            user.getFriendshipXpsWithUsers().put(sender, 0);
             sender.applyEnergyPenalty();
             return "Marriage rejected. Friendship reset.";
         }
@@ -1481,7 +1492,81 @@ public class GamePlayController {
                 //cheat thunder x y
                 WeatherController.getInstance().thunder(tiles[Integer.parseInt(parts[3])][Integer.parseInt(parts[4])]);
             }
+            case "item" -> {
+                // parts[0] = "cheat", parts[1] = "item"
+                String itemName = "";
+                int amount      = 0;
+                String type     = "";
 
+                int i = 2;
+                while (i < parts.length) {
+                    switch (parts[i]) {
+                        case "-n" -> {
+                            i++;
+                            List<String> nameParts = new ArrayList<>();
+                            while (i < parts.length && !parts[i].startsWith("-")) {
+                                nameParts.add(parts[i]);
+                                i++;
+                            }
+                            itemName = String.join(" ", nameParts);
+                        }
+                        case "-a" -> {
+                            amount = Integer.parseInt(parts[++i]);
+                            i++;
+                        }
+                        case "-t" -> {
+                            i++;
+                            List<String> typeParts = new ArrayList<>();
+                            while (i < parts.length && !parts[i].startsWith("-")) {
+                                typeParts.add(parts[i]);
+                                i++;
+                            }
+                            type = String.join(" ", typeParts);
+                        }
+                        default -> {
+                            i++;
+                        }
+                    }
+                }
+
+                Item item = new Item();
+                item.setName(itemName);
+                item.setQuantity(amount);
+                if (!type.isEmpty()) {
+                    item.setType(type);
+                }
+                user.getInventory().addItem(item);
+
+                System.out.println(amount + " " + itemName + " has been added to your inventory.");
+            }
+            case "friend" -> {
+                switch (parts[2]) {
+                    case "-u" -> {
+                        // cheat friend -u username -a amount
+                        User target = UserRepository.getInstance().getUserByUsername(parts[3]);
+                        if (target == null) {
+                            System.out.println("user not found");
+                            return;
+                        }
+                        int amount = Integer.parseInt(parts[5]);
+                        user.increaseFriendshipXpsWithUsers(target, amount);
+                        target.increaseFriendshipXpsWithUsers(user, amount);
+                        System.out.println("friendship added with " + target.getUsername());
+                    }
+                    case "-n" -> {
+                        // // cheat friend -n NPCname -a amount
+                        Npc npc = NpcRepository.getInstance().getNpcByName(parts[3]);
+                        user.increaseFriendshipXpsWithNpc(npc, Integer.parseInt(parts[5]));
+                        System.out.println("friendship added with " + npc.getName());
+                    }
+                }
+            }
         }
+    }
+
+    private boolean isInHome () {
+        boolean yCheck = user.getPosition().getPositionY() >= homeY && user.getPosition().getPositionY() <= (homeY + 4);
+        boolean xCheck = user.getPosition().getPositionX() >= homeX && user.getPosition().getPositionX() <= (homeX + 4);
+        return yCheck && xCheck;
     }
 }

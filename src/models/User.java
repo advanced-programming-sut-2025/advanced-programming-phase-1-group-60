@@ -26,13 +26,12 @@ public class User {
     private Inventory inventory = new Inventory(Inventory.InventoryType.NORMAL);
     private List<Game> games = new ArrayList<>();
     private List<String> craftInstructions;
-    private List<String> cookRecipes;
     private Map<User, Integer> friendshipLevelWithUsers;
     private Map<User, Integer> friendshipXpsWithUsers;
     private Map<Npc, Integer> friendshipXpsWithNPCs;
     private HashMap<User,String> unreadMessages;
     private HashMap<User,StringBuilder> allMessages;
-    private List<Item> refrigeratorItems;
+    private List<Item> refrigeratorItems = new ArrayList<>();
     private int money = 3000000;
     private List<Question> securityQuestions;
     private String securityAnswer;
@@ -252,14 +251,6 @@ public class User {
 
     public void setcraftInstructions(List<String> craftInstructions) {
         this.craftInstructions = craftInstructions;
-    }
-
-    public List<String> getCookRecipes() {
-        return cookRecipes;
-    }
-
-    public void setCookRecipes(List<String> cookRecipes) {
-        this.cookRecipes = cookRecipes;
     }
 
     public int getFriendshipXpsWithUsers(User user) {
@@ -585,5 +576,64 @@ public class User {
     int fishingSkillsXp;
     public int getFishingSkills() { return fishingSkillsXp / 50; }
     public void increaseFishingSkills(int amount) { fishingSkillsXp += amount; }
+
+
+    // Cook
+
+    public Item getRefrigeratorItem(String itemName) {
+        for (Item item : refrigeratorItems) {
+            if (item.getName().equals(itemName)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    public void addItemToRefrigerator(Item item) {
+        Item existing = getRefrigeratorItem(item.getName());
+        if (existing != null) {
+            existing.setQuantity(existing.getQuantity() + item.getQuantity());
+        } else {
+            Item newItem = new Item();
+            newItem.setName(item.getName());
+            newItem.setType(item.getType());
+            newItem.setQuantity(item.getQuantity());
+            refrigeratorItems.add(newItem);
+        }
+    }
+
+    public void removeItemFromRefrigerator(String itemName, int quantity) {
+        Item existing = getRefrigeratorItem(itemName);
+        if (existing == null) {
+            throw new IllegalArgumentException("Item not found in refrigerator: " + itemName);
+        }
+        if (existing.getQuantity() < quantity) {
+            throw new IllegalArgumentException("Not enough " + itemName + " in refrigerator");
+        }
+        existing.setQuantity(existing.getQuantity() - quantity);
+        if (existing.getQuantity() == 0) {
+            refrigeratorItems.remove(existing);
+        }
+    }
+
+    public int getRefrigeratorItemQuantity(String itemName) {
+        Item existing = getRefrigeratorItem(itemName);
+        if (existing == null) {
+            return 0;
+        }
+        return existing.getQuantity();
+    }
+
+    private List<String> cookRecipes = new ArrayList<>();
+
+    public List<String> getCookRecipes() {
+        return cookRecipes;
+    }
+
+    public void learnRecipe(String recipeName) {
+        if (!cookRecipes.contains(recipeName)) {
+            cookRecipes.add(recipeName);
+        }
+    }
 
 }

@@ -143,4 +143,22 @@ public class Inventory {
         }
         return map;
     }
+
+    public Item getItem(String itemName) {
+        for (Item i : items) {
+            if (i.getName().equalsIgnoreCase(itemName)) {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    public int getItemQuantityByName(String itemName) {
+        for (Item item : items) {
+            if (item.getName().equalsIgnoreCase(itemName)) {
+                return item.getQuantity();
+            }
+        }
+        return 0;
+    }
 }
