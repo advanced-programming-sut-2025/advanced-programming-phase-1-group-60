@@ -54,23 +54,24 @@ public class GamePlayController {
             if (!unreadMarriage.isEmpty()) {
                 System.out.println("Marriage requests:\n" + unreadMarriage);
             }
-
             String input = sc.nextLine();
             String[] parts = input.split("\\s+");
 
             if (parts[0].equalsIgnoreCase("craft")) {
-                if (parts.length != 2) {
+
+                    if (parts.length != 2) {
                     System.out.println("Invalid craft command. Usage: craft <item_name>");
                     continue;
                 }
                 String itemName = parts[1];
-                String result = HomeController.crafting(itemName, user);
+                String result = HomeController.crafting("craft", itemName, user);
                 System.out.println(result);
+
             } else if (parts[0].equalsIgnoreCase("cheat") && parts[1].equalsIgnoreCase("add") && parts[2].equalsIgnoreCase("item")) {
-                if (parts.length != 6 || !parts[3].equalsIgnoreCase("-n") || !parts[5].equalsIgnoreCase("-c")) {
-                    System.out.println("Error: Invalid cheat command. Usage: cheat add item -n <item_name> -c <count>");
-                    continue;
-                }
+                if (parts.length < 6 || !"-n".equalsIgnoreCase(parts[3].trim()) || !"-c".equalsIgnoreCase(parts[5].trim())) {
+                System.out.println("Error: Invalid cheat command. Usage: cheat add item -n <item_name> -c <count>");
+                continue;
+            }
 
                 String itemName = parts[4];
                 int count;
@@ -83,7 +84,24 @@ public class GamePlayController {
 
                 String result = HomeController.addItemToInventory(itemName, count, user);
                 System.out.println(result);
+
+            } else if (parts[0].equalsIgnoreCase("unlock") && parts[1].equalsIgnoreCase("recipe")) {
+                if (parts.length != 3) {
+                    System.out.println("Error: Invalid unlock command. Usage: unlock recipe <recipe_name>");
+                    continue;
+                }
+                String recipeName = parts[2];
+                String result = HomeController.crafting("unlock recipe", recipeName);
+                System.out.println(result);
+
+            } else if (parts[0].equalsIgnoreCase("show_recipes")) {
+                String result = HomeController.crafting("show_recipes");
+                System.out.println(result);
+
+            } else {
+                System.out.println("Error: Unknown command.");
             }
+
 
             if (parts[0].equalsIgnoreCase("tool")) {
                 if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
@@ -226,9 +244,10 @@ public class GamePlayController {
                 goToSpouseFarm();
             } else if (input.equalsIgnoreCase("go to my farm")) {
                 goToMyFarm();
-            } else {
-                System.out.println("Unknown command.");
-            }
+            }// else {
+//                System.out.println("Unknown command.");
+//                System.out.println("injas");
+           // }
         }
     }
 
