@@ -42,7 +42,11 @@ public class Farm {
             int idx = RNG.nextInt(repo.size());
             return new Tree(repo.get(idx));
         });
-        scatter(20, Stone::new);
+        scatter(20, () -> {
+            var minerals = repository.ForagingRepository.foragingMinerals;
+            int idx = RNG.nextInt(minerals.size());
+            return new Stone(minerals.get(idx));
+        });
         scatterForageItems(60);
     }
 
@@ -196,7 +200,24 @@ public class Farm {
 
     private void setRandomItems() {
     }
-
+    public void spawnDailyForageItems() {
+        scatterForageItems(5);
+    }
+    public void spawnDailyStones(int count) {
+        int placed = 0;
+        while (placed < count) {
+            int x = RNG.nextInt(FarmTemplate.WIDTH);
+            int y = RNG.nextInt(FarmTemplate.HEIGHT);
+            Tile t = tiles[y][x];
+            if (t.getStaticElement().isEmpty() && t.getRandomElement().isEmpty()) {
+                var minerals = repository.ForagingRepository.foragingMinerals;
+                int idx = RNG.nextInt(minerals.size());
+                t.setRandomElement(new Stone(minerals.get(idx)));
+                t.setType("S");
+                placed++;
+            }
+        }
+    }
     public List<Item> getStaticItems() {
         return staticItems;
     }

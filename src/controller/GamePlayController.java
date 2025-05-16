@@ -16,8 +16,10 @@ public class GamePlayController {
     private Game currentGame;
     private int energyLimitPerTurn = 50;
     public int homeX, homeY;
+    private final Farm farm;
 
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
+        this.farm = f;
         this.tiles = f.getTiles();
         this.user = u;
         this.sc = sc;
@@ -29,6 +31,9 @@ public class GamePlayController {
     }
 
     public void initializeNextDay() {
+        processCrowAttack();
+        farm.spawnDailyForageItems();
+        farm.spawnDailyStones(5);
         for (int y = 0; y < tiles.length; y++) {
             for (int x = 0; x < tiles[0].length; x++) {
                 checkAndMarkGiantCrop(x, y);
@@ -333,13 +338,15 @@ public class GamePlayController {
             } else {
                 System.out.println("Tile is already plowed.");
             }
-        } else if (tool.getName().toLowerCase().contains("pickaxe")) {
+        }
+        else if (tool.getName().toLowerCase().contains("pickaxe")) {
             if (target.isPlowed()) {
                 target.setPlowed(false);
                 System.out.println("Hoe effect removed from tile at (" + tx + ", " + ty + ").");
                 return;
             }
-            if (!('S' == target.getRandomElement().map(RandomElement::symbol).orElse(' '))) {
+            Optional<RandomElement> optElement = target.getRandomElement();
+            if (optElement.isEmpty() || !(optElement.get() instanceof Stone stone)) {
                 System.out.println("Pickaxe can only be used on stones (tile 'S').");
                 return;
             }
@@ -351,13 +358,24 @@ public class GamePlayController {
                 System.out.println("Not enough energy to use the pickaxe.");
                 return;
             }
+            // Add the mineral to inventory
+            ForagingMineral mineral = stone.getMineral();
+            if (mineral != null) {
+                Item mineralItem = new Item();
+                mineralItem.setName(mineral.getName());
+                mineralItem.setQuantity(1);
+                mineralItem.setSellPrice(mineral.getBaseSellPrice());
+                user.getInventory().addItem(mineralItem);
+                System.out.println("You mined " + mineral.getName() + " from the stone!");
+            }
+            // Remove the stone
             target.setToNormalTile();
             target.setType(".");
-            // Optionally, you can add logic to remove the stone here if needed
             energyUsedThisTurn += tool.getEnergyCost();
             user.consumeEnergy(energyCost);
             System.out.println("Used pickaxe on stone at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-        } else if (tool.getName().toLowerCase().contains("axe")) {
+        }
+        else if (tool.getName().toLowerCase().contains("axe")) {
             RandomElement element = target.getRandomElement().orElse(null);
             if (element instanceof Tree tree) {
                 // Add Wood to inventory
@@ -1223,7 +1241,37 @@ public class GamePlayController {
             }
         }
     }
-
+    private void processCrowAttack() {
+        List<Tile> cropTiles = new ArrayList<>();
+        for (int y = 0; y < tiles.length; y++) {
+            for (int x = 0; x < tiles[0].length; x++) {
+                Tile tile = tiles[y][x];
+                if (tile.getPlantedSeed() != null && !tile.isGreenHouseTile()) {
+                    cropTiles.add(tile);
+                }
+            }
+        }
+        if (cropTiles.size() > 16 && Math.random() < 0.25) {
+            Tile target = cropTiles.get(new Random().nextInt(cropTiles.size()));
+            Seeds seed = target.getPlantedSeed();
+            if (seed != null) {
+                FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(seed.getGrowsInto());
+                if (fv != null) {
+                    System.out.println("Crow attack: " + seed.getName() + " isOneTime=" + fv.isOneTime());
+                    if (!fv.isOneTime()) {
+                        target.resetForRegrowth();
+                        System.out.println("A crow attacked a regrowable crop at (" + target.getPositionX() + ", " + target.getPositionY() + ")! It will regrow.");
+                    } else {
+                        target.setPlantedSeed(null);
+                        target.resetCropFields();
+                        target.setToNormalTile();
+                        target.setType(".");
+                        System.out.println("A crow destroyed a crop at (" + target.getPositionX() + ", " + target.getPositionY() + ")!");
+                    }
+                }
+            }
+        }
+    }
     private void updateCropsDaily(int daysToAdvance) {
         int currentDay = TimeSystem.getInstance().getCurrentDay();
         for (int y = 0; y < tiles.length; y++) {
@@ -1253,7 +1301,7 @@ public class GamePlayController {
                     tile.setRegrowthCounter(tile.getRegrowthCounter() + daysToAdvance);
                     Integer regrowthTime = fv.getRegrowthTime();
                     if (regrowthTime != null && tile.getRegrowthCounter() >= regrowthTime) {
-                        // ... regrow logic ...
+                        tile.resetForRegrowth();
                     }
                 }
             }

@@ -201,5 +201,84 @@ public class ForagingRepository {
         foragingTrees.add(mushroomTreeSeeds);
     }
     static {
+        ForagingMineral quartz = new ForagingMineral();
+        quartz.setName("Quartz");
+        quartz.setBaseSellPrice(25);
+        foragingMinerals.add(quartz);
+
+        ForagingMineral earthCrystal = new ForagingMineral();
+        earthCrystal.setName("Earth Crystal");
+        earthCrystal.setBaseSellPrice(50);
+        foragingMinerals.add(earthCrystal);
+
+        ForagingMineral frozenTear = new ForagingMineral();
+        frozenTear.setName("Frozen Tear");
+        frozenTear.setBaseSellPrice(75);
+        foragingMinerals.add(frozenTear);
+
+        ForagingMineral fireQuartz = new ForagingMineral();
+        fireQuartz.setName("Fire Quartz");
+        fireQuartz.setBaseSellPrice(100);
+        foragingMinerals.add(fireQuartz);
+
+        ForagingMineral emerald = new ForagingMineral();
+        emerald.setName("Emerald");
+        emerald.setBaseSellPrice(250);
+        foragingMinerals.add(emerald);
+
+        ForagingMineral aquamarine = new ForagingMineral();
+        aquamarine.setName("Aqua Marine");
+        aquamarine.setBaseSellPrice(180);
+        foragingMinerals.add(aquamarine);
+
+        ForagingMineral amethyst = new ForagingMineral();
+        amethyst.setName("Amethyst");
+        amethyst.setBaseSellPrice(100);
+        foragingMinerals.add(amethyst);
+
+        ForagingMineral topaz = new ForagingMineral();
+        topaz.setName("Topaz");
+        topaz.setBaseSellPrice(80);
+        foragingMinerals.add(topaz);
+
+        ForagingMineral jade = new ForagingMineral();
+        jade.setName("Jade");
+        jade.setBaseSellPrice(200);
+        foragingMinerals.add(jade);
+
+        ForagingMineral diamond = new ForagingMineral();
+        diamond.setName("Diamond");
+        diamond.setBaseSellPrice(750);
+        foragingMinerals.add(diamond);
+
+        ForagingMineral prismaticShard = new ForagingMineral();
+        prismaticShard.setName("Prismatic Shard");
+        prismaticShard.setBaseSellPrice(2000);
+        foragingMinerals.add(prismaticShard);
+
+        ForagingMineral copper = new ForagingMineral();
+        copper.setName("Copper");
+        copper.setBaseSellPrice(5);
+        foragingMinerals.add(copper);
+
+        ForagingMineral iron = new ForagingMineral();
+        iron.setName("Iron");
+        iron.setBaseSellPrice(10);
+        foragingMinerals.add(iron);
+
+        ForagingMineral gold = new ForagingMineral();
+        gold.setName("Gold");
+        gold.setBaseSellPrice(25);
+        foragingMinerals.add(gold);
+
+        ForagingMineral iridium = new ForagingMineral();
+        iridium.setName("Iridium");
+        iridium.setBaseSellPrice(100);
+        foragingMinerals.add(iridium);
+
+        ForagingMineral coal = new ForagingMineral();
+        coal.setName("Coal");
+        coal.setBaseSellPrice(15);
+        foragingMinerals.add(coal);
     }
 }
