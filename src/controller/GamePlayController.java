@@ -24,7 +24,8 @@ public class GamePlayController {
         u.setPosition(tiles[0][0]);
         energyUsedThisTurn = 0;
         currentGame = game;
-        homeX = f.getHomeX(); homeY = f.getHomeY();
+        homeX = f.getHomeX();
+        homeY = f.getHomeY();
     }
 
     public void initializeNextDay() {
@@ -32,19 +33,27 @@ public class GamePlayController {
             for (int x = 0; x < tiles[0].length; x++) {
                 checkAndMarkGiantCrop(x, y);
             }
+            for (int x = 0; x < tiles[0].length; x++) {
+                Tile tile = tiles[y][x];
+                tile.getRandomElement().ifPresent(element -> {
+                    if (element instanceof Tree tree) {
+                        tree.setFruitsHarvestedToday(0);
+                    }
+                });
+            }
         }
         walkTo(homeX, homeY, true);
         for (Animal animal : user.getPutAnimals()) {
             animal.resetDailyStatus();
         }
-        updateCropsDaily();
+        updateCropsDaily(1);
     }
 
     public void getAndProcessInput() {
         energyUsedThisTurn = 0;
         user.setPosition(tiles[0][0]);
         while (energyUsedThisTurn <= energyLimitPerTurn) {
-            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")" );
+            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
             String unread = user.getUnreadMessage();
             if (!unread.isEmpty()) {
                 System.out.println("You have unread messages: \n" + unread);
@@ -67,8 +76,7 @@ public class GamePlayController {
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid tool ID.");
                     }
-                }
-                else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
+                } else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
                     try {
                         int toolId = Integer.parseInt(parts[2]);
                         boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
@@ -78,17 +86,14 @@ public class GamePlayController {
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid tool ID.");
                     }
-                }
-                else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
+                } else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
                     useEquippedToolRefillOnly();
-                }
-                else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
+                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
                     showCurrentTool();
                 } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
                     showAvailableTools();
 
-                }
-                else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
+                } else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
                     try {
                         int direction = Integer.parseInt(parts[3]);
                         boolean refill = parts.length >= 5 && parts[4].equalsIgnoreCase("-r");
@@ -96,8 +101,7 @@ public class GamePlayController {
                     } catch (NumberFormatException e) {
                         System.out.println("Invalid direction.");
                     }
-                }
-                else {
+                } else {
                     System.out.println("Unknown tool command.");
                 }
             } else if (parts[0].equalsIgnoreCase("walk")) {
@@ -179,7 +183,7 @@ public class GamePlayController {
                 System.out.println(processRespondCommand(response, username));
             } else if (input.startsWith("buy")) {
                 buyFromStore(input);
-            }else if (input.startsWith("place")) {
+            } else if (input.startsWith("place")) {
                 String placeName = parts[2];
                 if (parts.length > 2) {
                     StringBuilder sb = new StringBuilder();
@@ -187,19 +191,16 @@ public class GamePlayController {
                     placeName = sb.toString();
                 }
                 System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
-            }else if (input.startsWith("cheat")) {
+            } else if (input.startsWith("cheat")) {
                 processCheatCommand(parts);
-            }else if (parts[0].equalsIgnoreCase("animal")) {
+            } else if (parts[0].equalsIgnoreCase("animal")) {
                 System.out.println(processAnimalCommands(input));
-            }
-            else if (input.equalsIgnoreCase("inventory show")){
+            } else if (input.equalsIgnoreCase("inventory show")) {
                 showInventory(user);
-            }
-            else if (input.startsWith("inventory trash")) {
+            } else if (input.startsWith("inventory trash")) {
                 String[] args = input.replaceFirst("inventory trash", "").trim().split(" ");
                 System.out.println(processTrashCommand(args));
-            }
-            else if (parts[0].equalsIgnoreCase("craftinfo") && parts.length >= 3 && parts[1].equals("-n")) {
+            } else if (parts[0].equalsIgnoreCase("craftinfo") && parts.length >= 3 && parts[1].equals("-n")) {
                 StringBuilder nameBuilder = new StringBuilder();
                 for (int i = 2; i < parts.length; i++) {
                     nameBuilder.append(parts[i]);
@@ -207,16 +208,14 @@ public class GamePlayController {
                 }
                 String cropName = nameBuilder.toString();
                 showCraftInfo(cropName);
-            }
-            else if (parts[0].equalsIgnoreCase("showplant") && parts.length == 3 && parts[1].equals("-d")) {
+            } else if (parts[0].equalsIgnoreCase("showplant") && parts.length == 3 && parts[1].equals("-d")) {
                 try {
                     int direction = Integer.parseInt(parts[2]);
                     showPlantInDirection(direction);
                 } catch (NumberFormatException e) {
                     System.out.println("Invalid direction. Use a number from 1 to 9.");
                 }
-            }
-            else if (parts.length >= 5 && parts[0].equalsIgnoreCase("plant") && parts[1].equalsIgnoreCase("-s")) {
+            } else if (parts.length >= 5 && parts[0].equalsIgnoreCase("plant") && parts[1].equalsIgnoreCase("-s")) {
                 int sIndex = 1;
                 int dIndex = -1;
                 for (int i = 2; i < parts.length; i++) {
@@ -245,6 +244,34 @@ public class GamePlayController {
                 boolean force = (dIndex + 2 < parts.length) && parts[dIndex + 2].equalsIgnoreCase("-f");
                 plantSeed(seedName, direction, force);
             }
+            // In GamePlayController.java, inside getAndProcessInput()
+            else if (parts[0].equalsIgnoreCase("fertilize")) {
+                StringBuilder fertilizerBuilder = new StringBuilder();
+                int direction = -1;
+                boolean force = false;
+                for (int i = 1; i < parts.length; i++) {
+                    if (parts[i].equalsIgnoreCase("-f") && i + 1 < parts.length) {
+                        int j = i + 1;
+                        while (j < parts.length && !parts[j].equalsIgnoreCase("-d") && !parts[j].equalsIgnoreCase("-f")) {
+                            if (fertilizerBuilder.length() > 0) fertilizerBuilder.append(" ");
+                            fertilizerBuilder.append(parts[j]);
+                            j++;
+                        }
+                        i = j - 1;
+                    } else if (parts[i].equalsIgnoreCase("-d") && i + 1 < parts.length) {
+                        direction = Integer.parseInt(parts[i + 1]);
+                        i++;
+                    } else if (parts[i].equalsIgnoreCase("-f") && i == parts.length - 1) {
+                        force = true;
+                    }
+                }
+                String fertilizer = fertilizerBuilder.length() > 0 ? fertilizerBuilder.toString() : null;
+                if (fertilizer == null || direction == -1) {
+                    System.out.println("Usage: fertilize -f <fertilizer> -d <direction> [-f]");
+                    return;
+                }
+                applyFertilizer(fertilizer, direction, force);
+            }
             else {
                 System.out.println("Unknown command.");
             }
@@ -271,6 +298,7 @@ public class GamePlayController {
         user.setEquippedTool(tool);
         System.out.println("Equipped tool: " + tool.getName());
     }
+
     private void useEquippedTool(int direction, boolean refill) {
         Item equipped = user.getEquippedTool();
         if (!(equipped instanceof Tools)) {
@@ -302,12 +330,10 @@ public class GamePlayController {
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
                 System.out.println("Tile plowed at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-            }
-            else {
+            } else {
                 System.out.println("Tile is already plowed.");
             }
-        }
-        else if (tool.getName().toLowerCase().contains("pickaxe")) {
+        } else if (tool.getName().toLowerCase().contains("pickaxe")) {
             if (target.isPlowed()) {
                 target.setPlowed(false);
                 System.out.println("Hoe effect removed from tile at (" + tx + ", " + ty + ").");
@@ -331,8 +357,7 @@ public class GamePlayController {
             energyUsedThisTurn += tool.getEnergyCost();
             user.consumeEnergy(energyCost);
             System.out.println("Used pickaxe on stone at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("axe")) {
+        } else if (tool.getName().toLowerCase().contains("axe")) {
             RandomElement element = target.getRandomElement().orElse(null);
             if (element instanceof Tree tree) {
                 // Add Wood to inventory
@@ -340,6 +365,14 @@ public class GamePlayController {
                 wood.setName("Wood");
                 wood.setQuantity(1);
                 user.getInventory().addItem(wood);
+                if (tree.isStruckByLightning()) {
+                    Item coal = new Item();
+                    coal.setName("Coal");
+                    coal.setQuantity(1);
+                    user.getInventory().addItem(coal);
+                    System.out.println("The tree was struck by lightning! You received Coal.");
+                }
+                tree.setStruckByLightning(false);
 
                 // Add Sapling to inventory
                 Item sapling = new Item();
@@ -361,8 +394,7 @@ public class GamePlayController {
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
                 System.out.println("Chopped down " + tree.getName() + ". Added Wood and " + tree.getName() + " Sapling to inventory.");
-            }
-            else if (element instanceof ForagingCrop crop) {
+            } else if (element instanceof ForagingCrop crop) {
                 // Add the foraging crop to inventory
                 Item item = new Item();
                 item.setName(crop.getName());
@@ -379,8 +411,7 @@ public class GamePlayController {
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
                 System.out.println("Collected " + crop.getName() + " and added to inventory.");
-            }
-            else if (element instanceof Seeds seed) {
+            } else if (element instanceof Seeds seed) {
                 // Add the seed to inventory
                 Seeds newSeed = new Seeds();
                 newSeed.setName(seed.getName());
@@ -397,8 +428,7 @@ public class GamePlayController {
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
                 System.out.println("Collected " + seed.getName() + " seed and added to inventory.");
-            }
-            else if (element != null && element.symbol() == 'T') {
+            } else if (element != null && element.symbol() == 'T') {
                 // Old branch logic
                 target.setToNormalTile();
                 target.setType(".");
@@ -408,8 +438,7 @@ public class GamePlayController {
             } else {
                 System.out.println("Axe can only be used on trees ('F') or branches ('T').");
             }
-        }
-        else if (tool.getName().toLowerCase().contains("wateringcan")) {
+        } else if (tool.getName().toLowerCase().contains("wateringcan")) {
             // Watering logic as before...
             int radius = tool.getRadius();
             int centerX = user.getPosition().getPositionX() + dx[direction - 1];
@@ -428,8 +457,7 @@ public class GamePlayController {
             user.consumeEnergy(tool.getEnergyCost());
             energyUsedThisTurn += tool.getEnergyCost();
             System.out.println("Watered " + watered + " tiles. Usage left: " + tool.getCurrentUsage() + ". Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("fishingpole")) {
+        } else if (tool.getName().toLowerCase().contains("fishingpole")) {
             boolean isLake = target.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'L'
                     || target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L';
             if (!isLake) {
@@ -449,8 +477,7 @@ public class GamePlayController {
                 // Optionally: add fish to inventory here
             }
             System.out.println("Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("scythe")) {
+        } else if (tool.getName().toLowerCase().contains("scythe")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the scythe.");
                 return;
@@ -459,6 +486,10 @@ public class GamePlayController {
             RandomElement element = target.getRandomElement().orElse(null);
             if (element instanceof Tree tree) {
                 // Collect fruit
+                if (tree.getFruitsHarvestedToday() >= 2) {
+                    System.out.println("You can only harvest fruits from this tree twice per day.");
+                    return;
+                }
                 if (tree.getFruit() != null && !tree.getFruit().isEmpty()) {
                     // Create fruit item
                     Item fruit = new Item();
@@ -468,6 +499,7 @@ public class GamePlayController {
                     fruit.setEnergy(tree.getFruitEnergy());
                     fruit.setQuantity(1);
                     user.getInventory().addItem(fruit);
+                    tree.incrementFruitsHarvestedToday();
                     System.out.println("Collected " + fruit.getName() + " from the tree and added to inventory.");
                 } else {
                     System.out.println("This tree has no fruit to collect.");
@@ -480,8 +512,7 @@ public class GamePlayController {
                 energyUsedThisTurn += tool.getEnergyCost();
                 user.consumeEnergy(tool.getEnergyCost());
                 System.out.println("Used scythe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-            }
-            else if (target.getPlantedSeed() != null && target.isReadyToHarvest()) {
+            } else if (target.getPlantedSeed() != null && target.isReadyToHarvest()) {
                 Seeds seed = target.getPlantedSeed();
                 FruitsAndVegetables crop = FruitsAndVegetablesRepository.crops.stream()
                         .filter(c -> c.getName().equalsIgnoreCase(seed.getGrowsInto()))
@@ -504,8 +535,7 @@ public class GamePlayController {
                     target.setPlantedSeed(null);
                     target.setToNormalTile();
                     target.resetCropFields();
-                }
-                else {
+                } else {
                     // Regrowable crop logic
                     target.setHarvested(true);
                     target.setReadyToHarvest(false);
@@ -515,12 +545,10 @@ public class GamePlayController {
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
                 return;
-            }
-            else {
+            } else {
                 System.out.println("Scythe can only be used on branches ('T') or to collect fruit from trees.");
             }
-        }
-        else if (tool.getName().toLowerCase().contains("milk pail")) {
+        } else if (tool.getName().toLowerCase().contains("milk pail")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the milk pail.");
                 return;
@@ -528,8 +556,7 @@ public class GamePlayController {
             user.consumeEnergy(tool.getEnergyCost());
             energyUsedThisTurn += tool.getEnergyCost();
             System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
-        }
-        else if (tool.getName().toLowerCase().contains("shear")) {
+        } else if (tool.getName().toLowerCase().contains("shear")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the shear.");
                 return;
@@ -537,11 +564,11 @@ public class GamePlayController {
             user.consumeEnergy(tool.getEnergyCost());
             energyUsedThisTurn += tool.getEnergyCost();
             System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
-        }
-        else {
+        } else {
             System.out.println("Wrong Tool!");
         }
     }
+
     private void useEquippedToolRefillOnly() {
         Item equipped = user.getEquippedTool();
         if (!(equipped instanceof Tools) || !equipped.getName().toLowerCase().contains("wateringcan")) {
@@ -573,6 +600,7 @@ public class GamePlayController {
             System.out.println("You must be next to a lake (L) tile to refill.");
         }
     }
+
     private void showCurrentTool() {
         Item currentTool = user.getEquippedTool();
         if (!(currentTool instanceof Tools)) {
@@ -625,6 +653,7 @@ public class GamePlayController {
             }
         }
     }
+
     // Add this method to GamePlayController
     private void upgradeToolById(int toolId, boolean force, int level) {
         Item tool = user.getInventory().getItems().stream()
@@ -697,7 +726,7 @@ public class GamePlayController {
     }
 
     // Upgrade logic for each tool type
-    private void upgradeT (Tools t) {
+    private void upgradeT(Tools t) {
         if (t.getName().toLowerCase().contains("hoe")) {
             Tools.HoeStage stage = t.getHoeStage();
             switch (stage) {
@@ -799,6 +828,7 @@ public class GamePlayController {
             System.out.println("Unknown tool type.");
         }
     }
+
     private void plantSeed(String itemName, int direction, boolean force) {
         int[] dx = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
         int[] dy = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
@@ -847,11 +877,21 @@ public class GamePlayController {
 
             List<String> options;
             switch (season) {
-                case "Spring": options = spring; break;
-                case "Summer": options = summer; break;
-                case "Fall": options = fall; break;
-                case "Winter": options = winter; break;
-                default: options = new ArrayList<>(); break;
+                case "Spring":
+                    options = spring;
+                    break;
+                case "Summer":
+                    options = summer;
+                    break;
+                case "Fall":
+                    options = fall;
+                    break;
+                case "Winter":
+                    options = winter;
+                    break;
+                default:
+                    options = new ArrayList<>();
+                    break;
             }
 
             if (options.isEmpty()) {
@@ -877,7 +917,8 @@ public class GamePlayController {
             System.out.println("Planted Mixed Seeds (" + chosenCrop + ") at (" + tx + ", " + ty + ").");
             return;
         }
-
+        target.setDaysGrown(0);
+        target.setLastWateredDay(TimeSystem.getInstance().getCurrentDay());
         target.setPlantedSeed(seed);
         target.setType("*");
         if (!force) user.getInventory().removeItem(seed);
@@ -885,6 +926,7 @@ public class GamePlayController {
         checkAndMarkGiantCrop(tx, ty);
         System.out.println("Planted seed: " + itemName + " at (" + tx + ", " + ty + ").");
     }
+
     private void showInventory(User player) {
         Inventory inventory = player.getInventory();
         List<Item> items = inventory.getItems();
@@ -893,6 +935,7 @@ public class GamePlayController {
             System.out.println(item.getName() + " x" + item.getQuantity());
         }
     }
+
     private void showCraftInfo(String name) {
         // Check FruitsAndVegetables (All Crops)
         FruitsAndVegetables crop = repository.FruitsAndVegetablesRepository.crops.stream()
@@ -964,6 +1007,50 @@ public class GamePlayController {
         }
 
         System.out.println("Item not found: " + name);
+    }
+    private void applyFertilizer(String fertilizer, int direction, boolean force) {
+        int[] dx = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
+        int[] dy = {-1, -1, -1, 0, 0, 0, 1, 1, 1};
+        int tx = user.getPosition().getPositionX() + dx[direction - 1];
+        int ty = user.getPosition().getPositionY() + dy[direction - 1];
+
+        if (ty < 0 || tx < 0 || ty >= tiles.length || tx >= tiles[0].length) {
+            System.out.println("Target tile is out of bounds.");
+            return;
+        }
+        Tile target = tiles[ty][tx];
+
+        if (target.getPlantedSeed() == null) {
+            System.out.println("No crop planted at the target tile.");
+            return;
+        }
+
+        // Check inventory for fertilizer unless force
+        if (!force) {
+            boolean hasFertilizer = user.getInventory().getItems().stream()
+                    .anyMatch(i -> i.getName().equalsIgnoreCase(fertilizer) && i.getQuantity() > 0);
+            if (!hasFertilizer) {
+                System.out.println("You don't have " + fertilizer + " in your inventory.");
+                return;
+            }
+            user.getInventory().removeItemByName(fertilizer, 1);
+        }
+
+        if (fertilizer.equalsIgnoreCase("Speed-Gro")) {
+            int current = target.getPlantedSeed().getTotalHarvestTime();
+            if (current > 1) {
+                target.getPlantedSeed().setTotalHarvestTime(current - 1);
+                System.out.println("Applied Speed-Gro: Crop will grow 1 day faster.");
+            } else {
+                System.out.println("Crop is already at minimum growth time.");
+            }
+        } else if (fertilizer.equalsIgnoreCase("Deluxe Retaining Soil")) {
+            target.setWatered(true);
+            target.setProperty("alwaysWatered", true);
+            System.out.println("Applied Deluxe Retaining Soil: Crop will stay watered forever.");
+        } else {
+            System.out.println("Unknown fertilizer: " + fertilizer);
+        }
     }
     private void showPlantInDirection(int direction) {
         int[] dx = {-1, 0, 1, -1, 0, 1, -1, 0, 1};
@@ -1039,6 +1126,7 @@ public class GamePlayController {
         System.out.println("Fruit Energy: " + tree.getFruitEnergy());
         System.out.println("Season(s): " + String.join(", ", tree.getSuitableSeasons()));
     }
+
     private String processTrashCommand(String[] args) {
         String itemName = null;
         Integer number = null;
@@ -1051,7 +1139,8 @@ public class GamePlayController {
             if (args[i].equals("-n") && i + 1 < args.length) {
                 try {
                     number = Integer.parseInt(args[i + 1]);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
         }
         if (itemName == null) return "Item name required (-i <item's name>)";
@@ -1101,6 +1190,7 @@ public class GamePlayController {
 
         return "Trashed " + removeCount + " " + itemName + (moneyBack > 0 ? (", received " + moneyBack + " money") : "");
     }
+
     // In your GamePlayController or a CropController class
     private void checkAndMarkGiantCrop(int x, int y) {
         for (int dx = 0; dx <= 1; dx++) {
@@ -1133,7 +1223,8 @@ public class GamePlayController {
             }
         }
     }
-    private void updateCropsDaily() {
+
+    private void updateCropsDaily(int daysToAdvance) {
         int currentDay = TimeSystem.getInstance().getCurrentDay();
         for (int y = 0; y < tiles.length; y++) {
             for (int x = 0; x < tiles[0].length; x++) {
@@ -1144,7 +1235,6 @@ public class GamePlayController {
                 FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(seed.getGrowsInto());
                 if (fv == null) continue;
 
-                // Check watering
                 if (currentDay - tile.getLastWateredDay() > 50) {
                     tile.setPlantedSeed(null);
                     tile.setType(".");
@@ -1152,28 +1242,24 @@ public class GamePlayController {
                     continue;
                 }
 
-                // Grow crop
-                tile.incrementDaysGrown();
-
-                // Check for harvest
-                if (tile.getPlantedSeed() != null) {
-                    tile.setDaysGrown(tile.getDaysGrown() + 1);
-                    if (tile.getDaysGrown() >= tile.getPlantedSeed().getTotalHarvestTime()) {
-                        tile.setReadyToHarvest(true);
-                    }
+                // Increment daysGrown by daysToAdvance
+                tile.setDaysGrown(tile.getDaysGrown() + daysToAdvance);
+                if (tile.getDaysGrown() >= tile.getPlantedSeed().getTotalHarvestTime()) {
+                    tile.setReadyToHarvest(true);
                 }
 
-                // Regrowth logic
+                // Regrowth logic (adjust as needed)
                 if (tile.isHarvested() && !fv.isOneTime()) {
-                    tile.incrementRegrowthCounter();
+                    tile.setRegrowthCounter(tile.getRegrowthCounter() + daysToAdvance);
                     Integer regrowthTime = fv.getRegrowthTime();
                     if (regrowthTime != null && tile.getRegrowthCounter() >= regrowthTime) {
-                        tile.resetForRegrowth();
+                        // ... regrow logic ...
                     }
                 }
             }
         }
     }
+
     public void walkTo(int tx, int ty, boolean isForced) {
         if (tx < 0 || ty < 0 || ty >= tiles.length || tx >= tiles[0].length) {
             System.out.println("خارج از مرز مزرعه!");
@@ -1963,7 +2049,7 @@ public class GamePlayController {
         }
     }
 
-    private void buyFromStore (String input) {
+    private void buyFromStore(String input) {
         int playerX = user.getPosition().getPositionX();
         int playerY = user.getPosition().getPositionY();
         GameMap map = currentGame.getCurrentMap();
@@ -1976,8 +2062,8 @@ public class GamePlayController {
 
                 Tile tile = map.getTile(x + 50, y + 50);
                 if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
-                   System.out.println(store.purchaseProduct(user, input).getMessage());
-                   return;
+                    System.out.println(store.purchaseProduct(user, input).getMessage());
+                    return;
                 }
             }
         }
@@ -2008,34 +2094,68 @@ public class GamePlayController {
             case "time" -> {
                 switch (parts[2]) {
                     //cheat time hour value
-                    case "hour": boolean isDayChanged = TimeSystem.getInstance().advanceTime(Integer.parseInt(parts[3]));
-                    if (isDayChanged) initializeNextDay();
-                    System.out.println("current hour: " + TimeSystem.getInstance().getCurrentHour());
-                    break;
+                    case "hour":
+                        boolean isDayChanged = TimeSystem.getInstance().advanceTime(Integer.parseInt(parts[3]));
+                        if (isDayChanged) initializeNextDay();
+                        System.out.println("current hour: " + TimeSystem.getInstance().getCurrentHour());
+                        break;
                     //cheat time year value
-                    case "year": TimeSystem.getInstance().setCurrentYear(Integer.parseInt(parts[3]));
-                    System.out.println("current year: " + TimeSystem.getInstance().getCurrentYear());
-                    break;
+                    case "year":
+                        TimeSystem.getInstance().setCurrentYear(Integer.parseInt(parts[3]));
+                        System.out.println("current year: " + TimeSystem.getInstance().getCurrentYear());
+                        break;
                     //cheat time season value
-                    case "season": TimeSystem.getInstance().setCurrentSeason(parts[3]);
-                    System.out.println("current season: " + TimeSystem.getInstance().getCurrentSeason());
-                    break;
+                    case "season":
+                        TimeSystem.getInstance().setCurrentSeason(parts[3]);
+                        System.out.println("current season: " + TimeSystem.getInstance().getCurrentSeason());
+                        break;
                     //cheat time day value
-                    case "day": boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
-                    if (isDayChanged2) initializeNextDay();
-                    System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
-                    break;
+                    case "day":
+                        boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
+                        if (isDayChanged2) initializeNextDay();
+                        updateCropsDaily(Integer.parseInt(parts[3]));
+                        System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
+                        break;
                     //cheat time week day value
-                    case "weak": TimeSystem.getInstance().setDayOfWeek(parts[4]);
-                    System.out.println("current weak: " + TimeSystem.getInstance().getDayOfWeek());
-                    break;
+                    case "weak":
+                        TimeSystem.getInstance().setDayOfWeek(parts[4]);
+                        System.out.println("current weak: " + TimeSystem.getInstance().getDayOfWeek());
+                        break;
                 }
             }
-            case "thunder" -> {
-                //cheat thunder x y
-                WeatherController.getInstance().thunder(tiles[Integer.parseInt(parts[3])][Integer.parseInt(parts[4])]);
+            case "thor" -> {
+                if (parts.length < 4) {
+                    System.out.println("Usage: cheat thor <x> <y>");
+                    return;
+                }
+                int directionX, directionY;
+                try {
+                    directionX = Integer.parseInt(parts[2]);
+                    directionY = Integer.parseInt(parts[3]);
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid coordinates.");
+                    return;
+                }
+                int tx = user.getPosition().getPositionX() + directionX;
+                int ty = user.getPosition().getPositionY() + directionY;
+                if (ty < 0 || tx < 0 || ty >= tiles.length || tx >= tiles[0].length) {
+                    System.out.println("Target tile is out of bounds.");
+                    return;
+                }
+                Tile target = tiles[ty][tx];
+                Tree tree = null;
+                if (target.getRandomElement().isPresent() && target.getRandomElement().get() instanceof Tree t) {
+                    tree = t;
+                } else if (target.getStaticElement().isPresent() && target.getStaticElement().get() instanceof Tree t) {
+                    tree = t;
+                }
+                if (tree != null) {
+                    tree.setStruckByLightning(true);
+                    System.out.println("A lightning bolt struck the tree at (" + tx + ", " + ty + ")!");
+                } else {
+                    System.out.println("No tree at the target location.");
+                }
             }
-
         }
     }
 }

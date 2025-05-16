@@ -1,5 +1,7 @@
 package models;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 public class Tile {
@@ -22,6 +24,7 @@ public class Tile {
     private boolean readyToHarvest = false;
     private boolean harvested = false;
     private int regrowthCounter = 0;
+    private Map<String, Object> properties = new HashMap<>();
 
     public Tile(int x, int y) { this.positionX= x; this.positionY = y; }
 
@@ -186,4 +189,6 @@ public class Tile {
                 : "Empty";
         return String.format("Tile[x=%d, y=%d, Element=%s]", positionX, positionY, elementInfo);
     }
+    public void setProperty(String key, Object value) { properties.put(key, value); }
+    public Object getProperty(String key) { return properties.get(key); }
 }
