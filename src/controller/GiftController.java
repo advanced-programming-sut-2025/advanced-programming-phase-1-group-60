@@ -44,13 +44,13 @@ public class GiftController {
     private String applyGiftEffect(User player, Npc npc, String item, boolean firstToday) {
         int xp = 0;
         String msg;
-        // همیشه اولین هدیه در روز 50 XP
         if (firstToday) {
             if (npc.isFavoriteItem(item)) {
                 xp += 200;
                 msg = " It's one of their favorites! +200 XP.";
             }
             else {
+                xp += 50;
                 msg = "You've given your first gift to " + npc.getName() + ". +50 friendship XP.";
             }
         } else {

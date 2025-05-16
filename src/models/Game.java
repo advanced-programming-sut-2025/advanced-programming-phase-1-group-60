@@ -29,6 +29,9 @@ public class Game {
         LOBBY, MAP_SELECTION, IN_GAME, TERMINATED
     }
 
+    public static Game getCurrentGame() {
+        return instance;
+    }
     // ایجاد بازی جدید
     public void newGame(User creator, List<String> usernames) throws GameException {
         validateNewGame(creator, usernames);

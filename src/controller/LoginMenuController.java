@@ -60,4 +60,5 @@ public class LoginMenuController {
     public User getLoggedInUser() {
         return loggedInUser;
     }
+
 }

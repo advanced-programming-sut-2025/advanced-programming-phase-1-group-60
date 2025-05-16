@@ -1,6 +1,7 @@
 package models;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class Item {
     private int id;
@@ -9,10 +10,21 @@ public class Item {
     private int basePrice;
     private int quantity;
     private int storePrice;
-    private HashMap<String, Object> properties;
     private boolean edible;
     private int energy;
     private int sellPrice;
+    private HashMap<String, Object> properties = new HashMap<>();
+
+    public boolean isEdible() {
+        return "Food".equals(type) || "Ingredient".equals(type);
+    }
+
+    public Item(String name, int quantity) {
+        this.name = name;
+        this.quantity = quantity;
+    }
+
+    public Item() {}
 
     public int getId() {
         return id;
@@ -74,9 +86,6 @@ public class Item {
         this.properties = properties;
     }
 
-    public boolean isEdible() {
-        return edible;
-    }
 
     public void setEdible(boolean edible) {
         this.edible = edible;

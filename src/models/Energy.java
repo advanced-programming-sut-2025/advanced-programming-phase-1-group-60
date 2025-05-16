@@ -10,6 +10,13 @@ public class Energy {
         isUnlimited = false;
     }
 
+    public void increaseEnergy(int amount) {
+        currentEnergy += amount;
+        if (currentEnergy > maxEnergy) {
+            currentEnergy = maxEnergy;
+        }
+    }
+
     public void setCurrentEnergy(int currentEnergy) {
         this.currentEnergy = currentEnergy;
     }
@@ -31,12 +38,6 @@ public class Energy {
         currentEnergy = Math.max(0,currentEnergy - amount);
     }
 
-
-    public void restoreEnergy() {
-    }
-
-    public void setMaxEnergy(int maxEnergy) {
-    }
 
     public boolean isExhausted() {
         return false;

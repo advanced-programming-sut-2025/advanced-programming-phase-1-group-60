@@ -1,7 +1,9 @@
 // models/GameMap.java
 package models;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -80,6 +82,27 @@ public class GameMap {
     public int getHeight() { return height; }
 
 
+    public boolean isCellEmpty(int x, int y) {
+        Tile tile = getTile(x, y);
+        if (tile == null) {
+            return false; // اگر خارج از محدوده باشد سلول خالی نیست
+        }
+        // اگر هیچ StaticElement یا RandomElement در سلول نباشد، خالی است
+        return !(tile.getStaticElement().isPresent() || tile.getRandomElement().isPresent());
+    }
+
+    public void placeItemOnMap(String itemName, int x, int y) {
+        Tile tile = getTile(x, y);
+        if (tile == null) {
+            throw new IllegalArgumentException("Position is out of bounds: [" + x + ", " + y + "]");
+        }
+
+        // ایجاد یک StaticElement برای آیتم و قرار دادن آن در تایل
+        StaticElement newElement = new ItemStaticElement(itemName.charAt(0), false); // فرض می‌کنیم آیتم‌ها غیرقابل عبور هستند
+        tile.setStaticElement(newElement);
+    }
+
+
     public void printRegion(int startX, int startY, int width, int height) {
         for (int y = startY; y < startY + height; y++) {
             for (int x = startX; x < startX + width; x++) {
@@ -113,4 +136,37 @@ public class GameMap {
     public int getVilW() { return vilW; }
     public int getVilH() { return vilH; }
 
+
+    private static final Map<String, Character> itemToCharMap = new HashMap<>();
+
+    static {
+        // آیتم‌های اصلی
+        itemToCharMap.put("Loom", 'L');
+        itemToCharMap.put("Bee_House", 'B');
+        itemToCharMap.put("Scarecrow", 'S');
+        itemToCharMap.put("Deluxe_Scarecrow", 'D');
+        itemToCharMap.put("Charcoal_Kiln", 'C');
+        itemToCharMap.put("Furnace", 'F');
+        itemToCharMap.put("Sprinkler", 'P'); // P از کلمه "Pipe" برای نمایش اسپری استفاده شده
+        itemToCharMap.put("Quality_Sprinkler", 'Q');
+        itemToCharMap.put("Iridium_Sprinkler", 'I');
+        itemToCharMap.put("Mayonnaise_Machine", 'M');
+        itemToCharMap.put("Oil_Maker", 'O');
+        itemToCharMap.put("Preserves_Jar", 'J');
+        itemToCharMap.put("Dehydrator", 'H'); // H از کلمه "Hydration" برای نمایش دیهیدراتور
+        itemToCharMap.put("Grass_Starter", 'G');
+        itemToCharMap.put("Fish_Smoker", 'K'); // K از "Kiln" برای نمایش اسموکر
+        itemToCharMap.put("Cheese_Press", 'E'); // E از "Cheese" برای نمایش
+        itemToCharMap.put("Mega_Bomb", 'X');
+        itemToCharMap.put("Bomb", 'B');
+        itemToCharMap.put("Cherry_Bomb", 'C');
+
+        // آیتم‌های خاص
+        itemToCharMap.put("Mystic_Tree_Seed", 'T'); // T برای درخت جادویی
+        itemToCharMap.put("Pickles", 'P'); // برای آیتم‌های خاص مثل ترشی، اینجا از P استفاده شده، اما می‌توانید تغییر دهید
+        itemToCharMap.put("Jelly", 'J');
+        itemToCharMap.put("Wine", 'W');
+
+        // اضافه کردن آیتم‌های دیگر...
+    }
 }

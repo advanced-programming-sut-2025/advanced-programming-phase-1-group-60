@@ -1,18 +1,15 @@
 package models;
 
 import java.time.DayOfWeek;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 import java.time.LocalTime;
-import java.util.Map;
 
 public class Store implements StaticElement {
 
     private String name;
     private String type;
     private String creator;
-    private WorkTime workTime;
+    public WorkTime workTime;
     private List<Item> items = new ArrayList<>();
     private List<Product> products = new ArrayList<>();
     private int upgradeLevel;
@@ -40,16 +37,35 @@ public class Store implements StaticElement {
     // برای Fish Shop
     public Map<Integer, Integer> upgradePoleCosts = new HashMap<>();
     public Map<Integer, Integer> soldPoleUpgrades = new HashMap<>();
+    public boolean isFishSmokerSold;
+    public boolean isTroutSoupSold;
 
+    // برای Stardrop saloon
+    private List<String> availableRecipes = new ArrayList<>();
+    public Map<String, Integer> soldRecipes = new HashMap<>();
+    private Map<String, Integer> recipePrices = new HashMap<>();
 
+    public void addFoodItem(Item food) {
+        this.items.add(food);
+    }
 
-    public boolean isOpen(LocalTime currentTime) {
-        int hour = currentTime.getHour();
+    public void addRecipe(String recipeName, int price) {
+        this.availableRecipes.add(recipeName);
+        this.recipePrices.put(recipeName.toLowerCase(), price);
+    }
+
+    public boolean isOpen() {
+        int hour = TimeSystem.getInstance().getCurrentHour();
         return hour >= workTime.getOpenTime() && hour <= workTime.getCloseTime();
     }
 
     public Result purchaseProduct(User player, String input) {
         Result result = new Result();
+        if (!isOpen()) {
+            result.setMessage(name + " is closed");
+            result.setSuccess(false);
+            return result;
+        }
         switch (name) {
             case "Blacksmith" -> {
                 // buy -p productName -n amount
@@ -177,7 +193,7 @@ public class Store implements StaticElement {
                 String[] parts = input.split(" ");
                 String product = parts[2];
                 switch (product) {
-                    case "Hay" , "Milk Pail" , "Shears" -> {
+                    case "Hay", "Milk Pail", "Shears" -> {
                         int quantity = Integer.parseInt(parts[4]);
                         Item itemTOsell = null;
                         for (Item item : items) {
@@ -233,8 +249,143 @@ public class Store implements StaticElement {
 
                 }
             }
+            case "The Stardrop Saloon" -> {
+                // buy -p productName
+                String[] parts = input.split(" ");
+
+                int startIndex = -1;
+                for (int i = 0; i < parts.length; i++) {
+                    if (parts[i].equals("-p")) {
+                        startIndex = i + 1;
+                        break;
+                    }
+                }
+
+                int endIndex = parts.length;
+                if (parts.length > 0 && parts[parts.length - 1].equals("Recipe")) {
+                    endIndex = parts.length - 1;
+                }
+
+                String productName = String.join(" ", Arrays.copyOfRange(parts, startIndex, endIndex));
+
+                if (parts[parts.length - 1].equals("Recipe")) {
+                    return handleRecipePurchase(player, productName);
+                } else {
+                    return handleFoodPurchase(player, productName);
+                }
+            }
+            case "Fish Shop" -> {
+                // buy -p productName
+                String[] parts = input.split(" ");
+
+                int startIndex = -1;
+                for (int i = 0; i < parts.length; i++) {
+                    if (parts[i].equals("-p")) {
+                        startIndex = i + 1;
+                        break;
+                    }
+                }
+
+                int endIndex = parts.length;
+                if (parts.length > 0 && parts[parts.length - 1].equals("Recipe")) {
+                    endIndex = parts.length - 1;
+                }
+
+                String productName = String.join(" ", Arrays.copyOfRange(parts, startIndex, endIndex));
+
+                if (parts[parts.length - 1].equals("Recipe")) {
+                    if (player.getMoney() < 10_000) {
+                        result.setMessage("not enough money");
+                        result.setSuccess(false);
+                        return result;
+                    }
+                    player.setMoney(player.getMoney() - 10000);
+                    result.setSuccess(true);
+                    player.learnRecipe(productName);
+                    result.setMessage("bought " + productName + " recipe");
+                    return result;
+                }
+                if (player.getMoney() < 250) {
+                    result.setMessage("not enough money");
+                    result.setSuccess(false);
+                    return result;
+                }
+                Item foodItem = new Item();
+                foodItem.setName(productName);
+                foodItem.getProperties().put("energy", 20);
+                foodItem.setType("Food");
+                player.getInventory().addItem(foodItem);
+                player.setMoney(player.getMoney() - 250);
+                result.setSuccess(true);
+                result.setMessage("Bought " + productName);
+            }
         }
         result.setSuccess(false);
+        return result;
+    }
+
+    private Result handleRecipePurchase(User player, String recipeName) {
+        Result result = new Result();
+
+        int soldToday = soldRecipes.getOrDefault(recipeName, 0);
+        if (soldToday >= 1) {
+            result.setMessage("Recipe sold out for today");
+            result.setSuccess(false);
+            return result;
+        }
+
+        if (!availableRecipes.contains(recipeName)) {
+            result.setMessage("Recipe not available");
+            result.setSuccess(false);
+            return result;
+        }
+
+        int price = recipePrices.get(recipeName.toLowerCase());
+        if (player.getMoney() < price) {
+            result.setMessage("Not enough money");
+            result.setSuccess(false);
+            return result;
+        }
+
+        if (player.getCookRecipes().contains(recipeName)) {
+            result.setMessage("Already know this recipe");
+            result.setSuccess(false);
+            return result;
+        }
+
+        player.setMoney(player.getMoney() - price);
+        player.learnRecipe(recipeName);
+        soldRecipes.put(recipeName, 1);
+
+        result.setSuccess(true);
+        result.setMessage("Learned " + recipeName + " recipe");
+        return result;
+    }
+
+    private Result handleFoodPurchase(User player, String foodName) {
+        Result result = new Result();
+
+        Item foodItem = items.stream()
+                .filter(i -> i.getName().equalsIgnoreCase(foodName))
+                .findFirst()
+                .orElse(null);
+
+        if (foodItem == null) {
+            result.setMessage("Item not available");
+            result.setSuccess(false);
+            return result;
+        }
+
+        if (player.getMoney() >= foodItem.getStorePrice()) {
+            player.getInventory().addItem(foodItem);
+            player.setMoney(player.getMoney() - foodItem.getStorePrice());
+            result.setSuccess(true);
+            result.setMessage("bought " + foodName);
+        } else {
+            result.setMessage("Not enough money");
+            result.setSuccess(false);
+        }
+
         return result;
     }
 
@@ -251,77 +402,6 @@ public class Store implements StaticElement {
         };
     }
 
-
-    public boolean sellProduct(User player, Product product, int quantity) {
-        return false;
-    }
-
-    ;
-
-    public boolean upgradeStore(User player) {
-        return false;
-    }
-
-
-    ;
-
-    public String getName() {
-        return name;
-    }
-
-    public int getLeftCornerX() {
-        return leftCornerX;
-    }
-
-    public int getLeftCornerY() {
-        return leftCornerY;
-    }
-
-    public boolean hasProductInStock(Product product, int quantity) {
-        return false;
-    }
-
-    ;
-
-    public void addProduct(Product product) {
-    }
-
-    public void removeProduct(Product product) {
-        return;
-    }
-
-    public String getType() {
-        return null;
-    }
-
-    public Npc getCreator() {
-        return null;
-    }
-
-    public WorkTime getWorkTime() {
-        return null;
-    }
-
-    ;
-
-    public List<Product> getAvailableProducts() {
-        return null;
-    }
-
-    public int getUpgradeLevel() {
-        return 0;
-    }
-
-    ;
-
-    public boolean isOpen(LocalTime time, DayOfWeek day) {
-        return false;
-    }
-
-    public List<Item> getItems() {
-        return items;
-    }
-
     public void setUpgradeCosts(Map<Integer, Integer> upgradeCosts) {
         this.upgradeCosts = upgradeCosts;
     }
@@ -330,45 +410,15 @@ public class Store implements StaticElement {
         this.upgradeBinsCosts = upgradeBinsCosts;
     }
 
-    @Override
-    public char symbol() {
-        return 'S';
-    }
-
-    @Override
-    public boolean isPassable() {
-        return false;
-    }
-
-
-    ;
-
-
-    private class WorkTime {
-        private int openTime;
-        private int closeTime;
-        private boolean[] workingDays;
-
-        public int getOpenTime() {
-            return openTime;
-        }
-
-        public int getCloseTime() {
-            return closeTime;
-        }
-
-        public boolean[] getWorkingDays() {
-            return workingDays;
-        }
-
-
-    }
-
     // use only for blacksmith and Fish shop store
     public Result upgradeTools(User player, int level, Tools tool) {
         Result result = new Result();
-        String toolName = tool.getName();
-
+        String toolName = (tool != null) ? tool.getName() : "Training Rod";
+        if (!isOpen()) {
+            result.setMessage(name + " is closed");
+            result.setSuccess(false);
+            return result;
+        }
         if (toolName.toLowerCase().contains("rod") || toolName.toLowerCase().contains("pole")) {
             if (tool != null) {
                 int currentLevel = switch (tool.getFishingpoleStage()) {
@@ -410,7 +460,7 @@ public class Store implements StaticElement {
                 return result;
             } else {
                 if (level != 0) {
-                    result.setMessage("first buy training");
+                    result.setMessage("buy training at first");
                     result.setSuccess(false);
                     return result;
                 }
@@ -507,6 +557,15 @@ public class Store implements StaticElement {
         return result;
     }
 
+    private String getUpgradeName(int level, boolean isBin) {
+        return switch (level) {
+            case 1 -> "Copper " + (isBin ? "Trash Can" : "Tool");
+            case 2 -> "Steel " + (isBin ? "Trash Can" : "Tool");
+            case 3 -> "Gold " + (isBin ? "Trash Can" : "Tool");
+            case 4 -> "Iridium " + (isBin ? "Trash Can" : "Tool");
+            default -> "Unknown";
+        };
+    }
 
     public String showAllProducts() {
         StringBuilder output = new StringBuilder();
@@ -547,6 +606,22 @@ public class Store implements StaticElement {
                             .append("materials: ").append(materials)
                             .append("\n");
                 }
+            }
+            case "The Stardrop Saloon" -> {
+                output.append("The Stardrop Saloon:\n");
+                output.append("Food and Drink:\n");
+                for (Item item : items) {
+                    output.append(item.getName()).append(" ").append(item.getStorePrice()).append("g").append("\n");
+                }
+                output.append("Recipes :\n");
+                for (String recipe : availableRecipes) {
+                    output.append(recipe).append(" Recipe").append(" ").append(recipePrices.get(recipe.toLowerCase())).append("g").append("\n");
+                }
+            }
+            case "Fish Shop" -> {
+                output.append("Fish Shop:\n").append("Fishing Poles:\n").append("Training Rod: 25g\n")
+                        .append("Bamboo Pole: 500g\n").append("Fiberglass Rod: 1800g\n").append("Iridium Rod: 7500g\n")
+                        .append("Fish Smoker Recipe 10000g\n").append("Trout Soup 250g\n");
             }
         }
         return output.toString();
@@ -609,18 +684,84 @@ public class Store implements StaticElement {
                     }
                 }
             }
+            case "The Stardrop Saloon" -> {
+                output.append("The Stardrop Saloon:\n");
+                output.append("Food and Drink:\n");
+                for (Item item : items) {
+                    output.append(item.getName()).append(" ").append(item.getStorePrice()).append("g").append("\n");
+                }
+                output.append("Recipes :\n");
+                for (String recipe : availableRecipes) {
+                    int sold = soldRecipes.getOrDefault(recipe, 0);
+                    if (sold < 1) {
+                        output.append(recipe).append(" Recipe").append(" ").append(recipePrices.get(recipe.toLowerCase())).append("g").append("\n");
+                    }
+                }
+            }
+            case "Fish Shop" -> {
+                output.append("Fish Shop:\n");
+                output.append("Fishing Poles:\n");
+                if (soldPoleUpgrades.getOrDefault(0, 0) == 0) {
+                    output.append("Training Rod: 25g\n");
+                }
+                if (soldPoleUpgrades.getOrDefault(1, 0) == 0) {
+                    output.append("Bamboo Pole: 500g\n");
+                }
+                if (soldPoleUpgrades.getOrDefault(2, 0) == 0) {
+                    output.append("Fiberglass Rod: 1800g\n");
+                }
+                if (soldPoleUpgrades.getOrDefault(3, 0) == 0) {
+                    output.append("Iridium Rod: 7500g\n");
+                }
+                if (!isFishSmokerSold) output.append("Fish Smoker Recipe:\n");
+                if (!isFishSmokerSold) output.append("Trout Soup:\n");
+            }
         }
         return output.toString();
     }
 
-    private String getUpgradeName(int level, boolean isBin) {
-        return switch (level) {
-            case 1 -> "Copper " + (isBin ? "Trash Can" : "Tool");
-            case 2 -> "Steel " + (isBin ? "Trash Can" : "Tool");
-            case 3 -> "Gold " + (isBin ? "Trash Can" : "Tool");
-            case 4 -> "Iridium " + (isBin ? "Trash Can" : "Tool");
-            default -> "Unknown";
-        };
+    //GETTERS
+    public String getName() {
+        return name;
     }
 
+    public int getLeftCornerX() {
+        return leftCornerX;
+    }
+
+    public int getLeftCornerY() {
+        return leftCornerY;
+    }
+
+    public List<Item> getItems() {
+        return items;
+    }
+
+    @Override
+    public char symbol() {
+        return 'S';
+    }
+
+    @Override
+    public boolean isPassable() {
+        return false;
+    }
+
+    public static class WorkTime {
+        private final int openTime;
+        private final int closeTime;
+
+        public WorkTime(int openTime, int closeTime) {
+            this.openTime = openTime;
+            this.closeTime = closeTime;
+        }
+
+        public int getOpenTime() {
+            return openTime;
+        }
+
+        public int getCloseTime() {
+            return closeTime;
+        }
+    }
 }
