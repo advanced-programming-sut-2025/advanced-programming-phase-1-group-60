@@ -1,8 +1,6 @@
 package models;
 
-import java.time.DayOfWeek;
 import java.util.*;
-import java.time.LocalTime;
 
 public class Store implements StaticElement {
 
@@ -422,7 +420,7 @@ public class Store implements StaticElement {
         if (toolName.toLowerCase().contains("rod") || toolName.toLowerCase().contains("pole")) {
             if (tool != null) {
                 int currentLevel = switch (tool.getFishingpoleStage()) {
-                    case BAMBO -> 1;
+                    case BAMBOO -> 1;
                     case FIBERGLASS -> 2;
                     case IRIDIUM -> 3;
                     default -> 0;

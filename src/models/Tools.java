@@ -31,7 +31,7 @@ public class Tools extends Item {
         BEGINNER, COPPER, IRON, GOLD, IRIDIUM
     }
     public static enum FishingpoleStage {
-        TRAINING, BAMBO, FIBERGLASS, IRIDIUM
+        TRAINING, BAMBOO, FIBERGLASS, IRIDIUM
     }
     public static enum TrashbinStage {
         BEGINNER, COPPER, IRON, GOLD, IRIDIUM
@@ -211,7 +211,7 @@ public class Tools extends Item {
         this.fishingpoleStage = fishingpoleStage;
         switch (fishingpoleStage) {
             case TRAINING: this.energyCost = 8; break;
-            case BAMBO: this.energyCost = 8; break;
+            case BAMBOO: this.energyCost = 8; break;
             case FIBERGLASS: this.energyCost = 6; break;
             case IRIDIUM: this.energyCost = 4; break;
         }

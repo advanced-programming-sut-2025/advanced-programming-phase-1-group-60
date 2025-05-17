@@ -22,7 +22,7 @@ public class User {
     private boolean stayLoggedIn;
     private Tile position;
     private Energy energy = new Energy();
-    private List<Skill> skills;
+    private List<Skill> skills = new ArrayList<>();
     private Inventory inventory = new Inventory(Inventory.InventoryType.NORMAL);
     private List<Game> games = new ArrayList<>();
     private List<String> craftInstructions;
@@ -61,6 +61,11 @@ public class User {
         this.friendshipXpsWithNPCs = new HashMap<>();
         this.friendshipXpsWithUsers = new HashMap<>();
         this.friendshipLevelWithUsers = new HashMap<>();
+        this.skills = new ArrayList<>();
+        skills.add(new Skill("Farming"));
+        skills.add(new Skill("Mining"));
+        skills.add(new Skill("Foraging"));
+        skills.add(new Skill("Fishing"));
 
         for (User existingUser : UserRepository.getInstance().getAllUsers()) {
             this.friendshipLevelWithUsers.put(existingUser, 0);
@@ -469,6 +474,15 @@ public class User {
 
     public Map<User, MarriageRequest> getMarriageRequests() {
         return marriageRequests;
+    }
+
+    public Skill getSkill(String name) {
+        for (Skill skill : skills) {
+            if (skill.getName().equalsIgnoreCase(name)) {
+                return skill;
+            }
+        }
+        return null;
     }
 
     public static class MarriageRequest {

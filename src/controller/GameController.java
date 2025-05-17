@@ -66,10 +66,10 @@ public class GameController {
             Tools.addBeginnerPickaxeToInventory(user.getInventory());
             Tools.addBeginnerAxeToInventory(user.getInventory());
             Tools.addBeginnerWateringcanToInventory(user.getInventory());
-            //Tools.addLearningFishingpoleToInventory(user.getInventory());
+            Tools.addLearningFishingpoleToInventory(user.getInventory());
             Tools.addBeginnerScytheToInventory(user.getInventory());
-            //Tools.addBeginnerMilkPailToInventory(user.getInventory());
-            //Tools.addBeginnerShearToInventory(user.getInventory());
+            Tools.addBeginnerMilkPailToInventory(user.getInventory());
+            Tools.addBeginnerShearToInventory(user.getInventory());
             Tools.addBeginnerTrashbinToInventory(user.getInventory());
             user.getInventory().addItemByName("stone", 50000);
             user.getInventory().addItemByName("wood", 50000);

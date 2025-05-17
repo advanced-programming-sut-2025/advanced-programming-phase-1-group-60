@@ -4,6 +4,7 @@ import models.*;
 import repository.FruitsAndVegetablesRepository;
 import repository.NpcRepository;
 import repository.UserRepository;
+import repository.FishingRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -120,8 +121,6 @@ public class GamePlayController {
                 String result = HomeController.crafting("show_recipes");
                 System.out.println(result);
 
-            } else {
-                System.out.println("Error: Unknown command.");
             }
 
 
@@ -332,10 +331,7 @@ public class GamePlayController {
                 }
                 applyFertilizer(fertilizer, direction, force);
             }
-            else {
-                System.out.println("Unknown command.");
-            }
-            } else if (parts[0].equalsIgnoreCase("kitchen")) {
+            else if (parts[0].equalsIgnoreCase("kitchen")) {
                 if (!isInHome()) {
                     System.out.println("go home first");
                     continue;
@@ -346,10 +342,13 @@ public class GamePlayController {
                 goToSpouseFarm();
             } else if (input.equalsIgnoreCase("go to my farm")) {
                 goToMyFarm();
-            }// else {
-//                System.out.println("Unknown command.");
-//                System.out.println("injas");
-           // }
+            }
+            else if (input.equalsIgnoreCase("show xp")) {
+                for (Skill skill : user.getSkills()) {
+                    System.out.println(skill.getName() + " - Level: " + skill.getLevel() +
+                            " XP: " + skill.getExperience() + "/" + skill.getMaxExperience());
+                }
+            }
         }
     }
 
@@ -412,6 +411,7 @@ public class GamePlayController {
         else if (tool.getName().toLowerCase().contains("pickaxe")) {
             if (target.isPlowed()) {
                 target.setPlowed(false);
+                user.getSkill("Mining").gainExperience(5);
                 System.out.println("Hoe effect removed from tile at (" + tx + ", " + ty + ").");
                 return;
             }
@@ -431,40 +431,24 @@ public class GamePlayController {
             // Add the mineral to inventory
             ForagingMineral mineral = stone.getMineral();
             if (mineral != null) {
+                int quantity = 1;
+                if (user.getSkill("Mining").getLevel() >= 2) {
+                    quantity = 2;
+                }
                 Item mineralItem = new Item();
                 mineralItem.setName(mineral.getName());
-                mineralItem.setQuantity(1);
+                mineralItem.setQuantity(quantity);
                 mineralItem.setSellPrice(mineral.getBaseSellPrice());
                 user.getInventory().addItem(mineralItem);
-                System.out.println("You mined " + mineral.getName() + " from the stone!");
+                System.out.println("You mined " + quantity + " " + mineral.getName() + (quantity > 1 ? "s" : "") + " from the stone!");
             }
             // Remove the stone
             target.setToNormalTile();
             target.setType(".");
             energyUsedThisTurn += tool.getEnergyCost();
             user.consumeEnergy(energyCost);
+            user.getSkill("Mining").gainExperience(10);
             System.out.println("Used pickaxe on stone at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-        } else if (tool.getName().toLowerCase().contains("axe")) {
-            if ((!('T' == target.getRandomElement().map(RandomElement::symbol).orElse(' '))) &&
-                    (!('F' == target.getRandomElement().map(RandomElement::symbol).orElse(' ')))) {
-                System.out.println("Axe can only be used on trees ('F') or branches ('T').");
-                return;
-            }
-            int energyCost = tool.getEnergyCost();
-            // If the tile is not plowed, watered, or fertilized, use 1 less energy
-            if (!target.isPlowed() && !target.isWatered() && !target.isFertilized()) {
-                energyCost = Math.max(1, energyCost - 1);
-            }
-            if (user.getEnergy().getCurrentEnergy() < energyCost && !user.getEnergy().isUnlimited()) {
-                System.out.println("Not enough energy to use the axe.");
-                return;
-            }
-            target.setToNormalTile();
-            target.setType(".");
-            user.consumeEnergy(energyCost);
-            System.out.println("Used axe on " + (target.getType().equals("F") ? "tree" : "branch") +
-                    " at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-        } else if (tool.getName().toLowerCase().contains("wateringcan")) {
         }
         else if (tool.getName().toLowerCase().contains("axe")) {
             RandomElement element = target.getRandomElement().orElse(null);
@@ -502,8 +486,10 @@ public class GamePlayController {
 
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
+                user.getSkill("Foraging").gainExperience(10);
                 System.out.println("Chopped down " + tree.getName() + ". Added Wood and " + tree.getName() + " Sapling to inventory.");
-            } else if (element instanceof ForagingCrop crop) {
+            }
+            else if (element instanceof ForagingCrop crop) {
                 // Add the foraging crop to inventory
                 Item item = new Item();
                 item.setName(crop.getName());
@@ -519,8 +505,10 @@ public class GamePlayController {
 
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
+                user.getSkill("Foraging").gainExperience(10);
                 System.out.println("Collected " + crop.getName() + " and added to inventory.");
-            } else if (element instanceof Seeds seed) {
+            }
+            else if (element instanceof Seeds seed) {
                 // Add the seed to inventory
                 Seeds newSeed = new Seeds();
                 newSeed.setName(seed.getName());
@@ -536,19 +524,23 @@ public class GamePlayController {
 
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
+                user.getSkill("Foraging").gainExperience(10);
                 System.out.println("Collected " + seed.getName() + " seed and added to inventory.");
-            } else if (element != null && element.symbol() == 'T') {
+            }
+            else if (element != null && element.symbol() == 'T') {
                 // Old branch logic
                 target.setToNormalTile();
                 target.setType(".");
                 user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
+                user.getSkill("Foraging").gainExperience(10);
                 System.out.println("Used axe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
-            } else {
+            }
+            else {
                 System.out.println("Axe can only be used on trees ('F') or branches ('T').");
             }
-        } else if (tool.getName().toLowerCase().contains("wateringcan")) {
-            // Watering logic as before...
+        }
+        else if (tool.getName().toLowerCase().contains("wateringcan")) {
             int radius = tool.getRadius();
             int centerX = user.getPosition().getPositionX() + dx[direction - 1];
             int centerY = user.getPosition().getPositionY() + dy[direction - 1];
@@ -566,27 +558,55 @@ public class GamePlayController {
             user.consumeEnergy(tool.getEnergyCost());
             energyUsedThisTurn += tool.getEnergyCost();
             System.out.println("Watered " + watered + " tiles. Usage left: " + tool.getCurrentUsage() + ". Energy left: " + user.getEnergy());
-        } else if (tool.getName().toLowerCase().contains("fishingpole")) {
+        }
+        else if (tool.getName().toLowerCase().contains("fishingpole")) {
             boolean isLake = target.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'L'
                     || target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L';
             if (!isLake) {
-                System.out.println("You must use the fishing pole next to a lake (L) tile.");
+                System.out.println("You can only fish in a lake tile.");
                 return;
             }
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to fish.");
                 return;
             }
+
+            int fishingSkill = user.getSkill("Fishing").getLevel();
+            String currentSeason = TimeSystem.getInstance().getCurrentSeason();
+            String currentWeather = WeatherController.getInstance().getCurrentWeather();
+            Tools.FishingpoleStage poleStage = tool.getFishingpoleStage();
+
+            List<Fish> availableFish = FishingRepository.getAvailableFish(
+                    FishingRepository.getFishes(), currentSeason, fishingSkill
+            );
+            if (availableFish.isEmpty()) {
+                System.out.println("No fish available to catch this season/skill.");
+                return;
+            }
+
+            double amount = FishingRepository.calculateFishAmount(fishingSkill, currentWeather);
+            double value = FishingRepository.calculateFishValue(fishingSkill, currentWeather, poleStage);
+
+            Fish caught = availableFish.get((int)(Math.random() * availableFish.size()));
+            System.out.printf("You caught %.2f of %s! Value: %.2f\n", amount, caught.getName(), value);
+            int fishAmount = (int) Math.max(1, Math.round(amount));
+            Item fishItem = new Item();
+            fishItem.setName(caught.getName());
+            fishItem.setQuantity(fishAmount);
+            fishItem.setSellPrice((int) value);
+            user.getInventory().addItem(fishItem);
+            System.out.println("Added " + fishAmount + " " + caught.getName() + "(s) to your inventory.");
+            user.getSkill("Fishing").gainExperience(10);
+            if (user.getSkill("Fishing").getLevel() == 4 && !user.getSkill("Fishing").isMaxLevelNotified()) {
+                System.out.println("Congratulations! You can now catch legendary fish!");
+                user.getSkill("Fishing").setMaxLevelNotified(true);
+            }
+
             energyUsedThisTurn += tool.getEnergyCost();
             user.consumeEnergy(tool.getEnergyCost());
-            if (Math.random() < 0.1) {
-                System.out.println("No fish caught this time.");
-            } else {
-                System.out.println("You successfully caught a fish!");
-                // Optionally: add fish to inventory here
-            }
             System.out.println("Energy left: " + user.getEnergy());
-        } else if (tool.getName().toLowerCase().contains("scythe")) {
+        }
+        else if (tool.getName().toLowerCase().contains("scythe")) {
             if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
                 System.out.println("Not enough energy to use the scythe.");
                 return;
@@ -609,6 +629,7 @@ public class GamePlayController {
                     fruit.setQuantity(1);
                     user.getInventory().addItem(fruit);
                     tree.incrementFruitsHarvestedToday();
+                    user.getSkill("Farming").gainExperience(5);
                     System.out.println("Collected " + fruit.getName() + " from the tree and added to inventory.");
                 } else {
                     System.out.println("This tree has no fruit to collect.");
@@ -620,64 +641,82 @@ public class GamePlayController {
                 target.setType(".");
                 energyUsedThisTurn += tool.getEnergyCost();
                 user.consumeEnergy(tool.getEnergyCost());
+                user.getSkill("Farming").gainExperience(5);
                 System.out.println("Used scythe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
             } else {
                 System.out.println("Scythe can only be used on branches ('T') for now.");
             }
-        } else if (tool.getName().toLowerCase().contains("milk pail")) {
-            } else if (target.getPlantedSeed() != null && target.isReadyToHarvest()) {
-                Seeds seed = target.getPlantedSeed();
-                FruitsAndVegetables crop = FruitsAndVegetablesRepository.crops.stream()
-                        .filter(c -> c.getName().equalsIgnoreCase(seed.getGrowsInto()))
-                        .findFirst().orElse(null);
-                if (crop == null) {
-                    System.out.println("Crop info not found for: " + seed.getGrowsInto());
-                    return;
+        }
+        else if (tool.getName().toLowerCase().contains("milk pail")) {
+            // Check if target tile is a barn
+            boolean isBarn = target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'B';
+            if (isBarn) {
+                // Find the barn at this location
+                Barn barn = null;
+                for (Item place : user.getPlacedAnimalPlaces()) {
+                    if (place instanceof Barn b) {
+                        if (isWithinBuilding(tx, ty, b)) {
+                            barn = b;
+                            break;
+                        }
+                    }
                 }
-                Item harvested = new Item();
-                harvested.setName(crop.getName());
-                harvested.setQuantity(1);
-                harvested.setSellPrice(crop.getSellPrice());
-                harvested.setEdible(crop.isEdible());
-                harvested.setEnergy(crop.getBaseEnergy());
-                user.getInventory().addItem(harvested);
-
-                // Use crop.isOneTime() and crop.getRegrowthTime()
-                if (crop.isOneTime()) {
-                    // Remove the crop from the tile
-                    target.setPlantedSeed(null);
-                    target.setToNormalTile();
-                    target.resetCropFields();
-                } else {
-                    // Regrowable crop logic
-                    target.setHarvested(true);
-                    target.setReadyToHarvest(false);
-                    target.setRegrowthCounter(0);
-                    System.out.println("Harvested " + crop.getName() + ". The crop will regrow in " + crop.getRegrowthTime() + " days.");
+                if (barn != null) {
+                    // Check for cow
+                    boolean hasCow = barn.getAnimals().stream().anyMatch(a -> a.getType().equalsIgnoreCase("Cow"));
+                    if (hasCow) {
+                        System.out.println("You milked a cow in the barn!");
+                        user.consumeEnergy(tool.getEnergyCost());
+                        energyUsedThisTurn += tool.getEnergyCost();
+                        // Add milk item to inventory
+                        Item milk = new Item();
+                        milk.setName("Milk");
+                        milk.setQuantity(1);
+                        user.getInventory().addItem(milk);
+                        System.out.println("Added Milk to your inventory. Energy left: " + user.getEnergy());
+                        return;
+                    }
                 }
-                user.consumeEnergy(tool.getEnergyCost());
-                energyUsedThisTurn += tool.getEnergyCost();
-                return;
-            } else {
-                System.out.println("Scythe can only be used on branches ('T') or to collect fruit from trees.");
-            }
-        } else if (tool.getName().toLowerCase().contains("milk pail")) {
-            if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
-                System.out.println("Not enough energy to use the milk pail.");
+                System.out.println("No cow found in the barn.");
                 return;
             }
-            user.consumeEnergy(tool.getEnergyCost());
-            energyUsedThisTurn += tool.getEnergyCost();
-            System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
-        } else if (tool.getName().toLowerCase().contains("shear")) {
-            if (user.getEnergy().getCurrentEnergy() < tool.getEnergyCost() && !user.getEnergy().isUnlimited()) {
-                System.out.println("Not enough energy to use the shear.");
+            System.out.println("You must be next to a barn with a cow to use the milk pail.");
+            return;
+        }
+        else if (tool.getName().toLowerCase().contains("shear")) {
+            boolean isBarn = target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'B';
+            if (isBarn) {
+                Barn barn = null;
+                for (Item place : user.getPlacedAnimalPlaces()) {
+                    if (place instanceof Barn b) {
+                        if (isWithinBuilding(tx, ty, b)) {
+                            barn = b;
+                            break;
+                        }
+                    }
+                }
+                if (barn != null) {
+                    boolean hasSheep = barn.getAnimals().stream().anyMatch(a -> a.getType().equalsIgnoreCase("Sheep"));
+                    if (hasSheep) {
+                        System.out.println("You sheared a sheep in the barn!");
+                        user.consumeEnergy(tool.getEnergyCost());
+                        energyUsedThisTurn += tool.getEnergyCost();
+                        // Add wool item to inventory
+                        Item wool = new Item();
+                        wool.setName("Wool");
+                        wool.setQuantity(1);
+                        user.getInventory().addItem(wool);
+                        System.out.println("Added Wool to your inventory. Energy left: " + user.getEnergy());
+                        return;
+                    }
+                }
+                System.out.println("No sheep found in the barn.");
                 return;
             }
-            user.consumeEnergy(tool.getEnergyCost());
-            energyUsedThisTurn += tool.getEnergyCost();
-            System.out.println("Used milk pail. (Milking animals will be implemented later.) Energy left: " + user.getEnergy());
-        } else {
+            System.out.println("You must be next to a barn with a sheep to use the shear.");
+            return;
+        }
+         else {
             System.out.println("Wrong Tool!");
         }
     }
@@ -701,6 +740,11 @@ public class GamePlayController {
                 Tile adj = tiles[ny][nx];
                 if (adj.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'L' ||
                         adj.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L') {
+                    nextToLake = true;
+                    break;
+                }
+                if (adj.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'G' ||
+                        adj.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'G') {
                     nextToLake = true;
                     break;
                 }
@@ -772,7 +816,27 @@ public class GamePlayController {
         Item tool = user.getInventory().getItems().stream()
                 .filter(i -> i instanceof Tools && i.getId() == toolId)
                 .findFirst().orElse(null);
-
+        if (tool instanceof Tools t && t.getName().toLowerCase().contains("trashbin")) {
+            Tools.TrashbinStage[] stages = Tools.TrashbinStage.values();
+            int currentIndex = Arrays.asList(stages).indexOf(t.getTrashbinStage());
+            int targetIndex = Math.min(currentIndex + level, stages.length - 1);
+            t.setTrashbinStage(stages[targetIndex]);
+            System.out.println("Trashbin upgraded to: " + t.getTrashbinStage());
+            return;
+        }
+        if (tool == null) {
+            Inventory.InventoryType currentType = user.getInventory().getType();
+            Inventory.InventoryType[] types = Inventory.InventoryType.values();
+            int currentIndex = Arrays.asList(types).indexOf(currentType);
+            int targetIndex = Math.min(currentIndex + level, types.length - 1);
+            if (targetIndex > currentIndex) {
+                user.getInventory().setType(types[targetIndex]);
+                System.out.println("Backpack upgraded to: " + types[targetIndex]);
+            } else {
+                System.out.println("Backpack is already at max level.");
+            }
+            return;
+        }
         if (!(tool instanceof Tools)) {
             if (toolId != 5) {
                 System.out.println("Tool not found.");
@@ -799,7 +863,13 @@ public class GamePlayController {
                     int x = playerX + dx;
                     int y = playerY + dy;
 
-                    Tile tile = map.getTile(x + 50, y + 50);
+                    int mapX = x + 50;
+                    int mapY = y + 50;
+                    // Add bounds check
+                    if (mapX < 0 || mapY < 0 || mapX >= map.getWidth() || mapY >= map.getHeight()) continue;
+                    Tile tile = map.getTile(mapX, mapY);
+                    if (tile == null) continue;
+
                     if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof Store store) {
                         if (isFishShopRequired) {
                             if (store.getName().equalsIgnoreCase("Fish Shop")) {
@@ -807,7 +877,8 @@ public class GamePlayController {
                                 foundValidStore = true;
                                 break loop;
                             }
-                        } else {
+                        }
+                        else {
                             if (store.getName().equalsIgnoreCase("blacksmith")) {
                                 suitableStore = store;
                                 foundValidStore = true;
@@ -821,8 +892,9 @@ public class GamePlayController {
             if (!foundValidStore) {
                 if (isFishShopRequired) {
                     System.out.println("go to Fish Shop to upgrade this tool");
-                } else {
-                    System.out.println("You must be at the blacksmith to upgrade.");
+                }
+                else {
+                    System.out.println("you should be in blacksmith to upgrade");
                 }
                 return;
             }
@@ -924,9 +996,9 @@ public class GamePlayController {
             Tools.FishingpoleStage stage = t.getFishingpoleStage();
             switch (stage) {
                 case TRAINING:
-                    t.setFishingpoleStage(Tools.FishingpoleStage.BAMBO);
+                    t.setFishingpoleStage(Tools.FishingpoleStage.BAMBOO);
                     break;
-                case BAMBO:
+                case BAMBOO:
                     t.setFishingpoleStage(Tools.FishingpoleStage.FIBERGLASS);
                     break;
                 case FIBERGLASS:
@@ -1289,7 +1361,6 @@ public class GamePlayController {
             case IRIDIUM -> 0.60;
         };
 
-        // TODO: Replace with actual item value logic
         int itemValue = 100; // Placeholder value
         int moneyBack = (int) (removeCount * itemValue * percent);
 
@@ -1391,7 +1462,7 @@ public class GamePlayController {
                     tile.setReadyToHarvest(true);
                 }
 
-                // Regrowth logic (adjust as needed)
+                // Regrowth logic
                 if (tile.isHarvested() && !fv.isOneTime()) {
                     tile.setRegrowthCounter(tile.getRegrowthCounter() + daysToAdvance);
                     Integer regrowthTime = fv.getRegrowthTime();
@@ -2331,12 +2402,6 @@ public class GamePlayController {
                     case "day":
                         boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
                         if (isDayChanged2) initializeNextDay();
-                        System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
-                        break;
-                    case "day":
-                        boolean isDayChanged2 = TimeSystem.getInstance().advanceDate(Integer.parseInt(parts[3]));
-                        if (isDayChanged2) initializeNextDay();
-                        updateCropsDaily(Integer.parseInt(parts[3]));
                         System.out.println("current day: " + TimeSystem.getInstance().getCurrentDay());
                         break;
                     //cheat time week day value

@@ -1,5 +1,8 @@
 package models;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 public class Fish {
     private String name;
     private int basePrice;
@@ -12,7 +15,6 @@ public class Fish {
         this.season = season;
         this.isLegendary = isLegendary;
     }
-
     // Getters
     public String getName() { return name; }
     public int getBasePrice() { return basePrice; }
