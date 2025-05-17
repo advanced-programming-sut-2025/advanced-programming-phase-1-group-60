@@ -71,8 +71,6 @@ public class GameController {
             //Tools.addBeginnerMilkPailToInventory(user.getInventory());
             //Tools.addBeginnerShearToInventory(user.getInventory());
             Tools.addBeginnerTrashbinToInventory(user.getInventory());
-            user.getInventory().addItemByName("stone", 50000);
-            user.getInventory().addItemByName("wood", 50000);
         }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {

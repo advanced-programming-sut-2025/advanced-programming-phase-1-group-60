@@ -10,23 +10,32 @@ import repository.UserRepository;
 import java.util.*;
 
 public class TradeController {
+    // Singleton instances per user
+    private static Map<User, TradeController> instances = new HashMap<>();
+
+    // Shared data across all controllers
+    private static Map<User, List<Trade>> userTrades = new HashMap<>();
+    private static Map<User, Set<Integer>> shownTrades = new HashMap<>();
+    private static Map<User, Set<Integer>> respondedTrades = new HashMap<>();
+    private static int tradeIdCounter = 1;
+
+    public static TradeController getInstance(Scanner sc, User user) {
+        return instances.computeIfAbsent(user, u -> new TradeController(sc, u));
+    }
+
     private Scanner sc;
     private User mainUser;
-    private Map<User, List<Trade>> userTrades;
-    private Map<User, Set<Integer>> shownTrades;
-    private Map<User, Set<Integer>> respondedTrades;
-    private int tradeIdCounter = 1;
 
-    public TradeController(Scanner sc, User user) {
+    private TradeController(Scanner sc, User user) {
         this.sc = sc;
         this.mainUser = user;
-        this.userTrades = new HashMap<>();
-        this.shownTrades = new HashMap<>();
-        this.respondedTrades = new HashMap<>();
-        for (User u : UserRepository.getInstance().getAllUsers()) {
-            userTrades.put(u, new ArrayList<>());
-            shownTrades.put(u, new HashSet<>());
-            respondedTrades.put(u, new HashSet<>());
+        // Initialize shared maps once
+        if (userTrades.isEmpty()) {
+            for (User u : UserRepository.getInstance().getAllUsers()) {
+                userTrades.put(u, new ArrayList<>());
+                shownTrades.put(u, new HashSet<>());
+                respondedTrades.put(u, new HashSet<>());
+            }
         }
     }
 
@@ -110,6 +119,7 @@ public class TradeController {
         Trade trade = new Trade();
         String type = params.get("-t");
         boolean isOffer = "offer".equalsIgnoreCase(type);
+        trade.setType(type);
 
         // main item
         String itemName = params.get("-i");
@@ -123,13 +133,13 @@ public class TradeController {
         Item mainItem = new Item();
         mainItem.setName(itemName);
         mainItem.setQuantity(amount);
-        if (isOffer) trade.addOfferedItem(mainItem);
-        else trade.addRequestedItem(mainItem);
+        if (isOffer) trade.setOfferedItems(mainItem);
+        else trade.setRequestedItems(mainItem);
 
         boolean hasMoney = params.containsKey("-p");
         boolean hasOtherItem = params.containsKey("-ti") && params.containsKey("-ta");
         if (hasMoney && hasOtherItem) {
-            System.out.println("You can't have donkey and date at the same time.");
+            System.out.println("You can't have both money and another item in the same trade.");
             return null;
         }
         if (hasMoney) {
@@ -145,16 +155,17 @@ public class TradeController {
         if (hasOtherItem) {
             String tname = params.get("-ti");
             int tamount;
-            try { tamount = Integer.parseInt(params.get("-ta")); }
-            catch (NumberFormatException e) {
+            try {
+                tamount = Integer.parseInt(params.get("-ta"));
+            } catch (NumberFormatException e) {
                 System.out.println("Invalid target amount.");
                 return null;
             }
             Item targetItem = new Item();
             targetItem.setName(tname);
             targetItem.setQuantity(tamount);
-            if (isOffer) trade.addRequestedItem(targetItem);
-            else trade.addOfferedItem(targetItem);
+            if (isOffer) trade.setRequestedItems(targetItem);
+            else trade.setOfferedItems(targetItem);
         }
         return trade;
     }
@@ -187,45 +198,94 @@ public class TradeController {
         boolean accept = input.contains("--accept");
         boolean reject = input.contains("--reject");
         int idIndex = Arrays.asList(parts).indexOf("-i");
+
         if (idIndex < 0 || idIndex + 1 >= parts.length) {
             System.out.println("Usage: trade response (--accept|--reject) -i <id>");
             return;
         }
-        int id = Integer.parseInt(parts[idIndex + 1]);
+
+        int id;
+        try {
+            id = Integer.parseInt(parts[idIndex + 1]);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid trade ID.");
+            return;
+        }
+
         Trade target = null;
         for (Trade t : getPendingFor(mainUser)) {
-            if (t.getId() == id) { target = t; break; }
+            if (t.getId() == id) {
+                target = t;
+                break;
+            }
         }
+
         if (target == null) {
             System.out.println("Trade not found or already responded.");
             return;
         }
-        User from = target.getFromUser();
-        User to = target.getToUser();
-        Inventory invFrom = from.getInventory();
-        Inventory invTo = to.getInventory();
 
         if (accept) {
-            // جابجایی آیتم‌ها
-            for (Item it : target.getOfferedItems()) {
-                invFrom.removeItemByName(it.getName(), it.getQuantity());
-                invTo.addItemByName(it.getName(), it.getQuantity());
-            }
-            for (Item it : target.getRequestedItems()) {
-                invTo.removeItemByName(it.getName(), it.getQuantity());
-                invFrom.addItemByName(it.getName(), it.getQuantity());
-            }
-            // جابجایی پول
-            int moneyOff = target.getOfferedMoney();
-            int moneyReq = target.getRequestedMoney();
-            from.setMoney(from.getMoney() - moneyOff + moneyReq);
-            to.setMoney(to.getMoney() - moneyReq + moneyOff);
+            User from = target.getFromUser();
+            User to = target.getToUser();
+            Inventory invFrom = from.getInventory();
+            Inventory invTo = to.getInventory();
 
+            // بررسی موجودیت آیتم‌های پیشنهادی از فرستنده
+            Item offeredItem = target.getOfferedItem();
+            if (offeredItem != null) {
+                if (!invFrom.hasItem(offeredItem.getName(), offeredItem.getQuantity())) {
+                    System.out.println(from.getUsername() + " does not have enough " + offeredItem.getName());
+                    return;
+                }
+            }
+
+            // بررسی موجودیت آیتم‌های درخواستی از دریافت کننده
+            Item requestedItem = target.getRequestedItems();
+            if (requestedItem != null) {
+                if (!invTo.hasItem(requestedItem.getName(), requestedItem.getQuantity())) {
+                    System.out.println(to.getUsername() + " does not have enough " + requestedItem.getName());
+                    return;
+                }
+            }
+
+            // بررسی موجودی پول
+            int offeredMoney = target.getOfferedMoney();
+            int requestedMoney = target.getRequestedMoney();
+
+            if (from.getMoney() < offeredMoney) {
+                System.out.println(from.getUsername() + " does not have enough money.");
+                return;
+            }
+
+            if (to.getMoney() < requestedMoney) {
+                System.out.println(to.getUsername() + " does not have enough money.");
+                return;
+            }
+
+            // انتقال آیتم‌ها
+            if (offeredItem != null) {
+                invFrom.removeItemByName(offeredItem.getName(), offeredItem.getQuantity());
+                invTo.addItemByName(offeredItem.getName(), offeredItem.getQuantity());
+            }
+
+            if (requestedItem != null) {
+                invTo.removeItemByName(requestedItem.getName(), requestedItem.getQuantity());
+                invFrom.addItemByName(requestedItem.getName(), requestedItem.getQuantity());
+            }
+
+            // انتقال پول
+            from.setMoney(from.getMoney() - offeredMoney + requestedMoney);
+            to.setMoney(to.getMoney() - requestedMoney + offeredMoney);
+
+            // افزایش تجربه دوستی
             mainUser.increaseFriendshipXpsWithUsers(from, 50);
             from.increaseFriendshipXpsWithUsers(mainUser, 50);
             System.out.println("Trade #" + id + " accepted.");
+            target.setAccepted(true);
         } else if (reject) {
             target.rejectTrade();
+            User from = target.getFromUser();
             mainUser.increaseFriendshipXpsWithUsers(from, -30);
             from.increaseFriendshipXpsWithUsers(mainUser, -30);
             System.out.println("Trade #" + id + " rejected.");
@@ -233,8 +293,10 @@ public class TradeController {
             System.out.println("Specify --accept or --reject.");
             return;
         }
+
         respondedTrades.get(mainUser).add(id);
     }
+
 
     private void history() {
         List<Trade> all = userTrades.get(mainUser);
@@ -250,8 +312,26 @@ public class TradeController {
     }
 
     private String formatTrade(Trade t) {
-        return String.format("#%d from:%s to:%s offers:%s moneyOffered:%d requests:%s moneyRequested:%d at %s",
-                t.getId(), t.getFromUser().getUsername(), t.getToUser().getUsername(),
-                t.getOfferedItems(), t.getOfferedMoney(), t.getRequestedItems(), t.getRequestedMoney(), t.getTimestamp());
+        String offered = "";
+        if (t.getOfferedItem() != null) {
+            offered = t.getOfferedItem().toString();
+        }
+
+        String requested = "";
+        if (t.getRequestedItems() != null) {
+            requested = t.getRequestedItems().toString();
+        }
+
+        return String.format(
+                "#%d from:%s to:%s offers:%s moneyOffered:%d requests:%s moneyRequested:%d at %s",
+                t.getId(),
+                t.getFromUser().getUsername(),
+                t.getToUser().getUsername(),
+                offered,
+                t.getOfferedMoney(),
+                requested,
+                t.getRequestedMoney(),
+                t.getTimestamp()
+        );
     }
 }

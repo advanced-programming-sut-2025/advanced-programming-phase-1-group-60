@@ -1,5 +1,7 @@
 package models;
 
+import repository.UserRepository;
+
 import java.awt.*;
 import java.util.*;
 import java.util.List;
@@ -108,6 +110,21 @@ public class Npc implements StaticElement {
         Map<String,String> npcAnswers;
         Dialog(String p, List<String> vr, Map<String,String> na) {
             prompt = p; validReplies = vr; npcAnswers = na;
+        }
+    }
+
+    public void gift() {
+        Random random = new Random();
+        for (User u : UserRepository.getInstance().getAllUsers()) {
+            if (u.getFriendshipXpsWithNPCs().get(this) > 400) {
+                if (Math.random() < 0.9) {
+                    int randomIndex = random.nextInt(favoriteItems.size());
+                    Item gift = new Item();
+                    gift.setName(favoriteItems.get(randomIndex));
+                    gift.setQuantity(1);
+                    u.getInventory().addItem(gift);
+                }
+            }
         }
     }
 }

@@ -17,12 +17,12 @@ public class GamePlayController {
     private Game currentGame;
     private int energyLimitPerTurn = 50;
     public int homeX, homeY;
+    public boolean hasFaintedLastDay = false;
 
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.tiles = f.getTiles();
         this.user = u;
         this.sc = sc;
-        u.setPosition(tiles[0][0]);
         energyUsedThisTurn = 0;
         currentGame = game;
         homeX = f.getHomeX();
@@ -30,179 +30,207 @@ public class GamePlayController {
     }
 
     public void initializeNextDay() {
+        if (user.isInVillage) {
+            int x = 0;
+            int y = 0;
+            switch (currentGame.getSelectedMaps().get(user)) {
+                case 1: x = 19; break;
+                case 2: y = 19; break;
+                case 3: x = 19; y = 19; break;
+            }
+            goToFarm();
+        }
         walkTo(homeX, homeY, true);
         for (Animal animal : user.getPutAnimals()) {
             animal.resetDailyStatus();
         }
-        user.getEnergy().resetEnergy();
+        user.getEnergy().resetEnergy(hasFaintedLastDay);
+        hasFaintedLastDay = false;
         if (user.isEnergyPenaltyActive()) {
             user.getEnergy().setCurrentEnergy(user.getEnergy().getCurrentEnergy() / 2);
+        }
+        for (Npc n : NpcRepository.getInstance().getAllNpcs()) {
+            n.gift();
         }
     }
 
     public void getAndProcessInput() {
-        energyUsedThisTurn = 0;
-        user.setPosition(tiles[0][0]);
-        while (energyUsedThisTurn <= energyLimitPerTurn) {
-            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
-            String unread = user.getUnreadMessage();
-            if (!unread.isEmpty()) {
-                System.out.println("You have unread messages: \n" + unread);
-            }
+        try {
+            energyUsedThisTurn = 0;
+            user.setPosition(tiles[homeX][homeY]);
+            while (energyUsedThisTurn <= energyLimitPerTurn) {
+                if (user.isFaint()) {
+                    System.out.println("you fainted");
+                    hasFaintedLastDay = true;
+                    break;
+                }
+                System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
+                String unread = user.getUnreadMessage();
+                if (!unread.isEmpty()) {
+                    System.out.println("You have unread messages: \n" + unread);
+                }
 
-            String unreadMarriage = user.getUnreadMarriageRequests();
-            if (!unreadMarriage.isEmpty()) {
-                System.out.println("Marriage requests:\n" + unreadMarriage);
-            }
+                String unreadMarriage = user.getUnreadMarriageRequests();
+                if (!unreadMarriage.isEmpty()) {
+                    System.out.println("Marriage requests:\n" + unreadMarriage);
+                }
 
-            String input = sc.nextLine();
-            String[] parts = input.split("\\s+");
+                String input = sc.nextLine();
+                String[] parts = input.split("\\s+");
 
 
-            if (parts[0].equalsIgnoreCase("tool")) {
-                if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
-                    try {
-                        int toolId = Integer.parseInt(parts[2]);
-                        equipTool(toolId);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid tool ID.");
+                if (parts[0].equalsIgnoreCase("tool")) {
+                    if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
+                        try {
+                            int toolId = Integer.parseInt(parts[2]);
+                            equipTool(toolId);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid tool ID.");
+                        }
+                    } else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
+                        try {
+                            int toolId = Integer.parseInt(parts[2]);
+                            boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
+
+                            int level = Integer.parseInt(parts[3]);
+                            upgradeToolById(toolId, force, level);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid tool ID.");
+                        }
+                    } else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
+                        useEquippedToolRefillOnly();
+                    } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
+                        showCurrentTool();
+                    } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
+                        showAvailableTools();
+
+                    } else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
+                        try {
+                            int direction = Integer.parseInt(parts[3]);
+                            boolean refill = parts.length >= 5 && parts[4].equalsIgnoreCase("-r");
+                            useEquippedTool(direction, refill);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid direction.");
+                        }
+                    } else {
+                        System.out.println("Unknown tool command.");
                     }
-                } else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
-                    try {
-                        int toolId = Integer.parseInt(parts[2]);
-                        boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
-
-                        int level = Integer.parseInt(parts[3]);
-                        upgradeToolById(toolId, force, level);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid tool ID.");
+                } else if (parts[0].equalsIgnoreCase("walk")) {
+                    int x = Integer.parseInt(parts[1]);
+                    int y = Integer.parseInt(parts[2]);
+                    walkTo(x, y, false);
+                } else if (parts[0].equalsIgnoreCase("next")) {
+                    break;
+                } else if (input.startsWith("print map")) {
+                    int width = Integer.parseInt(parts[2]);
+                    int height = Integer.parseInt(parts[3]);
+                    printRegion(width, height);
+                } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
+                        parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("village")) {
+                    goToVillage();
+                } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
+                        parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("farm")) {
+                    goToFarm();
+                } else if (input.equalsIgnoreCase("print all map")) {
+                    currentGame.getCurrentMap().printRegion(0, 0, 119, 119);
+                } else if (input.startsWith("meet npc")) {
+                    String npcName = parts[2];
+                    meetNpc(npcName);
+                } else if (input.startsWith("gift npc")) {
+                    String npcName = parts[2];
+                    String itemName = parts[3];
+                    int itemQuantity = Integer.parseInt(parts[4]);
+                    giftNpc(npcName, itemName, itemQuantity);
+                } else if (input.equalsIgnoreCase("friendship NPC list")) {
+                    System.out.println(user.showFriendshipLevelsWithNpcs());
+                } else if (input.equalsIgnoreCase("friendship USER list")) {
+                    System.out.println(user.showFriendshipLevelsWithUsers());
+                } else if (input.startsWith("quests list")) {
+                    listQuests(parts[2]);
+                } else if (input.startsWith("quest complete")) {
+                    // quest complete -i id -n npcName
+                    completeQuest(Integer.parseInt(parts[3]), parts[5]);
+                } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("-u")) {
+                    String targetUsername = parts[2];
+                    User target = UserRepository.getInstance().getUserByUsername(targetUsername);
+                    if (target == null) {
+                        System.out.println("User not found!");
+                        continue;
                     }
-                } else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
-                    useEquippedToolRefillOnly();
-                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
-                    showCurrentTool();
-                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
-                    showAvailableTools();
 
-                } else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
-                    try {
-                        int direction = Integer.parseInt(parts[3]);
-                        boolean refill = parts.length >= 5 && parts[4].equalsIgnoreCase("-r");
-                        useEquippedTool(direction, refill);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid direction.");
+                    StringBuilder message = new StringBuilder();
+                    for (int i = 4; i < parts.length; i++) {
+                        message.append(parts[i]).append(" ");
                     }
-                } else {
-                    System.out.println("Unknown tool command.");
-                }
-            } else if (parts[0].equalsIgnoreCase("walk")) {
-                int x = Integer.parseInt(parts[1]);
-                int y = Integer.parseInt(parts[2]);
-                walkTo(x, y, false);
-            } else if (parts[0].equalsIgnoreCase("next")) {
-                break;
-            } else if (input.startsWith("print map")) {
-                int width = Integer.parseInt(parts[2]);
-                int height = Integer.parseInt(parts[3]);
-                printRegion(width, height);
-            } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
-                    parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("village")) {
-                goToVillage();
-            } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
-                    parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("farm")) {
-                goToFarm();
-            } else if (input.equalsIgnoreCase("print all map")) {
-                currentGame.getCurrentMap().printRegion(0, 0, 119, 119);
-            } else if (input.startsWith("meet npc")) {
-                String npcName = parts[2];
-                meetNpc(npcName);
-            } else if (input.startsWith("gift npc")) {
-                String npcName = parts[2];
-                String itemName = parts[3];
-                int itemQuantity = Integer.parseInt(parts[4]);
-                giftNpc(npcName, itemName, itemQuantity);
-            } else if (input.equalsIgnoreCase("friendship NPC list")) {
-                System.out.println(user.showFriendshipLevelsWithNpcs());
-            } else if (input.equalsIgnoreCase("friendship USER list")) {
-                System.out.println(user.showFriendshipLevelsWithUsers());
-            } else if (input.startsWith("quests list")) {
-                listQuests(parts[2]);
-            } else if (input.startsWith("quest complete")) {
-                // quest complete -i id -n npcName
-                completeQuest(Integer.parseInt(parts[3]), parts[5]);
-            }else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("-u")) {
-                String targetUsername = parts[2];
-                User target = UserRepository.getInstance().getUserByUsername(targetUsername);
-                if (target == null) {
-                    System.out.println("User not found!");
-                    continue;
-                }
+                    String finalMessage = message.toString().trim();
 
-                StringBuilder message = new StringBuilder();
-                for (int i = 4; i < parts.length; i++) {
-                    message.append(parts[i]).append(" ");
+                    Result talkResult = user.talk(target, finalMessage);
+                    if (!talkResult.isSuccess()) {
+                        System.out.println(talkResult.getMessage());
+                    } else {
+                        System.out.println("Message sent to " + target.getNickname());
+                    }
+                } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("history")) {
+                    User target = UserRepository.getInstance().getUserByUsername(parts[3]);
+                    if (target == null) {
+                        System.out.println("User not found!");
+                        continue;
+                    }
+                    StringBuilder history = user.getAllMessages(target);
+                    if (history.length() == 0) {
+                        System.out.println("No message history with " + target.getNickname());
+                    } else {
+                        System.out.println("Chat history with " + target.getNickname() + ":");
+                        System.out.println(history.toString());
+                    }
+                } else if (input.contains("product")) {
+                    handleStoreCommands(currentGame.getCurrentMap(), input);
+                } else if (input.startsWith("hug")) {
+                    System.out.println(processHugCommand(parts[2]));
+                } else if (input.startsWith("flower")) {
+                    System.out.println(processFlowerCommand(parts[2]));
+                } else if (input.startsWith("ask marriage")) {
+                    System.out.println(processMarriageCommand(parts[3], parts[5]));
+                } else if (input.startsWith("respond")) {
+                    String response = parts[1];
+                    String username = parts[3];
+                    System.out.println(processRespondCommand(response, username));
+                } else if (input.startsWith("buy")) {
+                    buyFromStore(input);
+                } else if (input.startsWith("place")) {
+                    String placeName = parts[2];
+                    if (parts.length > 2) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(parts[1]).append(" ").append(parts[2]);
+                        placeName = sb.toString();
+                    }
+                    System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
+                } else if (input.startsWith("cheat")) {
+                    processCheatCommand(parts);
+                } else if (parts[0].equalsIgnoreCase("animal")) {
+                    System.out.println(processAnimalCommands(input));
+                } else if (parts[0].equalsIgnoreCase("kitchen")) {
+                    if (!isInHome()) {
+                        System.out.println("go home first");
+                        continue;
+                    }
+                    CookController cookController = new CookController();
+                    String result = cookController.handleCommand(user, input);
+                    if (result.contains("prepared")) energyUsedThisTurn += 3;
+                    if (result.contains("energy")) user.faint();
+                    System.out.println(result);
+                } else if (input.equalsIgnoreCase("go to spouse farm")) {
+                    goToSpouseFarm();
+                } else if (input.equalsIgnoreCase("go to my farm")) {
+                    goToMyFarm();
+                } else if (input.equalsIgnoreCase("open trade menu")) {
+                    TradeController.getInstance(sc, user).startTrade();
+                }else {
+                    System.out.println("Unknown command.");
                 }
-                String finalMessage = message.toString().trim();
-
-                Result talkResult = user.talk(target, finalMessage);
-                if (!talkResult.isSuccess()) {
-                    System.out.println(talkResult.getMessage());
-                } else {
-                    System.out.println("Message sent to " + target.getNickname());
-                }
-            } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("history")) {
-                User target = UserRepository.getInstance().getUserByUsername(parts[3]);
-                if (target == null) {
-                    System.out.println("User not found!");
-                    continue;
-                }
-                StringBuilder history = user.getAllMessages(target);
-                if (history.length() == 0) {
-                    System.out.println("No message history with " + target.getNickname());
-                } else {
-                    System.out.println("Chat history with " + target.getNickname() + ":");
-                    System.out.println(history.toString());
-                }
-            } else if (input.contains("product")) {
-                handleStoreCommands(currentGame.getCurrentMap(), input);
-            } else if (input.startsWith("hug")) {
-                System.out.println(processHugCommand(parts[2]));
-            } else if (input.startsWith("flower")) {
-                System.out.println(processFlowerCommand(parts[2]));
-            } else if (input.startsWith("ask marriage")) {
-                System.out.println(processMarriageCommand(parts[3], parts[5]));
-            } else if (input.startsWith("respond")) {
-                String response = parts[1];
-                String username = parts[3];
-                System.out.println(processRespondCommand(response, username));
-            } else if (input.startsWith("buy")) {
-                buyFromStore(input);
-            } else if (input.startsWith("place")) {
-                String placeName = parts[2];
-                if (parts.length > 2) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(parts[1]).append(" ").append(parts[2]);
-                    placeName = sb.toString();
-                }
-                System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
-            } else if (input.startsWith("cheat")) {
-                processCheatCommand(parts);
-            } else if (parts[0].equalsIgnoreCase("animal")) {
-                System.out.println(processAnimalCommands(input));
-            } else if (parts[0].equalsIgnoreCase("kitchen")) {
-                if (!isInHome()) {
-                    System.out.println("go home first");
-                    continue;
-                }
-                CookController cookController = new CookController();
-                System.out.println(cookController.handleCommand(user, input));
-            } else if (input.equalsIgnoreCase("go to spouse farm")) {
-                goToSpouseFarm();
-            } else if (input.equalsIgnoreCase("go to my farm")) {
-                goToMyFarm();
-            } else {
-                System.out.println("Unknown command.");
             }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
     }
 
@@ -807,6 +835,10 @@ public class GamePlayController {
         boolean isThereNpc = isNpcAvailable(npcName, map);
         if (isThereNpc) {
             Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
+            if (npc == null) {
+                System.out.println("NPC name is not true");
+                return;
+            }
             String prompt = npc.startConversation(user);
             System.out.println(prompt);
             if (prompt.contains("(")) {
@@ -824,6 +856,10 @@ public class GamePlayController {
             System.out.println("You must be in village to gift to the npc.");
         }
         boolean isThereNpc = isNpcAvailable(npcName, map);
+        if (user.getInventory().getItem(itemName) != null && user.getInventory().getItem(itemName) instanceof Tools) {
+            System.out.println("you can't gift non-sold items");
+            return;
+        }
         if (isThereNpc) {
             String result = GiftController.getInstance().giftToNpc(user, npcName, itemName, quantity);
             System.out.println(result);
@@ -836,6 +872,10 @@ public class GamePlayController {
         boolean isThereNpc = isNpcAvailable(npcName, map);
         if (isThereNpc) {
             Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
+            if (npc == null) {
+                System.out.println("NPC name is not true");
+                return;
+            }
             StringBuilder quests = new StringBuilder();
             for (Quest quest : npc.getQuests()) {
                 quests.append(quest.toString()).append("\n");
@@ -895,15 +935,18 @@ public class GamePlayController {
         if (reward != null) {
 
             if (reward.getMoney() > 0) {
+                if (currentFriendshipXp >= 200) reward.setMoney(reward.getMoney() * 2);
                 user.setMoney(user.getMoney() + reward.getMoney());
             }
 
             Item rewardItem = reward.getItems();
             if (rewardItem != null) {
+                if (currentFriendshipXp >= 200) rewardItem.setQuantity(rewardItem.getQuantity() * 2);
                 user.getInventory().addItemByName(rewardItem.getName(), rewardItem.getQuantity());
             }
 
             if (reward.getFriendshipXp() > 0) {
+                if (currentFriendshipXp >= 200) reward.setFriendshipXp(reward.getFriendshipXp() * 2);
                 user.increaseFriendshipXpsWithNpc(npc, reward.getFriendshipXp());
             }
         }
@@ -1062,7 +1105,7 @@ public class GamePlayController {
 
                 if (x < 0 || x >= 50 || y < 0 || y >= 50) continue;
 
-                Tile tile = map.getTile(x, y);
+                Tile tile = tiles[y][x];
                 if (tile.getStaticElement().isPresent()) {
                     StaticElement element = tile.getStaticElement().get();
                     if (element instanceof CoopStaticElement || element instanceof BarnStaticElement) {
@@ -1296,6 +1339,12 @@ public class GamePlayController {
         }
         if (animal == null) return "Animal not found: " + name;
 
+        if (user.getInventory().getItem("Hay") == null ||
+                user.getInventory().getItem("Hay").getQuantity() < 5) {
+            return "You don't have enough hay in your inventory";
+        }
+        user.getInventory().removeItemByName("Hay", 5);
+
         animal.feed(false);
         return "Fed " + name + " with hay";
     }
@@ -1528,13 +1577,13 @@ public class GamePlayController {
                 System.out.println("current weather:" + WeatherController.getInstance().getCurrentWeather());
             }
             case "energy" -> {
-                // cheat energy value
+                // cheat energy set value
                 if (parts[2].equals("set")) {
                     user.getEnergy().setCurrentEnergy(Integer.parseInt(parts[3]));
                     System.out.println("current energy: " + user.getEnergy().getCurrentEnergy());
                 }
                 //cheat energy limit per turn value
-                else {
+                else if (parts.length > 5) {
                     energyLimitPerTurn = Integer.parseInt(parts[5]);
                     System.out.println("current energy limit per turn: " + energyLimitPerTurn);
                 }

@@ -52,7 +52,6 @@ public class VillageTemplate {
         StoreRepository storeRepo = StoreRepository.getInstance();
         List<Placement> placements = new ArrayList<>();
 
-        // 1) ثبت فروشگاه‌ها با استفاده از کانستراکتور صحیح
         List<Store> defaultStores = List.of(
                 new Store("Blacksmith", 2, 2),
                 new Store("Marin'sRanch", 8, 2),
@@ -71,7 +70,7 @@ public class VillageTemplate {
                     4, 4
             ));
         }
-        // مقداردهی آیتم‌ها پس از ثبت
+
         storeRepo.initializeStoreItems();
 
 

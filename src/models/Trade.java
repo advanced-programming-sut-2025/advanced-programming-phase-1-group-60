@@ -6,12 +6,21 @@ public class Trade {
     private int id;
     private User fromUser;
     private User toUser;
-    private List<Item> offeredItems;
-    private List<Item> requestedItems;
+    private Item offeredItem;
+    private Item requestedItem;
     private int offeredMoney;
     private int requestedMoney;
     private boolean isAccepted;
     private String timestamp;
+    private String type = "";
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getType() {
+        return type;
+    }
 
 
     public int getId() {
@@ -38,20 +47,20 @@ public class Trade {
         this.toUser = toUser;
     }
 
-    public List<Item> getOfferedItems() {
-        return offeredItems;
+    public Item getOfferedItem() {
+        return offeredItem;
     }
 
-    public void setOfferedItems(List<Item> offeredItems) {
-        this.offeredItems = offeredItems;
+    public void setOfferedItems(Item offeredItems) {
+        this.offeredItem = offeredItems;
     }
 
-    public List<Item> getRequestedItems() {
-        return requestedItems;
+    public Item getRequestedItems() {
+        return requestedItem;
     }
 
-    public void setRequestedItems(List<Item> requestedItems) {
-        this.requestedItems = requestedItems;
+    public void setRequestedItems(Item requestedItems) {
+        this.requestedItem = requestedItems;
     }
 
     public int getOfferedMoney() {

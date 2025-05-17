@@ -140,8 +140,14 @@ public class User {
         return position;
     }
 
-    public void faint() {
+    int startFaintDay;
 
+    public void faint() {
+        startFaintDay = TimeSystem.getInstance().getCurrentDay();
+    }
+
+    public boolean isFaint () {
+        return startFaintDay == TimeSystem.getInstance().getCurrentDay();
     }
 
     public void faintAlong(Path path) {

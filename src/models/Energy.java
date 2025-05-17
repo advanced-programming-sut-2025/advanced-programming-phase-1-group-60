@@ -21,8 +21,11 @@ public class Energy {
         this.currentEnergy = currentEnergy;
     }
 
-    public void resetEnergy() {
+    public void resetEnergy(boolean hasFaintedLastDay) {
         this.currentEnergy = maxEnergy;
+        if (hasFaintedLastDay) {
+            this.currentEnergy = (int) (maxEnergy * 0.75);
+        }
     }
 
     public int getMaxEnergy() {

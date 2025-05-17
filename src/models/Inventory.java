@@ -54,17 +54,18 @@ public class Inventory {
         }
     }
 
-    public void addItem(Item item) {
+    public boolean addItem(Item item) {
         for (Item i : items) {
             if (i.getName().equalsIgnoreCase(item.getName())) {
                 i.setQuantity(i.getQuantity() + item.getQuantity());
-                return;
+                return true;
             }
         }
         if (type == InventoryType.DELUXE || items.size() < capacity) {
             items.add(item);
+            return true;
         } else {
-            System.out.println("Inventory is full!");
+            return false;
         }
     }
 
