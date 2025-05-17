@@ -94,14 +94,11 @@ public class GameMap {
     public void placeItemOnMap(String itemName, int x, int y) {
         Tile tile = getTile(x, y);
         if (tile == null) {
-            throw new IllegalArgumentException("Position is out of bounds: [" + x + ", " + y + "]");
+            throw new IllegalArgumentException("Position is out of bounds: (" + x + ", " + y + ")");
         }
-
-        // ایجاد یک StaticElement برای آیتم و قرار دادن آن در تایل
-        StaticElement newElement = new ItemStaticElement(itemName.charAt(0), false); // فرض می‌کنیم آیتم‌ها غیرقابل عبور هستند
-        tile.setStaticElement(newElement);
+        StaticElement staticElement = new ItemStaticElement(itemName.charAt(0), false); // نماد آیتم
+        tile.setStaticElement(staticElement);
     }
-
 
     public void printRegion(int startX, int startY, int width, int height) {
         for (int y = startY; y < startY + height; y++) {

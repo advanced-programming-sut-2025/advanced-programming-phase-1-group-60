@@ -265,6 +265,11 @@ public class HomeController {
             inventory.removeItem(new Item(entry.getKey(), entry.getValue()));
         }
 
+        if (!inventory.tryAddItem(new Item(itemName, 1))) {
+            return "Error: Inventory is full. Crafted item could not be added.";
+        }
+
+
         currentPlayer.getEnergy().decreaseEnergy(CRAFT_ENERGY_COST);
         inventory.addItem(new Item(itemName, 1));
         return "Successfully crafted '" + itemName + "'.";

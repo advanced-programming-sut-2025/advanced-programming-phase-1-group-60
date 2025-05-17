@@ -3,6 +3,7 @@ package models;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class Inventory {
@@ -65,6 +66,22 @@ public class Inventory {
             items.add(item);
         } else {
             System.out.println("Inventory is full!");
+        }
+    }
+
+    public boolean tryAddItem(Item item) {
+        for (Item i : items) {
+            if (i.getName().equalsIgnoreCase(item.getName())) {
+                i.setQuantity(i.getQuantity() + item.getQuantity());
+                return true; // آیتم با موفقیت اضافه شد
+            }
+        }
+        if (type == InventoryType.DELUXE || items.size() < capacity) {
+            items.add(item);
+            return true; // آیتم با موفقیت اضافه شد
+        } else {
+            System.out.println("Inventory is full!");
+            return false; // موجودی پر است
         }
     }
 
@@ -160,5 +177,26 @@ public class Inventory {
             }
         }
         return 0;
+    }
+
+    public boolean hasMaterials(Map<String, Integer> requiredMaterials) {
+        for (Map.Entry<String, Integer> entry : requiredMaterials.entrySet()) {
+            String materialName = entry.getKey();
+            int requiredQuantity = entry.getValue();
+
+            if (!hasItem(materialName, requiredQuantity)) {
+                return false; // اگر حتی یک ماده اولیه کافی نباشد
+            }
+        }
+        return true;
+    }
+
+    public void removeMaterials(Map<String, Integer> requiredMaterials) {
+        for (Map.Entry<String, Integer> entry : requiredMaterials.entrySet()) {
+            String materialName = entry.getKey();
+            int quantityToRemove = entry.getValue();
+
+            removeItemByName(materialName, quantityToRemove); // حذف مواد اولیه
+        }
     }
 }

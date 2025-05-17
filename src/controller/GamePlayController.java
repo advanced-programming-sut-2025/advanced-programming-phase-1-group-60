@@ -4,9 +4,7 @@ import models.*;
 import repository.NpcRepository;
 import repository.UserRepository;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class GamePlayController {
     Scanner sc;
@@ -58,16 +56,45 @@ public class GamePlayController {
             String[] parts = input.split("\\s+");
 
             if (parts[0].equalsIgnoreCase("craft")) {
+                if (parts[0].equalsIgnoreCase("exit") && parts[1].equalsIgnoreCase("crafting")) {
+                    System.out.println("Exiting crafting mode. Returning to gameplay...");
+                    // بازگشت به حالت عادی بازی
+//؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟؟
+
+
+                    return;
+                }
 
                     if (parts.length != 2) {
                     System.out.println("Invalid craft command. Usage: craft <item_name>");
                     continue;
                 }
+                    if (!isInHome()){
+                        System.out.println("pleas go home first");
+                    }
                 String itemName = parts[1];
                 String result = HomeController.crafting("craft", itemName, user);
                 System.out.println(result);
 
-            } else if (parts[0].equalsIgnoreCase("cheat") && parts[1].equalsIgnoreCase("add") && parts[2].equalsIgnoreCase("item")) {
+
+            } else if (parts[0].equalsIgnoreCase("place") && parts[1].equalsIgnoreCase("item")) {
+            if (parts.length < 4) {
+                System.out.println("Invalid command. Usage: place item <item_name> <direction>");
+                continue;
+            }
+            String itemName = parts[2];
+            int direction;
+            try {
+                direction = Integer.parseInt(parts[3]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid direction. It must be a number.");
+                continue;
+            }
+
+            String result = HomeController.crafting("place item", itemName, direction, user, currentGame.getCurrentMap());
+            System.out.println(result);
+        }
+            else if (parts[0].equalsIgnoreCase("cheat") && parts[1].equalsIgnoreCase("add") && parts[2].equalsIgnoreCase("item")) {
                 if (parts.length < 6 || !"-n".equalsIgnoreCase(parts[3].trim()) || !"-c".equalsIgnoreCase(parts[5].trim())) {
                 System.out.println("Error: Invalid cheat command. Usage: cheat add item -n <item_name> -c <count>");
                 continue;
@@ -98,12 +125,34 @@ public class GamePlayController {
                 String result = HomeController.crafting("show_recipes");
                 System.out.println(result);
 
-            } else {
-                System.out.println("Error: Unknown command.");
+            }
+            if (parts[0].equalsIgnoreCase("artisan")) {
+                if (parts.length < 2) {
+                    System.out.println("Error: Invalid artisan command. Usage: artisan <use|get> <artisan_name> [item_name]");
+                    return;
+                }
+
+                if (parts[1].equalsIgnoreCase("use")) {
+                    if (parts.length < 4) {
+                        System.out.println("Error: Invalid command. Usage: artisan use <artisan_name> <item_name>");
+                        return;
+                    }
+                    String artisanName = parts[2];
+                    String itemName = parts[3];
+                    System.out.println(processArtisanUse(artisanName, itemName));
+                } else if (parts[1].equalsIgnoreCase("get")) {
+                    if (parts.length < 3) {
+                        System.out.println("Error: Invalid command. Usage: artisan get <artisan_name>");
+                        return;
+                    }
+                    String artisanName = parts[2];
+                    System.out.println(processArtisanGet(artisanName));
+                } else {
+                    System.out.println("Error: Unknown artisan command.");
+                }
             }
 
-
-            if (parts[0].equalsIgnoreCase("tool")) {
+            else if (parts[0].equalsIgnoreCase("tool")) {
                 if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
                     try {
                         int toolId = Integer.parseInt(parts[2]);
@@ -244,10 +293,9 @@ public class GamePlayController {
                 goToSpouseFarm();
             } else if (input.equalsIgnoreCase("go to my farm")) {
                 goToMyFarm();
-            }// else {
-//                System.out.println("Unknown command.");
-//                System.out.println("injas");
-           // }
+            } else {
+                System.out.println("Unknown command.");
+            }
         }
     }
 
@@ -1711,5 +1759,56 @@ public class GamePlayController {
         this.tiles = user.getFarm().getTiles();
         user.setPosition(tiles[0][0]);
         System.out.println("you are now in your farm");
+    }
+    private Map<String, ProductionTask> activeProductions = new HashMap<>();
+    public String processArtisanUse(String artisanName, String itemName) {
+        // بررسی اینکه آیتم معتبر است یا خیر
+        if (!CraftingData.requiredMaterials.containsKey(itemName)) {
+            return "Error: Invalid item name.";
+        }
+
+        // بررسی مواد اولیه کاربر
+        Map<String, Integer> requiredMaterials = CraftingData.requiredMaterials.get(itemName);
+        if (!user.getInventory().hasMaterials(requiredMaterials)) {
+            return "Error: Not enough materials.";
+        }
+
+        // کسر مواد اولیه
+        user.getInventory().removeMaterials(requiredMaterials);
+
+        // محاسبه زمان تولید
+        // محاسبه زمان تولید
+        Integer processingTime = (Integer) CraftingData.craftingTimes.get(itemName); // تبدیل به Integer
+        if (processingTime == null) {
+            return "Error: Invalid item name.";
+        }
+        int finishHour = TimeSystem.getInstance().getCurrentHour() + processingTime; // تبدیل به int
+        // ذخیره اطلاعات تولید در نقشه فعال
+        ProductionTask task = new ProductionTask(itemName, TimeSystem.getInstance().getCurrentDay(), finishHour);
+        activeProductions.put(artisanName, task);
+
+        return "Production started for " + itemName + " in " + artisanName + ". It will be ready by Hour " + finishHour + ".";
+    }
+
+    public String processArtisanGet(String artisanName) {
+        if (!activeProductions.containsKey(artisanName)) {
+            return "Error: No active production for " + artisanName + ".";
+        }
+
+        ProductionTask task = activeProductions.get(artisanName);
+
+        // بررسی اینکه آیا تولید تمام شده است یا خیر
+        int currentDay = TimeSystem.getInstance().getCurrentDay();
+        int currentHour = TimeSystem.getInstance().getCurrentHour();
+
+        if (currentDay < task.getDay() || (currentDay == task.getDay() && currentHour < task.getFinishHour())) {
+            return "Production is not finished yet for " + artisanName + ".";
+        }
+
+        // اضافه کردن محصول به موجودی
+        user.getInventory().addItem(new Item(task.getItemName(), 1));
+        activeProductions.remove(artisanName);
+
+        return task.getItemName() + " has been added to your inventory.";
     }
 }
