@@ -27,20 +27,29 @@ public class GamePlayController {
         currentGame = game;
         homeX = f.getHomeX();
         homeY = f.getHomeY();
+        user.setPosition(tiles[homeX][homeY]);
     }
 
     public void initializeNextDay() {
-        if (user.isInVillage) {
+        WeatherController.getInstance().setWeather(WeatherController.getInstance().forecastWeather);
+        if (user.isInVillage && !hasFaintedLastDay) {
             int x = 0;
             int y = 0;
             switch (currentGame.getSelectedMaps().get(user)) {
-                case 1: x = 19; break;
-                case 2: y = 19; break;
-                case 3: x = 19; y = 19; break;
+                case 1:
+                    x = 19;
+                    break;
+                case 2:
+                    y = 19;
+                    break;
+                case 3:
+                    x = 19;
+                    y = 19;
+                    break;
             }
             goToFarm();
         }
-        walkTo(homeX, homeY, true);
+        if (!hasFaintedLastDay) walkTo(homeX, homeY, true);
         for (Animal animal : user.getPutAnimals()) {
             animal.resetDailyStatus();
         }
@@ -57,7 +66,6 @@ public class GamePlayController {
     public void getAndProcessInput() {
         try {
             energyUsedThisTurn = 0;
-            user.setPosition(tiles[homeX][homeY]);
             while (energyUsedThisTurn <= energyLimitPerTurn) {
                 if (user.isFaint()) {
                     System.out.println("you fainted");
@@ -73,6 +81,24 @@ public class GamePlayController {
                 String unreadMarriage = user.getUnreadMarriageRequests();
                 if (!unreadMarriage.isEmpty()) {
                     System.out.println("Marriage requests:\n" + unreadMarriage);
+                }
+
+                String giftNotif = GiftController.getInstance().checkNewGift(user);
+                if (giftNotif != null) {
+                    System.out.println(giftNotif);
+                    boolean trueAnswer = false;
+                    int rateInt = 1;
+                    while (!trueAnswer) {
+                        String rate = sc.nextLine();
+                        String parts2[] = rate.split(" ");
+                        rateInt = Integer.parseInt(parts2[2]);
+                        if (rateInt < 5 && rateInt > 0) {
+                            trueAnswer = true;
+                        } else {
+                            System.out.println("try again");
+                        }
+                    }
+                    System.out.println(GiftController.getInstance().rateGift(user, rateInt));
                 }
 
                 String input = sc.nextLine();
@@ -225,6 +251,37 @@ public class GamePlayController {
                     goToMyFarm();
                 } else if (input.equalsIgnoreCase("open trade menu")) {
                     TradeController.getInstance(sc, user).startTrade();
+                } else if (input.equalsIgnoreCase("help read map")) {
+                    if (!user.isInVillage)
+                    System.out.println("""
+                            C : Cabin
+                            G : Green House
+                            B : Barn
+                            L : Lake
+                            Q : Quarry
+                            S : Stone
+                            T : Tree
+                            B : Barn
+                            C : Coop
+                            """);
+                    else
+                        System.out.println("""
+                                S : Store
+                                any other capital : first character of npc name
+                                """);
+                } else if (input.startsWith("show current weather")) {
+                    System.out.println(WeatherController.getInstance().displayWeather());
+                } else if (input.startsWith("show weather forecast")) {
+                    System.out.println(WeatherController.getInstance().getForecast());
+                } else if (input.equalsIgnoreCase("show energy")) {
+                    System.out.println("Energy : " + user.getEnergy().getCurrentEnergy());
+                }else if (input.startsWith("gift -u")) {
+                    // gift -u username -i item -a amount
+                    GiftController giftController = GiftController.getInstance();
+                    System.out.println(giftController.giftToPlayer(user, parts[2], parts[4], Integer.parseInt(parts[6])));
+
+                }else if (input.equalsIgnoreCase("show gift history")) {
+                    System.out.println(GiftController.getInstance().getGiftHistory(user));
                 }else {
                     System.out.println("Unknown command.");
                 }
@@ -1026,7 +1083,6 @@ public class GamePlayController {
         if (animalPlace == null) {
             return "Error: Animal place not found";
         }
-
 
         // دریافت ابعاد آیتم
         int width, height;

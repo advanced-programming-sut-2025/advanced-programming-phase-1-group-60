@@ -12,8 +12,8 @@ import java.util.Set;
 public class WeatherController {
     private static WeatherController instance;
     private final Set<String> weathersSet = new HashSet<>(Arrays.asList("sunny", "rain", "snow", "storm"));
-    private String currentWeather;
-    private String forecastWeather;
+    private String currentWeather = "sunny";
+    public String forecastWeather;
 
     public static WeatherController getInstance() {
         if (instance == null) {

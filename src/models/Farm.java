@@ -41,7 +41,7 @@ public class Farm {
     }
 
     private void scatter(int count, Supplier<RandomElement> f) {
-        int placed = 1000;
+        int placed = 0;
         while (placed < count) {
             int x = RNG.nextInt(FarmTemplate.WIDTH);
             int y = RNG.nextInt(FarmTemplate.HEIGHT);

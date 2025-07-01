@@ -80,13 +80,24 @@ public class GameMap {
     public int getHeight() { return height; }
 
 
+    public static final String RESET        = "\u001B[0m";
+    public static final String ORANGE       = "\u001B[38;5;208m"; // نارنجی (256-color)
+    public static final String LIGHT_GREEN  = "\u001B[92m";       // سبز کمرنگ
+    public static final String GREEN        = "\u001B[32m";       // سبز
+    public static final String GRAY         = "\u001B[90m";       // طوسی
+    public static final String YELLOW       = "\u001B[33m";       // زرد
+    public static final String BLUE         = "\u001B[34m";       // آبی
+    public static final String PURPLE       = "\u001B[35m";       // بنفش
+    public static final String DEFAULT_COLOR= RESET;              // پیش‌فرض
+
     public void printRegion(int startX, int startY, int width, int height) {
         for (int y = startY; y < startY + height; y++) {
             for (int x = startX; x < startX + width; x++) {
                 Tile t = getTile(x, y);
                 char c;
+                String color = DEFAULT_COLOR;
+
                 if (t == null) {
-                    // بیرون از محدودهٔ فعالِ فارم
                     c = ' ';
                 } else {
                     Optional<StaticElement> se = t.getStaticElement();
@@ -102,7 +113,21 @@ public class GameMap {
                         c = '.';
                     }
                 }
-                System.out.print(c);
+
+                // تعیین رنگ بر اساس سمبل
+                switch (c) {
+                    case 'C': color = ORANGE;      break;
+                    case 'G': color = LIGHT_GREEN; break;
+                    case 'T': color = GREEN;       break;
+                    case 'S': color = GRAY;        break;
+                    case 'F': color = YELLOW;      break;
+                    case 'L': color = BLUE;        break;
+                    case 'Q': color = PURPLE;      break;
+                    case '.': color = YELLOW;      break;
+                    default:  color = DEFAULT_COLOR;
+                }
+
+                System.out.print(color + c + RESET);
             }
             System.out.println();
         }
