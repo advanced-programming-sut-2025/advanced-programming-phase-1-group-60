@@ -64,6 +64,9 @@ public class CraftingData {
         energyCosts.put("Any Metal Bar", "Inedible");
 
         // مواد اولیه موردنیاز
+        requiredMaterials.put("Honey", Map.of(
+                "Wood", 0 // یا Large Milk
+        ));
         requiredMaterials.put("Cheese", Map.of(
                 "Milk", 1 // یا Large Milk
         ));
