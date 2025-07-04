@@ -24,6 +24,9 @@ public class LoginMenuController {
         User user = userRepository.getUserByUsername(username);
         if (user != null && user.getPlainPassword().trim().equals(password.trim())) {
             loggedInUser = user;
+            if (stayLoggedIn) {
+                user.setStayLoggedIn(true);
+            }
             return new Result(true, "Login successful.", user);
         }
         return new Result(false, "Invalid username or password.");
@@ -45,10 +48,43 @@ public class LoginMenuController {
         }
 
         if (user.verifySecurityQuestion(answer)) {
-            return new Result(true, "Your password is: " + user.getPlainPassword()
-             + "\nYour hashed password is: " + user.getHashPassword());
+            System.out.println("Choose your password reset option:");
+            System.out.println("1. Generate random password");
+            System.out.println("2. Enter new password");
+            Scanner scanner = new Scanner(System.in);
+            String choice = scanner.nextLine().trim();
+
+            try {
+                if (choice.equals("1")) {
+                    String randomPass = generateRandomPassword();
+                    user.setHashPassword(randomPass);
+                    return new Result(true, "Your new password is: " + randomPass);
+                } else if (choice.equals("2")) {
+                    System.out.print("Enter new password: ");
+                    String newPassword = scanner.nextLine().trim();
+                    if (!User.verifyPassword(newPassword)) {
+                        return new Result(false, "Password is weak.");
+                    }
+                    user.setHashPassword(newPassword);
+                    return new Result(true, "Password changed successfully.");
+                } else {
+                    return new Result(false, "Invalid choice.");
+                }
+            } catch (Exception e) {
+                return new Result(false, "Error updating password: " + e.getMessage());
+            }
         }
         return new Result(false, "Wrong answer to security question.");
+    }
+
+    private String generateRandomPassword() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
+        StringBuilder password = new StringBuilder();
+        java.util.Random random = new java.util.Random();
+        for (int i = 0; i < 12; i++) {
+            password.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return password.toString();
     }
     public Result processAnswerQuestion(String question, String answer) {
         // Assume correct answer for simplicity

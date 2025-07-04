@@ -2,6 +2,7 @@ package controller;
 
 import models.Result;
 import models.User;
+import repository.UserRepository;
 
 public class MainController {
     private User loggedInUser;
@@ -30,6 +31,10 @@ public class MainController {
             return new Result(true, "Opening profile menu...");
         }
         return new Result(false, "You must be logged in to view profile.");
+    }
+
+    public User getLoggedInUser() {
+        return this.loggedInUser;
     }
 
     public Result exitGame() {

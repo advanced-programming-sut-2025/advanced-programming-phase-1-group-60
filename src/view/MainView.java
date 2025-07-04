@@ -1,8 +1,10 @@
 package view;
 
+import controller.GameController;
 import controller.MainController;
-import controller.MenuController;
+import controller.ProfileController;
 import models.Result;
+import repository.UserRepository;
 import view.commands.MainCommands;
 
 import java.util.Scanner;
@@ -10,11 +12,9 @@ import java.util.Scanner;
 public class MainView {
     private final Scanner scanner;
     private final MainController mainController;
-    private final MenuController menuController;
-
-    public MainView(MainController mainController, MenuController menuController, Scanner scanner) {
+    private boolean running = true;
+    public MainView(MainController mainController, Scanner scanner) {
         this.mainController = mainController;
-        this.menuController = menuController;
         this.scanner = scanner;
     }
 
@@ -22,13 +22,11 @@ public class MainView {
         System.out.println("=== Welcome to Stardew Valley Main Menu ===");
         System.out.println("Available commands:");
         System.out.println("- user logout");
-        System.out.println("- avatar");
         System.out.println("- profile");
         System.out.println("- game");
         System.out.println("- exit");
 
-        while (true) {
-            System.out.print("> ");
+        while (running) {
             String input = scanner.nextLine().trim();
             MainCommands command = getCommand(input);
 
@@ -73,29 +71,38 @@ public class MainView {
         Result result = mainController.logout();
         System.out.println(result.getMessage());
         if (result.isSuccess()) {
-            menuController.exitMenu();
             System.out.println("Redirecting to login/register menu...");
+            breakLoop();
         }
-
     }
 
     private void goToProfile() {
         Result result = mainController.goToProfile();
-        System.out.println(result.getMessage());
         if (result.isSuccess()) {
-            menuController.enterMenu("profile");
+            ProfileController profileController = new ProfileController(mainController.getLoggedInUser());
+            ProfileView profileView = new ProfileView(profileController, scanner);
+            profileView.display();
+        } else {
+            System.out.println(result.getMessage());
         }
     }
 
     private void goToGame() {
         Result result = mainController.goToGame();
-        System.out.println(result.getMessage());
         if (result.isSuccess()) {
-            menuController.enterMenu("game");
+            GameController gameController = new GameController(mainController.getLoggedInUser(), scanner);
+            gameController.displayGame();
+        } else {
+            System.out.println(result.getMessage());
         }
     }
 
     private void goToAvatar() {
         System.out.println("Avatar menu is not implemented yet.");
+    }
+
+    // Helper to break the display loop after logout
+    private void breakLoop() {
+        running = false;
     }
 }

@@ -54,10 +54,11 @@ public class ProfileController {
     }
 
     public Result showUserInfo() {
-        String info = "Username: " + user.getUsername() +
-                "\nNickname: " + user.getNickname() +
-                "\nEmail: " + user.getEmail() +
-                "\nGender: " + user.getGender();
-        return new Result(true, info);
+        StringBuilder info = new StringBuilder();
+        info.append("Username: ").append(user.getUsername()).append("\n");
+        info.append("Nickname: ").append(user.getNickname()).append("\n");
+        info.append("Money: ").append(user.getMoney()).append(" gold\n");
+
+        return new Result(true, info.toString());
     }
 }

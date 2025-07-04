@@ -2,6 +2,8 @@ package view;
 
 import controller.GameController;
 import controller.LoginMenuController;
+import controller.MainController;
+import controller.MenuController;
 import models.Result;
 import models.User;
 import repository.UserRepository;
@@ -48,13 +50,17 @@ public class LoginView extends View {
     private void handleLogin(String input) {
         String[] parts = input.split("\\s+");
         String username = null, password = null;
+        boolean stayLoggedIn = false;
 
-        for (int i = 0; i < parts.length - 1; i++) {
+        for (int i = 0; i < parts.length; i++) {
             if (parts[i].equals("-u")) {
                 username = parts[i + 1];
             }
             if (parts[i].equals("-p")) {
                 password = parts[i + 1];
+            }
+            if (parts[i].equals("-stayloggedin")){
+                stayLoggedIn = true;
             }
         }
 
@@ -63,13 +69,18 @@ public class LoginView extends View {
             return;
         }
 
-        Result result = loginMenuController.Login(username, password, false);
+        Result result = loginMenuController.Login(username, password, stayLoggedIn);
         if (result.isSuccess()) {
             System.out.println("Login successful! Welcome, " + username + "!");
-            GameController gameController = new GameController(
-                    UserRepository.getInstance().getUserByUsername(username), scanner);
-            gameController.displayGame();
-        } else {
+            if (stayLoggedIn){
+                System.out.println("You will stay logged in");
+            }
+            User user = UserRepository.getInstance().getUserByUsername(username);
+            MainController mainController = new MainController(user);
+            MainView mainView = new MainView(mainController, scanner);
+            mainView.display();
+        }
+        else {
             System.out.println(result.getMessage());
         }
     }

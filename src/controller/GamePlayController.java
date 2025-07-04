@@ -87,213 +87,268 @@ public class GamePlayController {
     }
 
     public void getAndProcessInput() {
-        energyUsedThisTurn = 0;
-        user.setPosition(tiles[0][0]);
-        while (energyUsedThisTurn <= energyLimitPerTurn) {
-            System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
-            String unread = user.getUnreadMessage();
-            if (!unread.isEmpty()) {
-                System.out.println("You have unread messages: \n" + unread);
-            }
+        try {
+            energyUsedThisTurn = 0;
+            while (energyUsedThisTurn <= energyLimitPerTurn) {
+                if (user.isFaint()) {
+                    System.out.println("you fainted");
+                    hasFaintedLastDay = true;
+                    break;
+                }
+                System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
+                String unread = user.getUnreadMessage();
+                if (!unread.isEmpty()) {
+                    System.out.println("You have unread messages: \n" + unread);
+                }
 
-            String unreadMarriage = user.getUnreadMarriageRequests();
-            if (!unreadMarriage.isEmpty()) {
-                System.out.println("Marriage requests:\n" + unreadMarriage);
-            }
-            String input = sc.nextLine();
-            String[] parts = input.split("\\s+");
+                String unreadMarriage = user.getUnreadMarriageRequests();
+                if (!unreadMarriage.isEmpty()) {
+                    System.out.println("Marriage requests:\n" + unreadMarriage);
+                }
+                String giftNotif = GiftController.getInstance().checkNewGift(user);
+                if (giftNotif != null) {
+                    System.out.println(giftNotif);
+                    boolean trueAnswer = false;
+                    int rateInt = 1;
+                    while (!trueAnswer) {
+                        String rate = sc.nextLine();
+                        String parts2[] = rate.split(" ");
+                        rateInt = Integer.parseInt(parts2[2]);
+                        if (rateInt < 5 && rateInt > 0) {
+                            trueAnswer = true;
+                        } else {
+                            System.out.println("try again");
+                        }
+                    }
+                    System.out.println(GiftController.getInstance().rateGift(user, rateInt));
+                }
+                String input = sc.nextLine();
+                String[] parts = input.split("\\s+");
 
-            if (parts[0].equalsIgnoreCase("craft")) {
+                if (parts[0].equalsIgnoreCase("craft")) {
 
                     if (parts.length != 2) {
-                    System.out.println("Invalid craft command. Usage: craft <item_name>");
-                    continue;
-                }
-                String itemName = parts[1];
-                String result = HomeController.crafting("craft", itemName, user);
-                System.out.println(result);
+                        System.out.println("Invalid craft command. Usage: craft <item_name>");
+                        continue;
+                    }
+                    String itemName = parts[1];
+                    String result = HomeController.crafting("craft", itemName, user);
+                    System.out.println(result);
 
-            } else if (parts[0].equalsIgnoreCase("cheat") && parts[1].equalsIgnoreCase("add") && parts[2].equalsIgnoreCase("item")) {
-                if (parts.length < 6 || !"-n".equalsIgnoreCase(parts[3].trim()) || !"-c".equalsIgnoreCase(parts[5].trim())) {
-                System.out.println("Error: Invalid cheat command. Usage: cheat add item -n <item_name> -c <count>");
-                continue;
+                } else if (parts[0].equalsIgnoreCase("cheat") && parts[1].equalsIgnoreCase("add") && parts[2].equalsIgnoreCase("item")) {
+                    if (parts.length < 6 || !"-n".equalsIgnoreCase(parts[3].trim()) || !"-c".equalsIgnoreCase(parts[5].trim())) {
+                        System.out.println("Error: Invalid cheat command. Usage: cheat add item -n <item_name> -c <count>");
+                        continue;
+                    }
+
+                    String itemName = parts[4];
+                    int count;
+                    try {
+                        count = Integer.parseInt(parts[6]);
+                    } catch (NumberFormatException e) {
+                        System.out.println("Error: Invalid count. It must be a number.");
+                        continue;
+                    }
+
+                    String result = HomeController.addItemToInventory(itemName, count, user);
+                    System.out.println(result);
+
+                } else if (parts[0].equalsIgnoreCase("unlock") && parts[1].equalsIgnoreCase("recipe")) {
+                    if (parts.length != 3) {
+                        System.out.println("Error: Invalid unlock command. Usage: unlock recipe <recipe_name>");
+                        continue;
+                    }
+                    String recipeName = parts[2];
+                    String result = HomeController.crafting("unlock recipe", recipeName);
+                    System.out.println(result);
+
+                } else if (parts[0].equalsIgnoreCase("show_recipes")) {
+                    String result = HomeController.crafting("show_recipes");
+                    System.out.println(result);
+
+                }
+
+
+                if (parts[0].equalsIgnoreCase("tool")) {
+                    if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
+                        try {
+                            int toolId = Integer.parseInt(parts[2]);
+                            equipTool(toolId);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid tool ID.");
+                        }
+                    } else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
+                        try {
+                            int toolId = Integer.parseInt(parts[2]);
+                            boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
+
+                            int level = Integer.parseInt(parts[3]);
+                            upgradeToolById(toolId, force, level);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid tool ID.");
+                        }
+                    } else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
+                        useEquippedToolRefillOnly();
+                    } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
+                        showCurrentTool();
+                    } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
+                        showAvailableTools();
+
+                    } else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
+                        try {
+                            int direction = Integer.parseInt(parts[3]);
+                            boolean refill = parts.length >= 5 && parts[4].equalsIgnoreCase("-r");
+                            useEquippedTool(direction, refill);
+                        } catch (NumberFormatException e) {
+                            System.out.println("Invalid direction.");
+                        }
+                    } else {
+                        System.out.println("Unknown tool command.");
+                    }
+                } else if (parts[0].equalsIgnoreCase("walk")) {
+                    int x = Integer.parseInt(parts[1]);
+                    int y = Integer.parseInt(parts[2]);
+                    walkTo(x, y, false);
+                } else if (parts[0].equalsIgnoreCase("next")) {
+                    break;
+                } else if (input.startsWith("print map")) {
+                    int width = Integer.parseInt(parts[2]);
+                    int height = Integer.parseInt(parts[3]);
+                    printRegion(width, height);
+                } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
+                        parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("village")) {
+                    goToVillage();
+                } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
+                        parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("farm")) {
+                    goToFarm();
+                } else if (input.equalsIgnoreCase("print all map")) {
+                    currentGame.getCurrentMap().printRegion(0, 0, 119, 119);
+                } else if (input.startsWith("meet npc")) {
+                    String npcName = parts[2];
+                    meetNpc(npcName);
+                } else if (input.startsWith("gift npc")) {
+                    String npcName = parts[2];
+                    String itemName = parts[3];
+                    int itemQuantity = Integer.parseInt(parts[4]);
+                    giftNpc(npcName, itemName, itemQuantity);
+                } else if (input.equalsIgnoreCase("friendship NPC list")) {
+                    System.out.println(user.showFriendshipLevelsWithNpcs());
+                } else if (input.equalsIgnoreCase("friendship USER list")) {
+                    System.out.println(user.showFriendshipLevelsWithUsers());
+                } else if (input.startsWith("quests list")) {
+                    listQuests(parts[2]);
+                } else if (input.startsWith("quest complete")) {
+                    // quest complete -i id -n npcName
+                    completeQuest(Integer.parseInt(parts[3]), parts[5]);
+                } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("-u")) {
+                    String targetUsername = parts[2];
+                    User target = UserRepository.getInstance().getUserByUsername(targetUsername);
+                    if (target == null) {
+                        System.out.println("User not found!");
+                        continue;
+                    }
+
+                    StringBuilder message = new StringBuilder();
+                    for (int i = 4; i < parts.length; i++) {
+                        message.append(parts[i]).append(" ");
+                    }
+                    String finalMessage = message.toString().trim();
+
+                    Result talkResult = user.talk(target, finalMessage);
+                    if (!talkResult.isSuccess()) {
+                        System.out.println(talkResult.getMessage());
+                    } else {
+                        System.out.println("Message sent to " + target.getNickname());
+                    }
+                } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("history")) {
+                    User target = UserRepository.getInstance().getUserByUsername(parts[3]);
+                    if (target == null) {
+                        System.out.println("User not found!");
+                        continue;
+                    }
+                    StringBuilder history = user.getAllMessages(target);
+                    if (history.length() == 0) {
+                        System.out.println("No message history with " + target.getNickname());
+                    } else {
+                        System.out.println("Chat history with " + target.getNickname() + ":");
+                        System.out.println(history.toString());
+                    }
+                } else if (input.contains("product")) {
+                    handleStoreCommands(currentGame.getCurrentMap(), input);
+                } else if (input.startsWith("hug")) {
+                    System.out.println(processHugCommand(parts[2]));
+                } else if (input.startsWith("flower")) {
+                    System.out.println(processFlowerCommand(parts[2]));
+                } else if (input.startsWith("ask marriage")) {
+                    System.out.println(processMarriageCommand(parts[3], parts[5]));
+                } else if (input.startsWith("respond")) {
+                    String response = parts[1];
+                    String username = parts[3];
+                    System.out.println(processRespondCommand(response, username));
+                } else if (input.startsWith("buy")) {
+                    buyFromStore(input);
+                } else if (input.startsWith("place")) {
+                    String placeName = parts[2];
+                    if (parts.length > 2) {
+                        StringBuilder sb = new StringBuilder();
+                        sb.append(parts[1]).append(" ").append(parts[2]);
+                        placeName = sb.toString();
+                    }
+                    System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
+                } else if (input.startsWith("cheat")) {
+                    processCheatCommand(parts);
+                } else if (parts[0].equalsIgnoreCase("animal")) {
+                    System.out.println(processAnimalCommands(input));
+                } else if (parts[0].equalsIgnoreCase("kitchen")) {
+                    if (!isInHome()) {
+                        System.out.println("go home first");
+                        continue;
+                    }
+                    CookController cookController = new CookController();
+                    System.out.println(cookController.handleCommand(user, input));
+                } else if (input.equalsIgnoreCase("go to spouse farm")) {
+                    goToSpouseFarm();
+                } else if (input.equalsIgnoreCase("go to my farm")) {
+                    goToMyFarm();
+                }
+                else if (input.equalsIgnoreCase("help read map")) {
+                    if (!user.isInVillage)
+                        System.out.println("""
+                            C : Cabin
+                            G : Green House
+                            B : Barn
+                            L : Lake
+                            Q : Quarry
+                            S : Stone
+                            T : Tree
+                            B : Barn
+                            C : Coop
+                            """);
+                    else
+                        System.out.println("""
+                                S : Store
+                                any other capital : first character of npc name
+                                """);
+                } else if (input.startsWith("show current weather")) {
+                    System.out.println(WeatherController.getInstance().displayWeather());
+                } else if (input.startsWith("show weather forecast")) {
+                    System.out.println(WeatherController.getInstance().getForecast());
+                } else if (input.equalsIgnoreCase("show energy")) {
+                    System.out.println("Energy : " + user.getEnergy().getCurrentEnergy());
+                }else if (input.startsWith("gift -u")) {
+                    // gift -u username -i item -a amount
+                    GiftController giftController = GiftController.getInstance();
+                    System.out.println(giftController.giftToPlayer(user, parts[2], parts[4], Integer.parseInt(parts[6])));
+
+                }else if (input.equalsIgnoreCase("show gift history")) {
+                    System.out.println(GiftController.getInstance().getGiftHistory(user));
+                }else {
+                    System.out.println("Unknown command.");
+                }
             }
-
-                String itemName = parts[4];
-                int count;
-                try {
-                    count = Integer.parseInt(parts[6]);
-                } catch (NumberFormatException e) {
-                    System.out.println("Error: Invalid count. It must be a number.");
-                    continue;
-                }
-
-                String result = HomeController.addItemToInventory(itemName, count, user);
-                System.out.println(result);
-
-            } else if (parts[0].equalsIgnoreCase("unlock") && parts[1].equalsIgnoreCase("recipe")) {
-                if (parts.length != 3) {
-                    System.out.println("Error: Invalid unlock command. Usage: unlock recipe <recipe_name>");
-                    continue;
-                }
-                String recipeName = parts[2];
-                String result = HomeController.crafting("unlock recipe", recipeName);
-                System.out.println(result);
-
-            } else if (parts[0].equalsIgnoreCase("show_recipes")) {
-                String result = HomeController.crafting("show_recipes");
-                System.out.println(result);
-
-            } else {
-                System.out.println("Error: Unknown command.");
-            }
-
-
-            if (parts[0].equalsIgnoreCase("tool")) {
-                if (parts.length == 3 && parts[1].equalsIgnoreCase("equip")) {
-                    try {
-                        int toolId = Integer.parseInt(parts[2]);
-                        equipTool(toolId);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid tool ID.");
-                    }
-                } else if (parts.length >= 3 && parts[1].equalsIgnoreCase("upgrade")) {
-                    try {
-                        int toolId = Integer.parseInt(parts[2]);
-                        boolean force = parts.length >= 5 && parts[4].equalsIgnoreCase("-f");
-
-                        int level = Integer.parseInt(parts[3]);
-                        upgradeToolById(toolId, force, level);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid tool ID.");
-                    }
-                } else if (parts.length == 3 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-r")) {
-                    useEquippedToolRefillOnly();
-                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("current")) {
-                    showCurrentTool();
-                } else if (parts.length == 2 && parts[1].equalsIgnoreCase("available")) {
-                    showAvailableTools();
-
-                } else if (parts.length >= 4 && parts[1].equalsIgnoreCase("use") && parts[2].equalsIgnoreCase("-d")) {
-                    try {
-                        int direction = Integer.parseInt(parts[3]);
-                        boolean refill = parts.length >= 5 && parts[4].equalsIgnoreCase("-r");
-                        useEquippedTool(direction, refill);
-                    } catch (NumberFormatException e) {
-                        System.out.println("Invalid direction.");
-                    }
-                } else {
-                    System.out.println("Unknown tool command.");
-                }
-            } else if (parts[0].equalsIgnoreCase("walk")) {
-                int x = Integer.parseInt(parts[1]);
-                int y = Integer.parseInt(parts[2]);
-                walkTo(x, y, false);
-            } else if (parts[0].equalsIgnoreCase("next")) {
-                break;
-            } else if (input.startsWith("print map")) {
-                int width = Integer.parseInt(parts[2]);
-                int height = Integer.parseInt(parts[3]);
-                printRegion(width, height);
-            } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
-                    parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("village")) {
-                goToVillage();
-            } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
-                    parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("farm")) {
-                goToFarm();
-            } else if (input.equalsIgnoreCase("print all map")) {
-                currentGame.getCurrentMap().printRegion(0, 0, 119, 119);
-            } else if (input.startsWith("meet npc")) {
-                String npcName = parts[2];
-                meetNpc(npcName);
-            } else if (input.startsWith("gift npc")) {
-                String npcName = parts[2];
-                String itemName = parts[3];
-                int itemQuantity = Integer.parseInt(parts[4]);
-                giftNpc(npcName, itemName, itemQuantity);
-            } else if (input.equalsIgnoreCase("friendship NPC list")) {
-                System.out.println(user.showFriendshipLevelsWithNpcs());
-            } else if (input.equalsIgnoreCase("friendship USER list")) {
-                System.out.println(user.showFriendshipLevelsWithUsers());
-            } else if (input.startsWith("quests list")) {
-                listQuests(parts[2]);
-            } else if (input.startsWith("quest complete")) {
-                // quest complete -i id -n npcName
-                completeQuest(Integer.parseInt(parts[3]), parts[5]);
-            }else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("-u")) {
-                String targetUsername = parts[2];
-                User target = UserRepository.getInstance().getUserByUsername(targetUsername);
-                if (target == null) {
-                    System.out.println("User not found!");
-                    continue;
-                }
-
-                StringBuilder message = new StringBuilder();
-                for (int i = 4; i < parts.length; i++) {
-                    message.append(parts[i]).append(" ");
-                }
-                String finalMessage = message.toString().trim();
-
-                Result talkResult = user.talk(target, finalMessage);
-                if (!talkResult.isSuccess()) {
-                    System.out.println(talkResult.getMessage());
-                } else {
-                    System.out.println("Message sent to " + target.getNickname());
-                }
-            } else if (parts[0].equalsIgnoreCase("talk") && parts[1].equalsIgnoreCase("history")) {
-                User target = UserRepository.getInstance().getUserByUsername(parts[3]);
-                if (target == null) {
-                    System.out.println("User not found!");
-                    continue;
-                }
-                StringBuilder history = user.getAllMessages(target);
-                if (history.length() == 0) {
-                    System.out.println("No message history with " + target.getNickname());
-                } else {
-                    System.out.println("Chat history with " + target.getNickname() + ":");
-                    System.out.println(history.toString());
-                }
-            } else if (input.contains("product")) {
-                handleStoreCommands(currentGame.getCurrentMap(), input);
-            } else if (input.startsWith("hug")) {
-                System.out.println(processHugCommand(parts[2]));
-            } else if (input.startsWith("flower")) {
-                System.out.println(processFlowerCommand(parts[2]));
-            } else if (input.startsWith("ask marriage")) {
-                System.out.println(processMarriageCommand(parts[3], parts[5]));
-            } else if (input.startsWith("respond")) {
-                String response = parts[1];
-                String username = parts[3];
-                System.out.println(processRespondCommand(response, username));
-            } else if (input.startsWith("buy")) {
-                buyFromStore(input);
-            } else if (input.startsWith("place")) {
-                String placeName = parts[2];
-                if (parts.length > 2) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append(parts[1]).append(" ").append(parts[2]);
-                    placeName = sb.toString();
-                }
-                System.out.println(placeAnimalPlace(placeName, user.getPosition().getPositionX(), user.getPosition().getPositionY()));
-            } else if (input.startsWith("cheat")) {
-                processCheatCommand(parts);
-            } else if (parts[0].equalsIgnoreCase("animal")) {
-                System.out.println(processAnimalCommands(input));
-            } else if (parts[0].equalsIgnoreCase("kitchen")) {
-                if (!isInHome()) {
-                    System.out.println("go home first");
-                    continue;
-                }
-                CookController cookController = new CookController();
-                System.out.println(cookController.handleCommand(user, input));
-            } else if (input.equalsIgnoreCase("go to spouse farm")) {
-                goToSpouseFarm();
-            } else if (input.equalsIgnoreCase("go to my farm")) {
-                goToMyFarm();
-            }// else {
-//                System.out.println("Unknown command.");
-//                System.out.println("injas");
-           // }
+        }
+        catch (Exception e) {
+            System.out.println(e.getMessage());
         }
     }
 

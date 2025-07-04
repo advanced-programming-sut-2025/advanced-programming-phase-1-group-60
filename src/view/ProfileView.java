@@ -19,48 +19,72 @@ public class ProfileView extends View {
     @Override
     public void display() {
         System.out.println("=== Profile Menu ===");
-        System.out.println("- change username");
-        System.out.println("- change nickname");
-        System.out.println("- change email");
-        System.out.println("- change password");
+        System.out.println("- change username -u <newusername>");
+        System.out.println("- change nickname -n <newnickname>");
+        System.out.println("- change email -e <email>");
+        System.out.println("- change password -p <newpassword> -o <oldpassword>");
         System.out.println("- show info");
         System.out.println("- exit");
-//ست کردن مشخصات کاربر از فایل؟؟
-       // User currentUser;
+
         while (true) {
             String input = scanner.nextLine().trim();
             ProfileCommands command = ProfileCommands.getCommand(input);
 
+            if (input.equals("exit")) {
+                break;
+            }
+
             if (command == null) {
-                    System.out.println("Invalid command. Please try again.");
+                System.out.println("Invalid command. Please try again.");
                 continue;
             }
-            if (command == ProfileCommands.CHANGE_USERNAME) {
-                String newUsername = input.trim();
-                Result result = profileController.changeUserName(newUsername);
-                System.out.println(result.getMessage());
 
-            } else if (command == ProfileCommands.CHANGE_NICKNAME) {
-                String newNickname = input.trim();
-                Result result = profileController.changeNickname(newNickname);
-                System.out.println(result.getMessage());
+            switch (command) {
+                case CHANGE_USERNAME:
+                    if (input.matches("change username -u .+")) {
+                        String newUsername = input.substring(input.indexOf("-u ") + 3).trim();
+                        Result result = profileController.changeUserName(newUsername);
+                        System.out.println(result.getMessage());
+                    } else {
+                        System.out.println("Invalid format. Use: change username -u <newusername>");
+                    }
+                    break;
 
-            } else if (command == ProfileCommands.CHANGE_EMAIL) {
-                String newEmail = input.trim();
-                Result result = profileController.changeEmail(newEmail);
-                System.out.println(result.getMessage());
+                case CHANGE_NICKNAME:
+                    if (input.matches("change nickname -n .+")) {
+                        String newNickname = input.substring(input.indexOf("-n ") + 3).trim();
+                        Result result = profileController.changeNickname(newNickname);
+                        System.out.println(result.getMessage());
+                    } else {
+                        System.out.println("Invalid format. Use: change nickname -n <newnickname>");
+                    }
+                    break;
 
-            } else if (command == ProfileCommands.CHANGE_PASSWORD) {
-                //اینجا باید رمز قبلی کاربر رو از فایل بگیریم
-                //or
-                String oldPassword = input.trim();
-               String newPassword = input.trim();
-                Result result = profileController.changePassword(oldPassword, newPassword);
-                System.out.println(result.getMessage());
+                case CHANGE_EMAIL:
+                    if (input.matches("change email -e .+")) {
+                        String newEmail = input.substring(input.indexOf("-e ") + 3).trim();
+                        Result result = profileController.changeEmail(newEmail);
+                        System.out.println(result.getMessage());
+                    } else {
+                        System.out.println("Invalid format. Use: change email -e <email>");
+                    }
+                    break;
 
-            } else if (command == ProfileCommands.SHOW_INFO) {
-                Result result = profileController.showUserInfo();
-                System.out.println(result.getMessage());
+                case CHANGE_PASSWORD:
+                    if (input.matches("change password -p .+ -o .+")) {
+                        String newPassword = input.substring(input.indexOf("-p ") + 3, input.indexOf(" -o")).trim();
+                        String oldPassword = input.substring(input.indexOf("-o ") + 3).trim();
+                        Result result = profileController.changePassword(newPassword, oldPassword);
+                        System.out.println(result.getMessage());
+                    } else {
+                        System.out.println("Invalid format. Use: change password -p <newpassword> -o <oldpassword>");
+                    }
+                    break;
+
+                case SHOW_INFO:
+                    Result result = profileController.showUserInfo();
+                    System.out.println(result.getMessage());
+                    break;
             }
         }
     }

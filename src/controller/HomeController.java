@@ -294,13 +294,6 @@ public class HomeController {
         int currentPositionY = user.getPosition().getPositionY();
         int[] newPosition = calculateNewPosition(currentPositionX, currentPositionY, direction);
 
-        // بررسی اینکه آیا سلول خالی است یا نه
-        if (!gameMap.isCellEmpty(newPosition[0], newPosition[1])) {
-            return "Error: The target cell is not empty.";
-        }
-
-        // قرار دادن آیتم در نقشه
-        gameMap.placeItemOnMap(itemName, newPosition[0], newPosition[1]);
 
         // حذف آیتم از موجودی کاربر
         inventory.removeItem(new Item(itemName, 1));

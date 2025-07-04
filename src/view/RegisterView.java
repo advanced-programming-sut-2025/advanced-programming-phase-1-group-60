@@ -56,7 +56,18 @@ public class RegisterView extends View {
             String nickname = getValue(parts, "n");
             String email = getValue(parts, "e");
             String gender = getValue(parts, "g");
-
+            if ("R".equals(password) && "R".equals(passwordConfirm)) {
+                String randomPassword = registerController.generateRandomPassword();
+                System.out.println("Generated random password: " + randomPassword);
+                System.out.print("Do you want to use this password? (y/n): ");
+                String confirm = scanner.nextLine().trim();
+                if (!confirm.equalsIgnoreCase("y")) {
+                    System.out.println("Registration cancelled.");
+                    return;
+                }
+                password = randomPassword;
+                passwordConfirm = randomPassword;
+            }
             Result result = registerController.register(username, password, passwordConfirm, nickname, email, gender);
             System.out.println(result.getMessage());
             if (result.isSuccess()) {
