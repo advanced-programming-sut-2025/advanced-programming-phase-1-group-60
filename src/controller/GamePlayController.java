@@ -21,17 +21,18 @@ public class GamePlayController {
     private int energyLimitPerTurn = 50;
     public int homeX, homeY;
     private final Farm farm;
+    public boolean hasFaintedLastDay = false;
 
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.farm = f;
         this.tiles = f.getTiles();
         this.user = u;
         this.sc = sc;
-        u.setPosition(tiles[0][0]);
         energyUsedThisTurn = 0;
         currentGame = game;
         homeX = f.getHomeX();
         homeY = f.getHomeY();
+        user.setPosition(tiles[homeX][homeY]);
     }
 
     public void initializeNextDay() {
@@ -52,14 +53,37 @@ public class GamePlayController {
             }
         }
         walkTo(homeX, homeY, true);
+        WeatherController.getInstance().setWeather(WeatherController.getInstance().forecastWeather);
+        if (user.isInVillage && !hasFaintedLastDay) {
+            int x = 0;
+            int y = 0;
+            switch (currentGame.getSelectedMaps().get(user)) {
+                case 1:
+                    x = 19;
+                    break;
+                case 2:
+                    y = 19;
+                    break;
+                case 3:
+                    x = 19;
+                    y = 19;
+                    break;
+            }
+            goToFarm();
+        }
+        if (!hasFaintedLastDay) walkTo(homeX, homeY, true);
         for (Animal animal : user.getPutAnimals()) {
             animal.resetDailyStatus();
         }
-        user.getEnergy().resetEnergy();
+        user.getEnergy().resetEnergy(hasFaintedLastDay);
+        hasFaintedLastDay = false;
         if (user.isEnergyPenaltyActive()) {
             user.getEnergy().setCurrentEnergy(user.getEnergy().getCurrentEnergy() / 2);
         }
         updateCropsDaily(1);
+        for (Npc n : NpcRepository.getInstance().getAllNpcs()) {
+            n.gift();
+        }
     }
 
     public void getAndProcessInput() {
@@ -76,7 +100,6 @@ public class GamePlayController {
             if (!unreadMarriage.isEmpty()) {
                 System.out.println("Marriage requests:\n" + unreadMarriage);
             }
-
             String input = sc.nextLine();
             String[] parts = input.split("\\s+");
 
@@ -121,6 +144,8 @@ public class GamePlayController {
                 String result = HomeController.crafting("show_recipes");
                 System.out.println(result);
 
+            } else {
+                System.out.println("Error: Unknown command.");
             }
 
 
@@ -254,84 +279,7 @@ public class GamePlayController {
                 processCheatCommand(parts);
             } else if (parts[0].equalsIgnoreCase("animal")) {
                 System.out.println(processAnimalCommands(input));
-            } else if (input.equalsIgnoreCase("inventory show")) {
-                showInventory(user);
-            } else if (input.startsWith("inventory trash")) {
-                String[] args = input.replaceFirst("inventory trash", "").trim().split(" ");
-                System.out.println(processTrashCommand(args));
-            } else if (parts[0].equalsIgnoreCase("craftinfo") && parts.length >= 3 && parts[1].equals("-n")) {
-                StringBuilder nameBuilder = new StringBuilder();
-                for (int i = 2; i < parts.length; i++) {
-                    nameBuilder.append(parts[i]);
-                    if (i < parts.length - 1) nameBuilder.append(" ");
-                }
-                String cropName = nameBuilder.toString();
-                showCraftInfo(cropName);
-            } else if (parts[0].equalsIgnoreCase("showplant") && parts.length == 3 && parts[1].equals("-d")) {
-                try {
-                    int direction = Integer.parseInt(parts[2]);
-                    showPlantInDirection(direction);
-                } catch (NumberFormatException e) {
-                    System.out.println("Invalid direction. Use a number from 1 to 9.");
-                }
-            } else if (parts.length >= 5 && parts[0].equalsIgnoreCase("plant") && parts[1].equalsIgnoreCase("-s")) {
-                int sIndex = 1;
-                int dIndex = -1;
-                for (int i = 2; i < parts.length; i++) {
-                    if (parts[i].equalsIgnoreCase("-d")) {
-                        dIndex = i;
-                        break;
-                    }
-                }
-                if (dIndex == -1 || dIndex + 1 >= parts.length) {
-                    System.out.println("Invalid plant command format.");
-                    return;
-                }
-                StringBuilder seedNameBuilder = new StringBuilder();
-                for (int i = sIndex + 1; i < dIndex; i++) {
-                    if (i > sIndex + 1) seedNameBuilder.append(" ");
-                    seedNameBuilder.append(parts[i]);
-                }
-                String seedName = seedNameBuilder.toString();
-                int direction;
-                try {
-                    direction = Integer.parseInt(parts[dIndex + 1]);
-                } catch (NumberFormatException e) {
-                    System.out.println("Invalid direction.");
-                    return;
-                }
-                boolean force = (dIndex + 2 < parts.length) && parts[dIndex + 2].equalsIgnoreCase("-f");
-                plantSeed(seedName, direction, force);
-            }
-            // In GamePlayController.java, inside getAndProcessInput()
-            else if (parts[0].equalsIgnoreCase("fertilize")) {
-                StringBuilder fertilizerBuilder = new StringBuilder();
-                int direction = -1;
-                boolean force = false;
-                for (int i = 1; i < parts.length; i++) {
-                    if (parts[i].equalsIgnoreCase("-f") && i + 1 < parts.length) {
-                        int j = i + 1;
-                        while (j < parts.length && !parts[j].equalsIgnoreCase("-d") && !parts[j].equalsIgnoreCase("-f")) {
-                            if (fertilizerBuilder.length() > 0) fertilizerBuilder.append(" ");
-                            fertilizerBuilder.append(parts[j]);
-                            j++;
-                        }
-                        i = j - 1;
-                    } else if (parts[i].equalsIgnoreCase("-d") && i + 1 < parts.length) {
-                        direction = Integer.parseInt(parts[i + 1]);
-                        i++;
-                    } else if (parts[i].equalsIgnoreCase("-f") && i == parts.length - 1) {
-                        force = true;
-                    }
-                }
-                String fertilizer = fertilizerBuilder.length() > 0 ? fertilizerBuilder.toString() : null;
-                if (fertilizer == null || direction == -1) {
-                    System.out.println("Usage: fertilize -f <fertilizer> -d <direction> [-f]");
-                    return;
-                }
-                applyFertilizer(fertilizer, direction, force);
-            }
-            else if (parts[0].equalsIgnoreCase("kitchen")) {
+            } else if (parts[0].equalsIgnoreCase("kitchen")) {
                 if (!isInHome()) {
                     System.out.println("go home first");
                     continue;
@@ -342,13 +290,10 @@ public class GamePlayController {
                 goToSpouseFarm();
             } else if (input.equalsIgnoreCase("go to my farm")) {
                 goToMyFarm();
-            }
-            else if (input.equalsIgnoreCase("show xp")) {
-                for (Skill skill : user.getSkills()) {
-                    System.out.println(skill.getName() + " - Level: " + skill.getLevel() +
-                            " XP: " + skill.getExperience() + "/" + skill.getMaxExperience());
-                }
-            }
+            }// else {
+//                System.out.println("Unknown command.");
+//                System.out.println("injas");
+           // }
         }
     }
 
@@ -1648,6 +1593,10 @@ public class GamePlayController {
         boolean isThereNpc = isNpcAvailable(npcName, map);
         if (isThereNpc) {
             Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
+            if (npc == null) {
+                System.out.println("NPC name is not true");
+                return;
+            }
             String prompt = npc.startConversation(user);
             System.out.println(prompt);
             if (prompt.contains("(")) {
@@ -1665,6 +1614,10 @@ public class GamePlayController {
             System.out.println("You must be in village to gift to the npc.");
         }
         boolean isThereNpc = isNpcAvailable(npcName, map);
+        if (user.getInventory().getItem(itemName) != null && user.getInventory().getItem(itemName) instanceof Tools) {
+            System.out.println("you can't gift non-sold items");
+            return;
+        }
         if (isThereNpc) {
             String result = GiftController.getInstance().giftToNpc(user, npcName, itemName, quantity);
             System.out.println(result);
@@ -1677,6 +1630,10 @@ public class GamePlayController {
         boolean isThereNpc = isNpcAvailable(npcName, map);
         if (isThereNpc) {
             Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
+            if (npc == null) {
+                System.out.println("NPC name is not true");
+                return;
+            }
             StringBuilder quests = new StringBuilder();
             for (Quest quest : npc.getQuests()) {
                 quests.append(quest.toString()).append("\n");
@@ -1736,15 +1693,18 @@ public class GamePlayController {
         if (reward != null) {
 
             if (reward.getMoney() > 0) {
+                if (currentFriendshipXp >= 200) reward.setMoney(reward.getMoney() * 2);
                 user.setMoney(user.getMoney() + reward.getMoney());
             }
 
             Item rewardItem = reward.getItems();
             if (rewardItem != null) {
+                if (currentFriendshipXp >= 200) rewardItem.setQuantity(rewardItem.getQuantity() * 2);
                 user.getInventory().addItemByName(rewardItem.getName(), rewardItem.getQuantity());
             }
 
             if (reward.getFriendshipXp() > 0) {
+                if (currentFriendshipXp >= 200) reward.setFriendshipXp(reward.getFriendshipXp() * 2);
                 user.increaseFriendshipXpsWithNpc(npc, reward.getFriendshipXp());
             }
         }
@@ -1825,7 +1785,6 @@ public class GamePlayController {
             return "Error: Animal place not found";
         }
 
-
         // دریافت ابعاد آیتم
         int width, height;
         if (animalPlace instanceof Coop) {
@@ -1903,7 +1862,7 @@ public class GamePlayController {
 
                 if (x < 0 || x >= 50 || y < 0 || y >= 50) continue;
 
-                Tile tile = map.getTile(x, y);
+                Tile tile = tiles[y][x];
                 if (tile.getStaticElement().isPresent()) {
                     StaticElement element = tile.getStaticElement().get();
                     if (element instanceof CoopStaticElement || element instanceof BarnStaticElement) {
@@ -2137,6 +2096,12 @@ public class GamePlayController {
         }
         if (animal == null) return "Animal not found: " + name;
 
+        if (user.getInventory().getItem("Hay") == null ||
+                user.getInventory().getItem("Hay").getQuantity() < 5) {
+            return "You don't have enough hay in your inventory";
+        }
+        user.getInventory().removeItemByName("Hay", 5);
+
         animal.feed(false);
         return "Fed " + name + " with hay";
     }
@@ -2369,13 +2334,13 @@ public class GamePlayController {
                 System.out.println("current weather:" + WeatherController.getInstance().getCurrentWeather());
             }
             case "energy" -> {
-                // cheat energy value
+                // cheat energy set value
                 if (parts[2].equals("set")) {
                     user.getEnergy().setCurrentEnergy(Integer.parseInt(parts[3]));
                     System.out.println("current energy: " + user.getEnergy().getCurrentEnergy());
                 }
                 //cheat energy limit per turn value
-                else {
+                else if (parts.length > 5) {
                     energyLimitPerTurn = Integer.parseInt(parts[5]);
                     System.out.println("current energy limit per turn: " + energyLimitPerTurn);
                 }

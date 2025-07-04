@@ -109,4 +109,9 @@ public class Item {
 
     public void use() {
     }
+
+    @Override
+    public String toString() {
+        return name + " " + quantity;
+    }
 }

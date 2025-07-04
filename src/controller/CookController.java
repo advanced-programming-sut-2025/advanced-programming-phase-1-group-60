@@ -65,12 +65,12 @@ public class CookController {
                 Item item = user.getRefrigeratorItem(itemName);
                 if (item == null) return ("Item not found in refrigerator");
 
-                user.removeItemFromRefrigerator(itemName, 1);
                 Item itemToPick = new Item();
                 itemToPick.setName(itemName);
                 itemToPick.setQuantity(1);
                 itemToPick.setType("Food");
-                user.getInventory().addItem(itemToPick);
+                if (!user.getInventory().addItem(itemToPick)) return "inventory is full";
+                user.removeItemFromRefrigerator(itemName, 1);
                 return "pick successfully " + itemName;
             }
             default -> {
@@ -123,7 +123,7 @@ public class CookController {
         food.setQuantity(1);
         food.setType("Food");
         food.getProperties().put("energy", recipe.getEnergy());
-        user.getInventory().addItem(food);
+        if (!user.getInventory().addItem(food)) return "inventory is full";
         return recipeName + " prepared successfully";
     }
 

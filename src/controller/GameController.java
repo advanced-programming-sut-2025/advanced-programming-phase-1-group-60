@@ -71,8 +71,6 @@ public class GameController {
             Tools.addBeginnerMilkPailToInventory(user.getInventory());
             Tools.addBeginnerShearToInventory(user.getInventory());
             Tools.addBeginnerTrashbinToInventory(user.getInventory());
-            user.getInventory().addItemByName("stone", 50000);
-            user.getInventory().addItemByName("wood", 50000);
         }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {
@@ -114,7 +112,6 @@ public class GameController {
             controller.getAndProcessInput();
             currentTurn = game.nextTurn();
 
-            TimeSystem.getInstance().advanceTime(1);
             boolean dayChanged = TimeSystem.getInstance().advanceTime(1);
             if (dayChanged) {
                 for (User user : game.getPlayers()) {

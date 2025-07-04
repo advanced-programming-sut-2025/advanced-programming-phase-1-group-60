@@ -207,6 +207,7 @@ public class Animal {
         produce();
         if (!isFed) decreaseFriendship(20);
         if (!isPettedToday) decreaseFriendship(10);
+        if (isFed) decreaseFriendship(5);
 
         isFed = false;
         isPettedToday = false;

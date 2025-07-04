@@ -152,7 +152,7 @@ public class Store implements StaticElement {
 
                             // کسر مواد اولیه
                             for (Item invItem : requiredItems) {
-                                int needed = materials.get(invItem.getName());
+                                int needed = materials.get(invItem.getName().toLowerCase());
                                 invItem.setQuantity(invItem.getQuantity() - needed);
                             }
 

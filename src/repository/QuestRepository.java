@@ -130,7 +130,7 @@ public class  QuestRepository {
         lR3Item.setQuantity(3);
         Reward l3Reward = new Reward();
         l3Reward.setItem(lR3Item);
-        Quest l3 = new Quest(3, leah, l3Req, l3Reward, 0, 1);
+        Quest l3 = new Quest(3, leah, l3Req, l3Reward, 0, 3);
 
         leah.addQuest(l1); leah.addQuest(l2); leah.addQuest(l3);
 
@@ -159,7 +159,7 @@ public class  QuestRepository {
         r3Req.setQuantity(1000);
         Reward r3Reward = new Reward();
         r3Reward.setMoney(25000);
-        Quest r3 = new Quest(3, robin, r3Req, r3Reward, 0, 1);
+        Quest r3 = new Quest(3, robin, r3Req, r3Reward, 0, 2);
 
         robin.addQuest(r1); robin.addQuest(r2); robin.addQuest(r3);
     }
