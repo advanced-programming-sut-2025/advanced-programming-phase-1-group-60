@@ -193,8 +193,11 @@ public class User {
     }
 
     public void setHashPassword(String newPassword) throws Exception {
-        if (!verifyPassword(newPassword)) {
+        if (verifyPassword(newPassword)) {
             this.hashPassword = hashedPassword(newPassword);
+            this.plainPassword = newPassword; // Also update plainPassword
+        } else {
+            throw new Exception("Password is too weak. Must contain uppercase, lowercase, number, and special character.");
         }
     }
 

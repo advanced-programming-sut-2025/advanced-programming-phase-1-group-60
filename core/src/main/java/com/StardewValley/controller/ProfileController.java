@@ -57,7 +57,8 @@ public class ProfileController {
         StringBuilder info = new StringBuilder();
         info.append("Username: ").append(user.getUsername()).append("\n");
         info.append("Nickname: ").append(user.getNickname()).append("\n");
-        info.append("Money: ").append(user.getMoney()).append(" gold\n");
+        info.append("Email: ").append(user.getEmail()).append("\n");
+        info.append("Gender: ").append(user.getGender());
 
         return new Result(true, info.toString());
     }
