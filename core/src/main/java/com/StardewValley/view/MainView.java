@@ -85,7 +85,7 @@ public class MainView implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 dispose();
-                //game.setScreen(new GameView(game));
+                game.setScreen(new GameView(game, loginController));
             }
         });
 

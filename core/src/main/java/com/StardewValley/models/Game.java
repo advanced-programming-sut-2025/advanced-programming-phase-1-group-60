@@ -24,11 +24,25 @@ public class Game {
         }
         return instance;
     }
+    public static Game resetInstance() {
+        instance = new Game();
+        return instance;
+    }
+    public void setCurrentMap(GameMap map) {
+        this.currentMap = map;
+    }
 
+    public void setState(GameState state) {
+        this.state = state;
+    }
     public enum GameState {
         LOBBY, MAP_SELECTION, IN_GAME, TERMINATED
     }
-
+    public int getMapSelection(User player) {
+        // Return the map ID (1-4) selected by this player
+        Integer mapId = selectedMaps.get(player);
+        return mapId != null ? mapId : 0;
+    }
     public static Game getCurrentGame() {
         return instance;
     }
