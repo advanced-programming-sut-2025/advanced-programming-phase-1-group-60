@@ -79,13 +79,14 @@ public class Farm {
                     var crops = com.StardewValley.repository.ForagingRepository.foragingCrops;
                     int idx = RNG.nextInt(crops.size());
                     forage = new ForagingCrop(crops.get(idx));
-                } else {
-                    // Randomly select a Seeds from FruitsAndVegetablesRepository
-                    var seeds = com.StardewValley.repository.FruitsAndVegetablesRepository.seeds;
-                    int idx = RNG.nextInt(seeds.size());
-                    forage = seeds.get(idx);
                 }
-                t.setRandomElement(forage);
+//                else {
+//                    // Randomly select a Seeds from FruitsAndVegetablesRepository
+//                    var seeds = com.StardewValley.repository.FruitsAndVegetablesRepository.seeds;
+//                    int idx = RNG.nextInt(seeds.size());
+//                    forage = seeds.get(idx);
+//                }
+//                t.setRandomElement(forage);
                 t.setType("F");
                 placed++;
             }

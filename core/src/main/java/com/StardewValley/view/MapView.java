@@ -168,15 +168,10 @@ public class MapView implements Screen {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Process input
+        // Process input and update camera
         handleInput(delta);
-
-        // Center camera on player
         centerCameraOnPlayer();
-
-        // Set batch to use camera
         batch.setProjectionMatrix(camera.combined);
-
         batch.begin();
 
         // Get current farm boundaries
@@ -184,7 +179,25 @@ public class MapView implements Screen {
         int farmWidth = FarmTemplate.WIDTH;
         int farmHeight = FarmTemplate.HEIGHT;
 
-        // Draw the farm tiles
+        // FIRST PASS: Draw all grass base tiles
+        for (int y = 0; y < farmHeight; y++) {
+            for (int x = 0; x < farmWidth; x++) {
+                float posX = farmTopLeft.x + x * TILE_SIZE;
+                float posY = farmTopLeft.y + y * TILE_SIZE;
+
+                // Always draw grass texture as base layer
+                Texture grassTexture = mapManager.getGrassTile();
+                if (grassTexture != null) {
+                    batch.draw(grassTexture, posX, posY, TILE_SIZE, TILE_SIZE);
+                } else {
+                    batch.draw(fallbackTexture, posX, posY, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+        //Draw multi-tile structures
+        drawStructures(farmTopLeft);
+
+        // SECOND PASS: Draw all ground-level elements (stones, foraged minerals, crops)
         for (int y = 0; y < farmHeight; y++) {
             for (int x = 0; x < farmWidth; x++) {
                 float posX = farmTopLeft.x + x * TILE_SIZE;
@@ -194,39 +207,53 @@ public class MapView implements Screen {
                 int tileX = (int)(farmTopLeft.x / TILE_SIZE) + x;
                 int tileY = (int)(farmTopLeft.y / TILE_SIZE) + y;
 
-                // Always draw grass texture
-                Texture grassTexture = mapManager.getGrassTile();
-                if (grassTexture != null) {
-                    batch.draw(grassTexture, posX, posY, TILE_SIZE, TILE_SIZE);
-                } else {
-                    batch.draw(fallbackTexture, posX, posY, TILE_SIZE, TILE_SIZE);
-                }
-
-                // Inside the render method in MapView
                 try {
                     Tile tile = gameMap.getTile(tileX, tileY);
                     if (tile != null) {
-                        // First draw the grass base
-                        batch.draw(mapManager.getGrassTile(), posX, posY, TILE_SIZE, TILE_SIZE);
-
                         // Check for static elements
                         Optional<StaticElement> staticElement = tile.getStaticElement();
                         if (staticElement.isPresent()) {
-                            batch.setColor(1, 0.8f, 0.8f, 1);
-                            batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
-                            batch.setColor(Color.WHITE);
+                            StaticElement element = staticElement.get();
+
+                            // Render based on element type
+                            if (element instanceof ForagingMineral) {
+                                ForagingMineral mineral = (ForagingMineral) element;
+                                batch.draw(mapManager.getForagingMineralTexture(mineral.getImagePath()),
+                                    posX, posY, TILE_SIZE, TILE_SIZE);
+                            } else if (element instanceof ForagingCrop) {
+                                ForagingCrop crop = (ForagingCrop) element;
+                                batch.draw(mapManager.getForagingCropTexture(crop.getImagePath()),
+                                    posX, posY, TILE_SIZE, TILE_SIZE);
+                            } else {
+                                // Default for other static elements
+                                batch.setColor(1, 0.8f, 0.8f, 1);
+                                batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
+                                batch.setColor(Color.WHITE);
+                            }
                         }
 
-                        // Check for random elements
+                        // Check for random elements (except trees and foraging trees)
                         Optional<RandomElement> randomElement = tile.getRandomElement();
                         if (randomElement.isPresent()) {
                             RandomElement element = randomElement.get();
                             if (element.symbol() == 'S') {
-                                // Get the specific stone variant
+                                // Stone rendering
                                 Stone stone = (Stone) element;
-                                batch.draw(mapManager.getStoneTile(stone.getStoneVariant()), posX, posY, TILE_SIZE, TILE_SIZE);
-                            } else {
-                                // For other random elements, use placeholder
+                                batch.draw(mapManager.getStoneTile(stone.getStoneVariant()),
+                                    posX, posY, TILE_SIZE, TILE_SIZE);
+                            }
+                            else if (element instanceof ForagingMineral) {
+                                ForagingMineral mineral = (ForagingMineral) element;
+                                batch.draw(mapManager.getForagingMineralTexture(mineral.getImagePath()),
+                                    posX, posY, TILE_SIZE, TILE_SIZE);
+                            }
+                            else if (element instanceof ForagingCrop) {
+                                ForagingCrop crop = (ForagingCrop) element;
+                                batch.draw(mapManager.getForagingCropTexture(crop.getImagePath()),
+                                    posX, posY, TILE_SIZE, TILE_SIZE);
+                            }
+                            // Skip trees and foraging trees for third pass
+                            else if (element.symbol() != 'T' && !(element instanceof ForagingTree)) {
                                 batch.setColor(0.8f, 1, 0.8f, 1);
                                 batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
                                 batch.setColor(Color.WHITE);
@@ -239,14 +266,55 @@ public class MapView implements Screen {
             }
         }
 
-        // Draw player (centered on position)
+        // THIRD PASS: Draw all tall elements (trees, foraging trees)
+        for (int y = 0; y < farmHeight; y++) {
+            for (int x = 0; x < farmWidth; x++) {
+                float posX = farmTopLeft.x + x * TILE_SIZE;
+                float posY = farmTopLeft.y + y * TILE_SIZE;
+
+                // World coordinates for tile lookup
+                int tileX = (int)(farmTopLeft.x / TILE_SIZE) + x;
+                int tileY = (int)(farmTopLeft.y / TILE_SIZE) + y;
+
+                try {
+                    Tile tile = gameMap.getTile(tileX, tileY);
+                    if (tile != null) {
+                        // Check for trees and foraging trees
+                        Optional<RandomElement> randomElement = tile.getRandomElement();
+                        if (randomElement.isPresent()) {
+                            RandomElement element = randomElement.get();
+
+                            // Regular trees
+                            if (element.symbol() == 'T') {
+                                Tree tree = (Tree) element;
+                                drawTree(tree.getImagePath(), posX, posY);
+                            }
+                            // Foraging trees
+                            else if (element instanceof ForagingTree) {
+                                ForagingTree foragingTree = (ForagingTree) element;
+                                drawForagingTree(foragingTree.getImagePath(), posX, posY);
+                            }
+                        }
+
+                        // Also check static elements for ForagingTree
+                        Optional<StaticElement> staticElement = tile.getStaticElement();
+                        if (staticElement.isPresent() && staticElement.get() instanceof ForagingTree) {
+                            ForagingTree foragingTree = (ForagingTree) staticElement.get();
+                            drawForagingTree(foragingTree.getImagePath(), posX, posY);
+                        }
+                    }
+                } catch (Exception e) {
+                    // Continue if error
+                }
+            }
+        }
+
+        // Draw player on top of everything
         batch.draw(playerTexture, playerPos.x - TILE_SIZE/2, playerPos.y - TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
 
-        // Draw UI text that follows the camera
         float textX = camera.position.x - camera.viewportWidth/2 + 10;
         float textY = camera.position.y + camera.viewportHeight/2 - 10;
 
-        // Display farm number and owner
         String ownerName = farmOwners.getOrDefault(currentFarmIndex, "Unknown");
         font.draw(batch, "Farm " + (currentFarmIndex + 1) + " - Owner: " + ownerName, textX, textY);
         font.draw(batch, "WASD to move", textX, textY - 20);
@@ -354,17 +422,43 @@ public class MapView implements Screen {
         int tileX = (int)(worldX / TILE_SIZE);
         int tileY = (int)(worldY / TILE_SIZE);
 
+        // Debug output for collision checking
+        // System.out.println("Checking passable at tile: " + tileX + "," + tileY);
+
         try {
+            // Check if this position is within a structure from the template
+            FarmTemplate template = null;
+            switch (currentFarmIndex) {
+                case 0: template = FarmTemplate.template1(); break;
+                case 1: template = FarmTemplate.template2(); break;
+                case 2: template = FarmTemplate.template3(); break;
+                case 3: template = FarmTemplate.template4(); break;
+            }
+
+            if (template != null) {
+                Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+                int farmTileX = (int)((worldX - farmTopLeft.x) / TILE_SIZE);
+                int farmTileY = (int)((worldY - farmTopLeft.y) / TILE_SIZE);
+
+                // Check if position is within any structure
+                for (FarmTemplate.Placement placement : template.getPlacements()) {
+                    if (farmTileX >= placement.x && farmTileX < placement.x + placement.w &&
+                        farmTileY >= placement.y && farmTileY < placement.y + placement.h) {
+                        return false; // Inside a structure, not passable
+                    }
+                }
+            }
+
+            // Check tile from the map
             Tile tile = gameMap.getTile(tileX, tileY);
             if (tile == null) return false;
 
-            // Check static elements
+            // Check static and random elements
             Optional<StaticElement> staticElement = tile.getStaticElement();
             if (staticElement.isPresent() && !staticElement.get().isPassable()) {
                 return false;
             }
 
-            // Check random elements
             Optional<RandomElement> randomElement = tile.getRandomElement();
             if (randomElement.isPresent() && !randomElement.get().isPassable()) {
                 return false;
@@ -373,6 +467,80 @@ public class MapView implements Screen {
             return true;
         } catch (Exception e) {
             return false; // If there's an error, don't allow passage
+        }
+    }
+    private void drawTree(String imagePath, float posX, float posY) {
+        float widthMultiplier = 2f;
+        float heightMultiplier = 3.0f;
+
+        float width = TILE_SIZE * widthMultiplier;
+        float height = TILE_SIZE * heightMultiplier;
+
+        float adjustedX = posX - (width - TILE_SIZE) / 2;
+        float adjustedY = posY;
+
+        batch.draw(mapManager.getTreeTexture(imagePath), adjustedX, adjustedY, width, height);
+    }
+    private void drawForagingTree(String imagePath, float posX, float posY) {
+        float widthMultiplier = 2f;
+        float heightMultiplier = 3.0f;
+
+        float width = TILE_SIZE * widthMultiplier;
+        float height = TILE_SIZE * heightMultiplier;
+
+        float adjustedX = posX - (width - TILE_SIZE) / 2;
+        float adjustedY = posY;
+
+        batch.draw(mapManager.getForagingTreeTexture(imagePath), adjustedX, adjustedY, width, height);
+    }
+    private void drawStructures(Vector2 farmTopLeft) {
+        // Get current farm template
+        FarmTemplate template = null;
+        switch (currentFarmIndex) {
+            case 0: template = FarmTemplate.template1(); break;
+            case 1: template = FarmTemplate.template2(); break;
+            case 2: template = FarmTemplate.template3(); break;
+            case 3: template = FarmTemplate.template4(); break;
+        }
+
+        if (template == null) return;
+
+        // Iterate through all placements in the template
+        for (FarmTemplate.Placement placement : template.getPlacements()) {
+            // Calculate position relative to farm's top-left corner
+            float posX = farmTopLeft.x + placement.x * TILE_SIZE;
+            float posY = farmTopLeft.y + placement.y * TILE_SIZE;
+            float width = placement.w * TILE_SIZE;
+            float height = placement.h * TILE_SIZE;
+
+            StaticElement element = placement.element;
+
+            if (element instanceof Cabin) {
+                batch.draw(mapManager.getCabinTexture(), posX, posY, width, height);
+            }
+            else if (element instanceof Greenhouse) {
+                batch.draw(mapManager.getGreenhouseTexture(), posX, posY, width, height);
+            }
+            else if (element instanceof Lake) {
+                for (int y = 0; y < placement.h; y++) {
+                    for (int x = 0; x < placement.w; x++) {
+                        batch.draw(mapManager.getWaterTexture(),
+                            posX + x * TILE_SIZE,
+                            posY + y * TILE_SIZE,
+                            TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+            else if (element instanceof Quarry) {
+                for (int y = 0; y < placement.h; y++) {
+                    for (int x = 0; x < placement.w; x++) {
+                        batch.draw(mapManager.getQuarryTexture(),
+                            posX + x * TILE_SIZE,
+                            posY + y * TILE_SIZE,
+                            TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
         }
     }
     @Override

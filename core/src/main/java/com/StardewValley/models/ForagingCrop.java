@@ -7,6 +7,7 @@ public class ForagingCrop extends ForageItem {
     private List<String> suitableSeasons;
     private int baseSellPrice;
     private int energy;
+    private String imagePath;
 
     public ForagingCrop(String name,List<String> suitableSeasons, int baseSellPrice, int energy) {
         this.name = name;
@@ -19,6 +20,7 @@ public class ForagingCrop extends ForageItem {
         this.suitableSeasons = other.suitableSeasons;
         this.baseSellPrice = other.baseSellPrice;
         this.energy = other.energy;
+        this.setImagePath(other.getImagePath());
     }
     public ForagingCrop() {}
 
@@ -52,5 +54,13 @@ public class ForagingCrop extends ForageItem {
 
     public void setEnergy(int energy) {
         this.energy = energy;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }

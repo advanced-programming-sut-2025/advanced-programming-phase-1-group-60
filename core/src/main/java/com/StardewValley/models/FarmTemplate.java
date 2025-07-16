@@ -36,9 +36,9 @@ public class FarmTemplate {
     }
     public static FarmTemplate template4() {
         return new FarmTemplate(List.of(
-                new Placement(new Cabin(),      40,2,4,4),
+                new Placement(new Cabin(),      30,2,4,4),
                 new Placement(new Greenhouse(), 30,15,5,6),
-                new Placement(new Lake(),       45,30,6,4),
+                new Placement(new Lake(),       35,30,6,4),
                 new Placement(new Quarry(),     5,30,12,8)
         ));
     }

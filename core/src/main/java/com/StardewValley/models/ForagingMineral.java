@@ -3,6 +3,7 @@ package com.StardewValley.models;
 public class ForagingMineral extends ForageItem {
     private String name;
     private int baseSellPrice;
+    private String imagePath;
 
     public ForagingMineral(String name, int baseSellPrice) {
         this.name = name;
@@ -25,5 +26,13 @@ public class ForagingMineral extends ForageItem {
 
     public void setBaseSellPrice(int baseSellPrice) {
         this.baseSellPrice = baseSellPrice;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }

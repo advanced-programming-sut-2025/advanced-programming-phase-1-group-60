@@ -19,6 +19,7 @@ public class TreeRepository {
         apricotTree.setFruitEdible(true);
         apricotTree.setFruitEnergy(38);
         apricotTree.setSuitableSeasons(List.of("Spring"));
+        apricotTree.setImagePath("Apricot.png");
         trees.add(apricotTree);
 
         Tree cherryTree = new Tree();
@@ -32,7 +33,9 @@ public class TreeRepository {
         cherryTree.setFruitEdible(true);
         cherryTree.setFruitEnergy(38);
         cherryTree.setSuitableSeasons(List.of("Spring"));
+        cherryTree.setImagePath("Cherry.png");
         trees.add(cherryTree);
+
 
         Tree bananaTree = new Tree();
         bananaTree.setName("Banana Tree");
@@ -45,6 +48,7 @@ public class TreeRepository {
         bananaTree.setFruitEdible(true);
         bananaTree.setFruitEnergy(75);
         bananaTree.setSuitableSeasons(List.of("Summer"));
+        bananaTree.setImagePath("Banana.png");
         trees.add(bananaTree);
 
         Tree mangoTree = new Tree();
@@ -58,6 +62,7 @@ public class TreeRepository {
         mangoTree.setFruitEdible(true);
         mangoTree.setFruitEnergy(100);
         mangoTree.setSuitableSeasons(List.of("Summer"));
+        mangoTree.setImagePath("Mango.png");
         trees.add(mangoTree);
 
         Tree orangeTree = new Tree();
@@ -71,6 +76,7 @@ public class TreeRepository {
         orangeTree.setFruitEdible(true);
         orangeTree.setFruitEnergy(38);
         orangeTree.setSuitableSeasons(List.of("Summer"));
+        orangeTree.setImagePath("Orange.png");
         trees.add(orangeTree);
 
         Tree peachTree = new Tree();
@@ -84,6 +90,7 @@ public class TreeRepository {
         peachTree.setFruitEdible(true);
         peachTree.setFruitEnergy(38);
         peachTree.setSuitableSeasons(List.of("Summer"));
+        peachTree.setImagePath("Peach.png");
         trees.add(peachTree);
 
         Tree appleTree = new Tree();
@@ -97,6 +104,7 @@ public class TreeRepository {
         appleTree.setFruitEdible(true);
         appleTree.setFruitEnergy(38);
         appleTree.setSuitableSeasons(List.of("Fall"));
+        appleTree.setImagePath("Apple.png");
         trees.add(appleTree);
 
         Tree pomegranateTree = new Tree();
@@ -110,6 +118,7 @@ public class TreeRepository {
         pomegranateTree.setFruitEdible(true);
         pomegranateTree.setFruitEnergy(38);
         pomegranateTree.setSuitableSeasons(List.of("Fall"));
+        pomegranateTree.setImagePath("Pomegranate.png");
         trees.add(pomegranateTree);
 
         Tree oakTree = new Tree();
@@ -123,6 +132,7 @@ public class TreeRepository {
         oakTree.setFruitEdible(false);
         oakTree.setFruitEnergy(0);
         oakTree.setSuitableSeasons(List.of("Spring","Summer","Fall","Winter"));
+        oakTree.setImagePath("Oak.png");
         trees.add(oakTree);
 
         Tree mapleTree = new Tree();
@@ -136,6 +146,7 @@ public class TreeRepository {
         mapleTree.setFruitEdible(false);
         mapleTree.setFruitEnergy(0);
         mapleTree.setSuitableSeasons(List.of("Spring","Summer","Fall","Winter"));
+        mapleTree.setImagePath("Maple.png");
         trees.add(mapleTree);
 
         Tree pineTree = new Tree();
@@ -149,6 +160,7 @@ public class TreeRepository {
         pineTree.setFruitEdible(false);
         pineTree.setFruitEnergy(0);
         pineTree.setSuitableSeasons(List.of("Spring","Summer","Fall","Winter"));
+        pineTree.setImagePath("Pine.png");
         trees.add(pineTree);
 
         Tree mahoganyTree = new Tree();
@@ -162,6 +174,7 @@ public class TreeRepository {
         mahoganyTree.setFruitEdible(true);
         mahoganyTree.setFruitEnergy(-2);
         mahoganyTree.setSuitableSeasons(List.of("Spring","Summer","Fall","Winter"));
+        mahoganyTree.setImagePath("Mahogany.png");
         trees.add(mahoganyTree);
 
         Tree mushroomTree = new Tree();
@@ -175,6 +188,7 @@ public class TreeRepository {
         mushroomTree.setFruitEdible(true);
         mushroomTree.setFruitEnergy(38);
         mushroomTree.setSuitableSeasons(List.of("Spring","Summer","Fall","Winter"));
+        mushroomTree.setImagePath("Mushroom.png");
         trees.add(mushroomTree);
 
         Tree mysticTree = new Tree();
@@ -188,6 +202,7 @@ public class TreeRepository {
         mysticTree.setFruitEdible(true);
         mysticTree.setFruitEnergy(500);
         mysticTree.setSuitableSeasons(List.of("Spring","Summer","Fall","Winter"));
+        mysticTree.setImagePath("Mystic.png");
         trees.add(mysticTree);
 
 

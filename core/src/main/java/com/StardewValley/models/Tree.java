@@ -16,6 +16,7 @@ public class Tree implements RandomElement {
     private List<String> suitableSeasons;
     private int fruitsHarvestedToday = 0;
     private boolean struckByLightning = false;
+    private String imagePath;
 
     public Tree() {
         this.name = "";
@@ -40,6 +41,7 @@ public class Tree implements RandomElement {
         this.setFruitEdible(other.isFruitEdible());
         this.setFruitEnergy(other.getFruitEnergy());
         this.setSuitableSeasons(new ArrayList<>(other.getSuitableSeasons()));
+        this.setImagePath(other.getImagePath());
     }
 
     public char symbol() { return 'T'; }
@@ -143,5 +145,13 @@ public class Tree implements RandomElement {
 
     public void setStruckByLightning(boolean struck) {
         this.struckByLightning = struck;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }
