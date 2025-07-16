@@ -1,3 +1,4 @@
+// StardewValley/controller/GamePlayController.java
 package com.StardewValley.controller;
 
 import com.StardewValley.models.*;
@@ -262,16 +263,13 @@ public class GamePlayController {
                     int height = Integer.parseInt(parts[3]);
                     printRegion(width, height);
                 } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
-                        parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("village")) {
+                    parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("village")) {
                     goToVillage();
                 } else if (parts.length >= 3 && parts[0].equalsIgnoreCase("go") &&
-                        parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("farm")) {
+                    parts[1].equalsIgnoreCase("to") && parts[2].equalsIgnoreCase("farm")) {
                     goToFarm();
                 } else if (input.equalsIgnoreCase("print all map")) {
                     currentGame.getCurrentMap().printRegion(0, 0, 119, 119);
-                } else if (input.startsWith("meet npc")) {
-                    String npcName = parts[2];
-                    meetNpc(npcName);
                 } else if (input.startsWith("gift npc")) {
                     String npcName = parts[2];
                     String itemName = parts[3];
@@ -607,7 +605,7 @@ public class GamePlayController {
         }
         else if (tool.getName().toLowerCase().contains("fishingpole")) {
             boolean isLake = target.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'L'
-                    || target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L';
+                || target.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L';
             if (!isLake) {
                 System.out.println("You can only fish in a lake tile.");
                 return;
@@ -623,7 +621,7 @@ public class GamePlayController {
             Tools.FishingpoleStage poleStage = tool.getFishingpoleStage();
 
             List<Fish> availableFish = FishingRepository.getAvailableFish(
-                    FishingRepository.getFishes(), currentSeason, fishingSkill
+                FishingRepository.getFishes(), currentSeason, fishingSkill
             );
             if (availableFish.isEmpty()) {
                 System.out.println("No fish available to catch this season/skill.");
@@ -762,7 +760,7 @@ public class GamePlayController {
             System.out.println("You must be next to a barn with a sheep to use the shear.");
             return;
         }
-         else {
+        else {
             System.out.println("Wrong Tool!");
         }
     }
@@ -785,12 +783,12 @@ public class GamePlayController {
             if (nx >= 0 && ny >= 0 && ny < tiles.length && nx < tiles[0].length) {
                 Tile adj = tiles[ny][nx];
                 if (adj.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'L' ||
-                        adj.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L') {
+                    adj.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'L') {
                     nextToLake = true;
                     break;
                 }
                 if (adj.getRandomElement().map(RandomElement::symbol).orElse(' ') == 'G' ||
-                        adj.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'G') {
+                    adj.getStaticElement().map(StaticElement::symbol).orElse(' ') == 'G') {
                     nextToLake = true;
                     break;
                 }
@@ -824,7 +822,7 @@ public class GamePlayController {
             stage = t.getFishingpoleStage() != null ? t.getFishingpoleStage().name() : "UNKNOWN";
         }
         System.out.printf("Current tool: %s (ID: %d, Stage: %s, Energy: %d, Usage: %d/%d, Radius: %d)\n",
-                t.getName(), t.getId(), stage, t.getEnergyCost(), t.getCurrentUsage(), t.getMaxUsage(), t.getRadius());
+            t.getName(), t.getId(), stage, t.getEnergyCost(), t.getCurrentUsage(), t.getMaxUsage(), t.getRadius());
     }
 
     private void showAvailableTools() {
@@ -852,7 +850,7 @@ public class GamePlayController {
                 }
 
                 System.out.printf("- %s (ID: %d, Stage: %s, Energy: %d, Usage: %d/%d, Radius: %d)\n",
-                        t.getName(), t.getId(), stage, t.getEnergyCost(), t.getCurrentUsage(), t.getMaxUsage(), t.getRadius());
+                    t.getName(), t.getId(), stage, t.getEnergyCost(), t.getCurrentUsage(), t.getMaxUsage(), t.getRadius());
             }
         }
     }
@@ -860,8 +858,8 @@ public class GamePlayController {
     // Add this method to GamePlayController
     private void upgradeToolById(int toolId, boolean force, int level) {
         Item tool = user.getInventory().getItems().stream()
-                .filter(i -> i instanceof Tools && i.getId() == toolId)
-                .findFirst().orElse(null);
+            .filter(i -> i instanceof Tools && i.getId() == toolId)
+            .findFirst().orElse(null);
         if (tool instanceof Tools t && t.getName().toLowerCase().contains("trashbin")) {
             Tools.TrashbinStage[] stages = Tools.TrashbinStage.values();
             int currentIndex = Arrays.asList(stages).indexOf(t.getTrashbinStage());
@@ -1082,15 +1080,15 @@ public class GamePlayController {
         }
 
         Seeds seed = user.getInventory().getItems().stream()
-                .filter(i -> i instanceof Seeds && i.getName().equalsIgnoreCase(itemName))
-                .map(i -> (Seeds) i)
-                .findFirst().orElse(null);
+            .filter(i -> i instanceof Seeds && i.getName().equalsIgnoreCase(itemName))
+            .map(i -> (Seeds) i)
+            .findFirst().orElse(null);
 
         if (seed == null && force) {
             // Try to find the seed in the repository
             seed = FruitsAndVegetablesRepository.seeds.stream()
-                    .filter(s -> s.getName().equalsIgnoreCase(itemName))
-                    .findFirst().orElse(null);
+                .filter(s -> s.getName().equalsIgnoreCase(itemName))
+                .findFirst().orElse(null);
             if (seed == null) {
                 System.out.println("Seed does not exist.");
                 return;
@@ -1132,8 +1130,8 @@ public class GamePlayController {
 
             String chosenCrop = options.get(new Random().nextInt(options.size()));
             Seeds actualSeed = FruitsAndVegetablesRepository.seeds.stream()
-                    .filter(s -> s.getGrowsInto().equalsIgnoreCase(chosenCrop))
-                    .findFirst().orElse(null);
+                .filter(s -> s.getGrowsInto().equalsIgnoreCase(chosenCrop))
+                .findFirst().orElse(null);
 
             if (actualSeed == null) {
                 System.out.println("No valid seed found for " + chosenCrop);
@@ -1170,8 +1168,8 @@ public class GamePlayController {
     private void showCraftInfo(String name) {
         // Check FruitsAndVegetables (All Crops)
         FruitsAndVegetables crop = FruitsAndVegetablesRepository.crops.stream()
-                .filter(c -> c.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
+            .filter(c -> c.getName().equalsIgnoreCase(name))
+            .findFirst().orElse(null);
         if (crop != null) {
             System.out.println("Type: Crop");
             System.out.println("Name: " + crop.getName());
@@ -1196,8 +1194,8 @@ public class GamePlayController {
 
         // Check Trees
         com.StardewValley.models.Tree tree = com.StardewValley.repository.TreeRepository.trees.stream()
-                .filter(t -> t.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
+            .filter(t -> t.getName().equalsIgnoreCase(name))
+            .findFirst().orElse(null);
         if (tree != null) {
             System.out.println("Type: Tree");
             System.out.println("Name: " + tree.getName());
@@ -1215,8 +1213,8 @@ public class GamePlayController {
 
         // Check Foraging Crops
         com.StardewValley.models.ForagingCrop foragingCrop = com.StardewValley.repository.ForagingRepository.foragingCrops.stream()
-                .filter(fc -> fc.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
+            .filter(fc -> fc.getName().equalsIgnoreCase(name))
+            .findFirst().orElse(null);
         if (foragingCrop != null) {
             System.out.println("Type: Foraging Crop");
             System.out.println("Name: " + foragingCrop.getName());
@@ -1228,8 +1226,8 @@ public class GamePlayController {
 
         // Check Foraging Trees
         com.StardewValley.models.ForagingTree foragingTree = com.StardewValley.repository.ForagingRepository.foragingTrees.stream()
-                .filter(ft -> ft.getName().equalsIgnoreCase(name))
-                .findFirst().orElse(null);
+            .filter(ft -> ft.getName().equalsIgnoreCase(name))
+            .findFirst().orElse(null);
         if (foragingTree != null) {
             System.out.println("Type: Foraging Tree");
             System.out.println("Name: " + foragingTree.getName());
@@ -1259,7 +1257,7 @@ public class GamePlayController {
         // Check inventory for fertilizer unless force
         if (!force) {
             boolean hasFertilizer = user.getInventory().getItems().stream()
-                    .anyMatch(i -> i.getName().equalsIgnoreCase(fertilizer) && i.getQuantity() > 0);
+                .anyMatch(i -> i.getName().equalsIgnoreCase(fertilizer) && i.getQuantity() > 0);
             if (!hasFertilizer) {
                 System.out.println("You don't have " + fertilizer + " in your inventory.");
                 return;
@@ -1396,8 +1394,8 @@ public class GamePlayController {
             }
         }
         Tools.TrashbinStage stage = (trashbin != null && trashbin.getTrashbinStage() != null)
-                ? trashbin.getTrashbinStage()
-                : Tools.TrashbinStage.BEGINNER;
+            ? trashbin.getTrashbinStage()
+            : Tools.TrashbinStage.BEGINNER;
 
         double percent = switch (stage) {
             case BEGINNER -> 0.0;
@@ -1433,15 +1431,15 @@ public class GamePlayController {
                 Tile t3 = tiles[ty + 1][tx];
                 Tile t4 = tiles[ty + 1][tx + 1];
                 if (t1.getPlantedSeed() != null && t2.getPlantedSeed() != null &&
-                        t3.getPlantedSeed() != null && t4.getPlantedSeed() != null) {
+                    t3.getPlantedSeed() != null && t4.getPlantedSeed() != null) {
                     Seeds s = t1.getPlantedSeed();
                     String growsInto = s.getGrowsInto();
                     if (growsInto.equals(t2.getPlantedSeed().getGrowsInto()) &&
-                            growsInto.equals(t3.getPlantedSeed().getGrowsInto()) &&
-                            growsInto.equals(t4.getPlantedSeed().getGrowsInto())) {
+                        growsInto.equals(t3.getPlantedSeed().getGrowsInto()) &&
+                        growsInto.equals(t4.getPlantedSeed().getGrowsInto())) {
                         FruitsAndVegetables fv = FruitsAndVegetablesRepository.crops.stream()
-                                .filter(f -> f.getName().equalsIgnoreCase(growsInto))
-                                .findFirst().orElse(null);
+                            .filter(f -> f.getName().equalsIgnoreCase(growsInto))
+                            .findFirst().orElse(null);
                         if (fv != null && fv.isCanBeGiant()) {
                             t1.setGiantCrop(true);
                             t2.setGiantCrop(true);
@@ -1538,7 +1536,7 @@ public class GamePlayController {
         var path = opt.get();
         int need = (path.getDistance() + 10 * path.getTurns()) / 20;
         System.out.printf("مسافت=%d، پیچ=%d، انرژی=%d. ادامه؟ (y/n)\n",
-                path.getDistance(), path.getTurns(), need);
+            path.getDistance(), path.getTurns(), need);
         String response = isForced ? "y" : sc.nextLine();
         if (!response.equalsIgnoreCase("y")) return;
         if (user.getEnergy().getCurrentEnergy() >= need || user.getEnergy().isUnlimited()) {
@@ -1685,29 +1683,6 @@ public class GamePlayController {
         System.out.println("Moved to farm.");
     }
 
-    private void meetNpc(String npcName) {
-        npcName = npcName.toUpperCase();
-        GameMap map = currentGame.getCurrentMap();
-        if (!user.isInVillage) {
-            System.out.println("You must be in village to talk to the npc.");
-        }
-        boolean isThereNpc = isNpcAvailable(npcName, map);
-        if (isThereNpc) {
-            Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
-            if (npc == null) {
-                System.out.println("NPC name is not true");
-                return;
-            }
-            String prompt = npc.startConversation(user);
-            System.out.println(prompt);
-            if (prompt.contains("(")) {
-                String playerReply = sc.nextLine();
-                String npcAnswer = npc.replyConversation(playerReply);
-                System.out.println(npcAnswer);
-            }
-        } else System.out.println("No npc found.");
-    }
-
     private void giftNpc(String npcName, String itemName, int quantity) {
         npcName = npcName.toUpperCase();
         GameMap map = currentGame.getCurrentMap();
@@ -1833,8 +1808,8 @@ public class GamePlayController {
                 Tile tile = map.getTile(x + 50, y + 50);
                 // Check if this tile contains the NPC symbol ('s')
                 if (tile.getStaticElement()
-                        .map(StaticElement::symbol)
-                        .orElse('\0') == npcName.charAt(0)) {
+                    .map(StaticElement::symbol)
+                    .orElse('\0') == npcName.charAt(0)) {
                     isThereNpc = true;
                     break;
                 }
@@ -1940,9 +1915,9 @@ public class GamePlayController {
 
     public String handlePlaceAnimalCommand(String animalName) {
         Animal targetAnimal = user.getAnimals().stream()
-                .filter(a -> a.getName().equals(animalName))
-                .findFirst()
-                .orElse(null);
+            .filter(a -> a.getName().equals(animalName))
+            .findFirst()
+            .orElse(null);
 
         if (targetAnimal == null) {
             return "Error: Animal not found!";
@@ -2026,7 +2001,7 @@ public class GamePlayController {
 
         int capacity = nearbyBuilding instanceof Coop ? ((Coop) nearbyBuilding).getCapacity() : ((Barn) nearbyBuilding).getCapacity();
         if (((nearbyBuilding instanceof Coop) ? ((Coop) nearbyBuilding).getAnimals().size() :
-                ((Barn) nearbyBuilding).getAnimals().size()) >= capacity) {
+            ((Barn) nearbyBuilding).getAnimals().size()) >= capacity) {
             return "Error: Building is full!";
         }
 
@@ -2050,11 +2025,11 @@ public class GamePlayController {
         if (building instanceof Coop) {
             Coop coop = (Coop) building;
             return x >= coop.getLeftCornerX() && x < coop.getLeftCornerX() + coop.getWidth() &&
-                    y >= coop.getLeftCornerY() && y < coop.getLeftCornerY() + coop.getHeight();
+                y >= coop.getLeftCornerY() && y < coop.getLeftCornerY() + coop.getHeight();
         } else {
             Barn barn = (Barn) building;
             return x >= barn.getLeftCornerX() && x < barn.getLeftCornerX() + barn.getWidth() &&
-                    y >= barn.getLeftCornerY() && y < barn.getLeftCornerY() + barn.getHeight();
+                y >= barn.getLeftCornerY() && y < barn.getLeftCornerY() + barn.getHeight();
         }
     }
 
@@ -2102,7 +2077,7 @@ public class GamePlayController {
         if (animal == null) return "Animal not found: " + name;
 
         if (Math.abs(user.getPosition().getPositionX() - animal.getPositionX()) > 1 ||
-                Math.abs(user.getPosition().getPositionY() - animal.getPositionY()) > 1) {
+            Math.abs(user.getPosition().getPositionY() - animal.getPositionY()) > 1) {
             return "far away";
         }
 
@@ -2151,13 +2126,13 @@ public class GamePlayController {
         int currentY = animal.getPositionY();
         Tile currentTile = tiles[currentY][currentX];
         char currentSymbol = currentTile.getStaticElement()
-                .map(StaticElement::symbol)
-                .orElse('\0');
+            .map(StaticElement::symbol)
+            .orElse('\0');
 
         Tile newTile = tiles[newY][newX];
         char newSymbol = newTile.getStaticElement()
-                .map(StaticElement::symbol)
-                .orElse('\0');
+            .map(StaticElement::symbol)
+            .orElse('\0');
 
         if ((currentSymbol == 'O' || currentSymbol == 'B') && (newSymbol == 'O' || newSymbol == 'B')) {
             return "Cannot move animal within it's home";
@@ -2198,7 +2173,7 @@ public class GamePlayController {
         if (animal == null) return "Animal not found: " + name;
 
         if (user.getInventory().getItem("Hay") == null ||
-                user.getInventory().getItem("Hay").getQuantity() < 5) {
+            user.getInventory().getItem("Hay").getQuantity() < 5) {
             return "You don't have enough hay in your inventory";
         }
         user.getInventory().removeItemByName("Hay", 5);
@@ -2218,10 +2193,10 @@ public class GamePlayController {
                 anyProducts = true;
                 String productName = animal.getCurrentProduct().getName();
                 result.append(String.format(
-                        "- %s: %s (Quality: %s)\n",
-                        animal.getName(),
-                        productName,
-                        animal.getCurrentProduct().getProperties().get("quality")
+                    "- %s: %s (Quality: %s)\n",
+                    animal.getName(),
+                    productName,
+                    animal.getCurrentProduct().getProperties().get("quality")
                 ));
             }
         }
@@ -2299,7 +2274,7 @@ public class GamePlayController {
         }
 
         if (Math.abs(UTo.getPosition().getPositionX() - user.getPosition().getPositionX()) > 1 ||
-                Math.abs(UTo.getPosition().getPositionY() - user.getPosition().getPositionY()) > 1) {
+            Math.abs(UTo.getPosition().getPositionY() - user.getPosition().getPositionY()) > 1) {
             return "far away";
         }
 
@@ -2325,7 +2300,7 @@ public class GamePlayController {
         }
 
         if (Math.abs(UTo.getPosition().getPositionX() - user.getPosition().getPositionX()) > 1 ||
-                Math.abs(UTo.getPosition().getPositionY() - user.getPosition().getPositionY()) > 1) {
+            Math.abs(UTo.getPosition().getPositionY() - user.getPosition().getPositionY()) > 1) {
             return "far away";
         }
 

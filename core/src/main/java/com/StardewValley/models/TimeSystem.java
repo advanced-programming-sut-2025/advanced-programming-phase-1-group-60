@@ -27,6 +27,17 @@ public class TimeSystem {
     }
 
     /**
+     * یک شناسه زمانی منحصر به فرد بر اساس زمان کل بازی برمی‌گرداند
+     * این متد برای مقایسه زمان‌ها و اعمال cooldown استفاده می‌شود
+     */
+    public long getTotalHoursSinceStart() {
+        int seasonIndex = java.util.Arrays.asList("Spring", "Summer", "Fall", "Winter").indexOf(currentSeason);
+        long totalDays = (long)(currentYear - 1) * 112 + (long)seasonIndex * 28 + (currentDay - 1);
+        return totalDays * 24 + currentHour;
+    }
+
+
+    /**
      * جلو بردن زمان بازی به تعداد ساعت مشخص
      * @param hours تعداد ساعت (عدد منفی غیرمجاز است)
      */
@@ -120,7 +131,7 @@ public class TimeSystem {
     }
 
     public synchronized void setCurrentYear(int year) {
-        currentYear = year;
+        this.currentYear = year;
     }
     public synchronized void setCurrentHour(int hour) { this.currentHour = hour; }
     public synchronized void setCurrentDay(int day) { this.currentDay = day;}
