@@ -89,17 +89,27 @@ public class Game {
         }
     }
 
-    private void initializeGameMap() {
-        FarmManager farmManager = new FarmManager();
-        List<Farm> farms = farmManager.getAllFarms();
+    public void initializeGameMap() {
+        // Create farms with proper templates directly
+        List<Farm> farms = new ArrayList<>();
 
+        // Create all 4 farms with their templates
+        farms.add(new Farm(FarmTemplate.template1(), 25, 25)); // Farm 1
+        farms.add(new Farm(FarmTemplate.template2(), 25, 25)); // Farm 2
+        farms.add(new Farm(FarmTemplate.template3(), 25, 25)); // Farm 3
+        farms.add(new Farm(FarmTemplate.template4(), 25, 25)); // Farm 4
+
+        // Assign farms to players based on their map selection
         for (User player : players) {
             int mapId = selectedMaps.get(player);
-            Farm farm = farms.get(mapId - 1);
-            farm.setOwner(player);
-            player.setFarm(farm);
+            if (mapId > 0 && mapId <= farms.size()) {
+                Farm farm = farms.get(mapId - 1);
+                farm.setOwner(player);
+                player.setFarm(farm);
+            }
         }
 
+        // Create the GameMap with the farms and village template
         this.currentMap = new GameMap(farms, VillageTemplate.createDefaultVillage());
     }
 

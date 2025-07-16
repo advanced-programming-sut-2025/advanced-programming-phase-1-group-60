@@ -307,6 +307,9 @@ public class GameView implements Screen {
     private void validateAndProceedToMapSelection() {
         selectedPlayers.clear();
 
+        // Add the current logged-in user first
+        selectedPlayers.add(loginController.getLoggedInUser().getUsername());
+
         // Collect non-empty player names
         for (TextField field : playerFields) {
             String username = field.getText().trim();
@@ -322,9 +325,9 @@ public class GameView implements Screen {
             }
         }
 
-        // Validate player count (need at least 1 other player)
-        if (selectedPlayers.isEmpty()) {
-            statusLabel.setText("Please add at least one other player");
+        // Validate player count (need at least 1 player total)
+        if (selectedPlayers.size() < 1) {
+            statusLabel.setText("Please add at least one player");
             statusLabel.setColor(Color.RED);
             return;
         }
@@ -370,9 +373,8 @@ public class GameView implements Screen {
                 Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
-            // Directly create farms and assign to players
-            FarmManager farmManager = new FarmManager();
-            List<Farm> farms = new ArrayList<>();
+            // Get all players and assign them to their selected farms
+            List<User> players = gameInstance.getPlayers();
 
             // Create a map of username to selected map number
             Map<String, Integer> playerMapChoices = new HashMap<>();
@@ -383,30 +385,27 @@ public class GameView implements Screen {
                 System.out.println("Player " + username + " selected map " + mapNumber);
             }
 
-            // Get all players and assign them to their selected farms
-            List<User> players = gameInstance.getPlayers();
+            // Assign maps to players using the Game's selectMap method
             for (User player : players) {
-                // Get the map number this player selected
                 int mapId = playerMapChoices.getOrDefault(player.getUsername(), 1);
-
-                // Get the farm and set ownership
-                Farm farm = farmManager.getFarm(mapId);
-                farm.setOwner(player);
-                player.setFarm(farm);
-                farms.add(farm);
-
-                // Update the game's map selection record
                 gameInstance.selectMap(player, mapId);
                 System.out.println("Assigned " + player.getUsername() + " to Farm " + mapId);
             }
 
-            // Create the village and game map
-            VillageTemplate village = VillageTemplate.createDefaultVillage();
-            GameMap gameMap = new GameMap(farms, village);
+            // IMPORTANT: Initialize the game map after all players have selected their maps
+            System.out.println("Initializing game map...");
+            gameInstance.initializeGameMap();  // Add this line!
 
-            // Set the map in the game instance
-            gameInstance.setCurrentMap(gameMap);
+            // Set the game state to IN_GAME
             gameInstance.setState(Game.GameState.IN_GAME);
+
+            // Get the current map from the game instance
+            GameMap gameMap = gameInstance.getCurrentMap();
+
+            // Check if gameMap is null before proceeding
+            if (gameMap == null) {
+                throw new RuntimeException("GameMap is null after initialization");
+            }
 
             // Create the MapView with the initialized map
             mapView = new MapView(gameMap);
@@ -414,7 +413,7 @@ public class GameView implements Screen {
             // Set first farm as active and center camera on it
             mapView.setCurrentFarmIndex(0);
 
-            System.out.println("Map created successfully with " + farms.size() + " farms");
+            System.out.println("Map created successfully with game map");
             mapStatusLabel.setText("Game started successfully!");
             mapStatusLabel.setColor(Color.GREEN);
 

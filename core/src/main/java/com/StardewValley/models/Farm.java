@@ -21,6 +21,9 @@ public class Farm {
     private int homeX, homeY;
 
     public Farm(FarmTemplate tpl, int homeX, int homeY) {
+        // Use a different seed for each farm instance
+        Random farmRNG = new Random(System.nanoTime() + homeX + homeY);
+
         for (int y = 0; y < FarmTemplate.HEIGHT; y++) {
             for (int x = 0; x < FarmTemplate.WIDTH; x++) {
                 tiles[y][x] = new Tile(x, y);
@@ -28,72 +31,95 @@ public class Farm {
         }
         this.homeX = homeX;
         this.homeY = homeY;
-        // قرار دادن عناصر ثابت
-        for (var p : tpl.getPlacements())
-            for (int dy = 0; dy < p.h; dy++)
-                for (int dx = 0; dx < p.w; dx++)
+
+        // Place static elements FIRST (structures from template)
+        for (var p : tpl.getPlacements()) {
+            for (int dy = 0; dy < p.h; dy++) {
+                for (int dx = 0; dx < p.w; dx++) {
                     if (p.y + dy < FarmTemplate.HEIGHT && p.y + dy >= 0
-                    && p.x + dx < FarmTemplate.WIDTH && p.x + dx >= 0) {
+                        && p.x + dx < FarmTemplate.WIDTH && p.x + dx >= 0) {
                         tiles[p.y + dy][p.x + dx].setStaticElement(p.element);
                     }
-        // پخش یک عنصر رندوم یا خالی در هر کاشی
-        scatter(30, () -> {
+                }
+            }
+        }
+
+        // THEN spawn random elements - they will avoid static elements
+        scatter(30, farmRNG, () -> {
             var repo = TreeRepository.trees;
-            int idx = RNG.nextInt(repo.size());
+            int idx = farmRNG.nextInt(repo.size());
             return new Tree(repo.get(idx));
         });
-        scatter(20, () -> {
+        scatter(20, farmRNG, () -> {
             var minerals = com.StardewValley.repository.ForagingRepository.foragingMinerals;
-            int idx = RNG.nextInt(minerals.size());
+            int idx = farmRNG.nextInt(minerals.size());
             return new Stone(minerals.get(idx));
         });
-        scatterForageItems(60);
+        scatterForageItems(60, farmRNG);
     }
 
-    private void scatter(int count, Supplier<RandomElement> f) {
+    private void scatter(int count, Random rng, Supplier<RandomElement> f) {
         int placed = 0;
-        while (placed < count) {
-            int x = RNG.nextInt(FarmTemplate.WIDTH);
-            int y = RNG.nextInt(FarmTemplate.HEIGHT);
+        int attempts = 0;
+        int maxAttempts = count * 10; // Prevent infinite loops
 
+        while (placed < count && attempts < maxAttempts) {
+            int x = rng.nextInt(FarmTemplate.WIDTH);
+            int y = rng.nextInt(FarmTemplate.HEIGHT);
+            attempts++;
+
+            // Skip spawn position and origin
             if ((x == homeX && y == homeY) || (x == 0 && y == 0)) {
                 continue;
             }
 
             Tile t = tiles[y][x];
+            // Check if tile is completely empty (no static element AND no random element)
             if (t.getStaticElement().isEmpty() && t.getRandomElement().isEmpty()) {
                 t.setRandomElement(f.get());
                 placed++;
             }
         }
     }
-    private void scatterForageItems(int count) {
+    private void scatterForageItems(int count, Random rng) {
         int placed = 0;
-        while (placed < count) {
-            int x = RNG.nextInt(FarmTemplate.WIDTH), y = RNG.nextInt(FarmTemplate.HEIGHT);
+        int attempts = 0;
+        int maxAttempts = count * 10; // Prevent infinite loops
+
+        while (placed < count && attempts < maxAttempts) {
+            int x = rng.nextInt(FarmTemplate.WIDTH);
+            int y = rng.nextInt(FarmTemplate.HEIGHT);
+            attempts++;
+
+            // Skip spawn position and origin
+            if ((x == homeX && y == homeY) || (x == 0 && y == 0)) {
+                continue;
+            }
+
             Tile t = tiles[y][x];
+            // Check if tile is completely empty (no static element AND no random element)
             if (t.getStaticElement().isEmpty() && t.getRandomElement().isEmpty()) {
                 RandomElement forage;
-                if (RNG.nextBoolean()) {
-                    // Randomly select a ForagingCrop from the repository
+                if (rng.nextBoolean()) {
                     var crops = com.StardewValley.repository.ForagingRepository.foragingCrops;
-                    int idx = RNG.nextInt(crops.size());
-                    forage = new ForagingCrop(crops.get(idx));
+                    int idx = rng.nextInt(crops.size());
+                    forage = crops.get(idx);
+                } else {
+                    var minerals = com.StardewValley.repository.ForagingRepository.foragingMinerals;
+                    int idx = rng.nextInt(minerals.size());
+                    forage = minerals.get(idx);
                 }
-//                else {
-//                    // Randomly select a Seeds from FruitsAndVegetablesRepository
-//                    var seeds = com.StardewValley.repository.FruitsAndVegetablesRepository.seeds;
-//                    int idx = RNG.nextInt(seeds.size());
-//                    forage = seeds.get(idx);
-//                }
-//                t.setRandomElement(forage);
+                t.setRandomElement(forage);
                 t.setType("F");
                 placed++;
             }
         }
     }
     public Tile getTile(int x, int y) {
-        return tiles[y][x];
+        if (x >= 0 && x < FarmTemplate.WIDTH && y >= 0 && y < FarmTemplate.HEIGHT) {
+            return tiles[y][x];
+        }
+        return null;
     }
 
     public Tile[][] getTiles() {
@@ -202,17 +228,25 @@ public class Farm {
     private void setRandomItems() {
     }
     public void spawnDailyForageItems() {
-        scatterForageItems(5);
+        Random dailyRNG = new Random(System.nanoTime());
+        scatterForageItems(5, dailyRNG);
     }
     public void spawnDailyStones(int count) {
+        Random dailyRNG = new Random(System.nanoTime() + homeX + homeY);
         int placed = 0;
-        while (placed < count) {
-            int x = RNG.nextInt(FarmTemplate.WIDTH);
-            int y = RNG.nextInt(FarmTemplate.HEIGHT);
+        int attempts = 0;
+        int maxAttempts = count * 10; // Prevent infinite loops
+
+        while (placed < count && attempts < maxAttempts) {
+            int x = dailyRNG.nextInt(FarmTemplate.WIDTH);
+            int y = dailyRNG.nextInt(FarmTemplate.HEIGHT);
+            attempts++;
+
             Tile t = tiles[y][x];
+            // Check if tile is completely empty (no static element AND no random element)
             if (t.getStaticElement().isEmpty() && t.getRandomElement().isEmpty()) {
                 var minerals = com.StardewValley.repository.ForagingRepository.foragingMinerals;
-                int idx = RNG.nextInt(minerals.size());
+                int idx = dailyRNG.nextInt(minerals.size());
                 t.setRandomElement(new Stone(minerals.get(idx)));
                 t.setType("S");
                 placed++;

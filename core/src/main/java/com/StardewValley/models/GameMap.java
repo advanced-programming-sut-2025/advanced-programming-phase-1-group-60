@@ -35,8 +35,12 @@ public class GameMap {
         this.activeFarmIndex = 0;
     }
 
-    public void setActiveFarm(int index) {
-        this.activeFarmIndex = index;
+    public void setActiveFarm(int farmIndex) {
+        if (farmIndex >= 0 && farmIndex < farms.length) {
+            this.activeFarmIndex = farmIndex;
+        } else {
+            System.err.println("Invalid farm index: " + farmIndex);
+        }
     }
 
     public Tile getTile(int x, int y) {
@@ -75,7 +79,12 @@ public class GameMap {
             default: throw new IllegalArgumentException("Invalid farm index");
         }
     }
-
+    public Farm getFarm(int farmIndex) {
+        if (farmIndex >= 0 && farmIndex < farms.length) {
+            return farms[farmIndex];
+        }
+        return null;
+    }
     public Village getVillage() { return village; }
     public Farm getActiveFarm() { return farms[activeFarmIndex]; }
     public int getWidth() { return width; }
