@@ -194,35 +194,35 @@ public class HomeController {
                 }
 
                 return unlockRecipe((String) args[0]);
-                // return "Error: Unknown crafting command.";
+            // return "Error: Unknown crafting command.";
             default:
                 return "Error: Unknown crafting command.";
         }
     }
 
     private static String showRecipes() {
-            if (lockedRecipes.isEmpty()) {
-                return "All recipes are unlocked.";
-            }
-
-            StringBuilder recipes = new StringBuilder("Locked Recipes:\n");
-            for (String recipe : lockedRecipes.keySet()) {
-                recipes.append("- ").append(recipe).append("\n");
-            }
-            return recipes.toString();
+        if (lockedRecipes.isEmpty()) {
+            return "All recipes are unlocked.";
         }
 
-        public static String showUnlockedRecipes() {
-            if (unlockedRecipes.isEmpty()) {
-                return "No recipes unlocked yet.";
-            }
-
-            StringBuilder recipes = new StringBuilder("Unlocked Recipes:\n");
-            for (String recipe : unlockedRecipes.keySet()) {
-                recipes.append("- ").append(recipe).append("\n");
-            }
-            return recipes.toString();
+        StringBuilder recipes = new StringBuilder("Locked Recipes:\n");
+        for (String recipe : lockedRecipes.keySet()) {
+            recipes.append("- ").append(recipe).append("\n");
         }
+        return recipes.toString();
+    }
+
+    public static String showUnlockedRecipes() {
+        if (unlockedRecipes.isEmpty()) {
+            return "No recipes unlocked yet.";
+        }
+
+        StringBuilder recipes = new StringBuilder("Unlocked Recipes:\n");
+        for (String recipe : unlockedRecipes.keySet()) {
+            recipes.append("- ").append(recipe).append("\n");
+        }
+        return recipes.toString();
+    }
     private static String learnRecipe(String recipeName, Map<String, Integer> materials) {
         if (craftingRecipes.containsKey(recipeName)) {
             return "Error: Recipe '" + recipeName + "' already exists.";
@@ -275,7 +275,13 @@ public class HomeController {
         return "Successfully crafted '" + itemName + "'.";
     }
 
-
+    public static Map<String, Integer> getInventoryItemMap(User user) {
+        Map<String, Integer> map = new HashMap<>();
+        for (Item item : currentPlayer.getInventory().getItems()) {
+            map.put(item.getName(), item.getQuantity());
+        }
+        return map;
+    }
     private static String placeItem(String itemName, int direction, User user, GameMap gameMap) {
         Inventory inventory = user.getInventory();
 

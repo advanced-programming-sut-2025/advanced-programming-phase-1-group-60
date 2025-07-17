@@ -1,8 +1,12 @@
 package com.StardewValley.view;
 
-import com.StardewValley.exceptions.GameException;
+import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.controller.GameController;
+import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.models.*;
+import com.StardewValley.repository.UserRepository;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -13,10 +17,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import com.StardewValley.controller.GameController;
-import com.StardewValley.controller.LoginMenuController;
-import com.StardewValley.AssetsManager.MenuManager;
-import com.StardewValley.repository.UserRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,8 +30,11 @@ public class GameView implements Screen {
     private final SpriteBatch batch;
     private final LoginMenuController loginController;
     private final GameController gameController;
+
+    // References to the other screens
     private MapView mapView;
-    private Table gameplayTable;
+    private InventoryView inventoryView;
+    private CraftingMenuScreenView craftingMenuScreenView; // Assumed you will add this class
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -41,6 +44,8 @@ public class GameView implements Screen {
     private Array<SelectBox<String>> mapSelectionBoxes;
     private Label statusLabel;
     private Label mapStatusLabel;
+    private boolean isGameRunning = false;
+
 
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController) {
         this.game = game;
@@ -62,7 +67,6 @@ public class GameView implements Screen {
         createNewGameMenu();
         createMapSelectionMenu();
 
-        // Show main menu initially
         mainMenuTable.setVisible(true);
         newGameTable.setVisible(false);
         mapSelectionTable.setVisible(false);
@@ -77,41 +81,28 @@ public class GameView implements Screen {
         mainMenuTable.setFillParent(true);
         mainMenuTable.top().padTop(50);
 
-        // Title
         Label titleLabel = new Label("Game Menu", menuManager.getPixthulhuSkin(), "title");
         titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
 
-        // Status label
         statusLabel = new Label("", menuManager.getPixthulhuSkin());
-        statusLabel.setColor(0.2f, 0.8f, 0.2f, 1f);
+        statusLabel.setColor(Color.GREEN);
 
-        // Buttons
         Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
         Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
 
         TextButton startNewGameButton = new TextButton("Start New Game", menuManager.getPixthulhuSkin());
-        TextButton loadLastGameButton = new TextButton("Load Last Game", menuManager.getPixthulhuSkin());
-        TextButton showCurrentGameButton = new TextButton("Show Current Game", menuManager.getPixthulhuSkin());
-        TextButton terminateGameButton = new TextButton("Terminate Current Game", menuManager.getPixthulhuSkin());
         TextButton backButton = new TextButton("Back", menuManager.getPixthulhuSkin());
 
-        // Apply button styling
-        for (TextButton button : new TextButton[]{startNewGameButton, loadLastGameButton,
-            showCurrentGameButton, terminateGameButton, backButton}) {
+        for (TextButton button : new TextButton[]{startNewGameButton, backButton}) {
             button.setColor(buttonColor);
             button.getLabel().setColor(textColor);
         }
 
-        // Layout
         mainMenuTable.add(titleLabel).padBottom(30).row();
         mainMenuTable.add(statusLabel).padBottom(20).row();
         mainMenuTable.add(startNewGameButton).width(500).height(90).padBottom(20).row();
-        mainMenuTable.add(loadLastGameButton).width(500).height(90).padBottom(20).row();
-        mainMenuTable.add(showCurrentGameButton).width(600).height(90).padBottom(20).row();
-        mainMenuTable.add(terminateGameButton).width(700).height(90).padBottom(20).row();
         mainMenuTable.add(backButton).width(200).height(90).padTop(20);
 
-        // Button listeners
         startNewGameButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -133,58 +124,45 @@ public class GameView implements Screen {
         newGameTable.setFillParent(true);
         newGameTable.top().padTop(50);
 
-        // Title
         Label titleLabel = new Label("Start New Game", menuManager.getPixthulhuSkin(), "title");
         titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
 
-        // Current player label
-        Label currentPlayerLabel = new Label("Current Player: " + loginController.getLoggedInUser().getUsername(),
-            menuManager.getPixthulhuSkin());
+        Label currentPlayerLabel = new Label("Current Player: " + loginController.getLoggedInUser().getUsername(), menuManager.getPixthulhuSkin());
         currentPlayerLabel.setColor(0.95f, 0.92f, 0.82f, 1f);
 
-        // Instructions
         Label instructionLabel = new Label("Add 1-3 other players (2-4 players total):", menuManager.getPixthulhuSkin());
         instructionLabel.setColor(0.95f, 0.92f, 0.82f, 1f);
 
-        // Player input fields
         for (int i = 0; i < 3; i++) {
             TextField playerField = new TextField("", menuManager.getPixthulhuSkin());
             playerField.setMessageText("Enter player " + (i + 2) + " username");
             playerFields.add(playerField);
         }
 
-        // Buttons
         Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
         Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
-
         TextButton nextButton = new TextButton("Next: Select Maps", menuManager.getPixthulhuSkin());
         TextButton backToMenuButton = new TextButton("Back", menuManager.getPixthulhuSkin());
-
         nextButton.setColor(buttonColor);
         backToMenuButton.setColor(buttonColor);
         nextButton.getLabel().setColor(textColor);
         backToMenuButton.getLabel().setColor(textColor);
 
-        // Layout
         newGameTable.add(titleLabel).padBottom(30).row();
         newGameTable.add(currentPlayerLabel).padBottom(20).row();
         newGameTable.add(instructionLabel).padBottom(20).row();
-
         for (TextField field : playerFields) {
             newGameTable.add(field).width(300).padBottom(10).row();
         }
-
         newGameTable.add(nextButton).width(400).height(90).padTop(20).row();
         newGameTable.add(backToMenuButton).width(200).height(90).padTop(10);
 
-        // Button listeners
         nextButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 validateAndProceedToMapSelection();
             }
         });
-
         backToMenuButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -204,72 +182,55 @@ public class GameView implements Screen {
         mapSelectionTable.clear();
         mapSelectionBoxes.clear();
 
-        // Title
         Label titleLabel = new Label("Select Maps", menuManager.getPixthulhuSkin(), "title");
         titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
 
-        // Instructions
         Label instructionLabel = new Label("Each player must choose a different map (1-4):", menuManager.getPixthulhuSkin());
         instructionLabel.setColor(0.95f, 0.92f, 0.82f, 1f);
 
-        // Status label for map selection
         mapStatusLabel = new Label("", menuManager.getPixthulhuSkin());
-        mapStatusLabel.setColor(0.2f, 0.8f, 0.2f, 1f);
+        mapStatusLabel.setColor(Color.RED);
 
-        // Add title and instructions
         mapSelectionTable.add(titleLabel).colspan(2).padBottom(30).row();
         mapSelectionTable.add(instructionLabel).colspan(2).padBottom(20).row();
         mapSelectionTable.add(mapStatusLabel).colspan(2).padBottom(20).row();
 
-        // Create map options
         String[] mapOptions = {"Map 1", "Map 2", "Map 3", "Map 4"};
 
-        // Add current player first if not already in the list
-        if (!selectedPlayers.contains(loginController.getLoggedInUser().getUsername())) {
-            selectedPlayers.add(0, loginController.getLoggedInUser().getUsername());
-        }
+        final List<String> allPlayersForUI = new ArrayList<>(selectedPlayers);
+        allPlayersForUI.add(0, loginController.getLoggedInUser().getUsername());
 
-        // Create selection boxes for each player
-        for (int i = 0; i < selectedPlayers.size(); i++) {
-            String playerName = selectedPlayers.get(i);
-
-            Label playerLabel = new Label(playerName + ":", menuManager.getPixthulhuSkin());
+        for (int i = 0; i < allPlayersForUI.size(); i++) {
+            Label playerLabel = new Label(allPlayersForUI.get(i) + ":", menuManager.getPixthulhuSkin());
             playerLabel.setColor(0.95f, 0.92f, 0.82f, 1f);
 
             SelectBox<String> mapSelectBox = new SelectBox<>(menuManager.getPixthulhuSkin());
             mapSelectBox.setItems(mapOptions);
-            mapSelectBox.setSelectedIndex(i % 4);  // Use modulo to ensure valid index
+            mapSelectBox.setSelectedIndex(i % mapOptions.length);
             mapSelectionBoxes.add(mapSelectBox);
 
             mapSelectionTable.add(playerLabel).padRight(20);
-            // Make the select box wider to show full map names
             mapSelectionTable.add(mapSelectBox).width(250).padBottom(10).row();
         }
 
-        // Buttons
         Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
         Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
-
         TextButton startGameButton = new TextButton("Start Game", menuManager.getPixthulhuSkin());
         TextButton backToPlayersButton = new TextButton("Back", menuManager.getPixthulhuSkin());
-
         startGameButton.setColor(buttonColor);
         backToPlayersButton.setColor(buttonColor);
         startGameButton.getLabel().setColor(textColor);
         backToPlayersButton.getLabel().setColor(textColor);
 
-        // Make start game button larger
         mapSelectionTable.add(startGameButton).width(400).height(90).colspan(2).padTop(20).row();
         mapSelectionTable.add(backToPlayersButton).width(200).height(90).colspan(2).padTop(10);
 
-        // Button listeners
         startGameButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                createGameWithSelectedMaps();
+                createGameWithSelectedMaps(allPlayersForUI);
             }
         });
-
         backToPlayersButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -279,21 +240,27 @@ public class GameView implements Screen {
     }
 
     private void showNewGameMenu() {
+        isGameRunning = false;
         mainMenuTable.setVisible(false);
         mapSelectionTable.setVisible(false);
         newGameTable.setVisible(true);
-
-        // Clear only the text fields
         for (TextField field : playerFields) {
             field.setText("");
         }
         statusLabel.setText("");
+        Gdx.input.setInputProcessor(stage);
     }
 
     private void showMainMenu() {
+        isGameRunning = false;
         newGameTable.setVisible(false);
         mapSelectionTable.setVisible(false);
         mainMenuTable.setVisible(true);
+        if (mapView != null) {
+            mapView.dispose();
+            mapView = null;
+        }
+        Gdx.input.setInputProcessor(stage);
         clearFields();
     }
 
@@ -306,61 +273,42 @@ public class GameView implements Screen {
 
     private void validateAndProceedToMapSelection() {
         selectedPlayers.clear();
-
-        // Add the current logged-in user first
-        selectedPlayers.add(loginController.getLoggedInUser().getUsername());
-
-        // Collect non-empty player names
         for (TextField field : playerFields) {
             String username = field.getText().trim();
             if (!username.isEmpty()) {
-                // Check if user exists
-                User user = UserRepository.getInstance().getUserByUsername(username);
-                if (user == null) {
+                if (UserRepository.getInstance().getUserByUsername(username) == null) {
                     statusLabel.setText("User '" + username + "' not found!");
-                    statusLabel.setColor(Color.RED);
+                    return;
+                }
+                if (selectedPlayers.contains(username) || username.equals(loginController.getLoggedInUser().getUsername())) {
+                    statusLabel.setText("Duplicate username: " + username);
                     return;
                 }
                 selectedPlayers.add(username);
             }
         }
-
-        // Validate player count (need at least 1 player total)
-        if (selectedPlayers.size() < 1) {
-            statusLabel.setText("Please add at least one player");
-            statusLabel.setColor(Color.RED);
+        if (selectedPlayers.isEmpty()) {
+            statusLabel.setText("Please add at least one other player.");
             return;
         }
-
-        // All validations passed, proceed to map selection
         showMapSelectionMenu();
     }
 
-    private void createGameWithSelectedMaps() {
-        List<Integer> selectedMaps = new ArrayList<>();
-
-        // Collect selected maps
+    private void createGameWithSelectedMaps(List<String> allPlayerUsernames) {
+        List<Integer> selectedMapsNumbers = new ArrayList<>();
         for (SelectBox<String> selectBox : mapSelectionBoxes) {
-            String selectedMap = selectBox.getSelected();
-            int mapNumber = Integer.parseInt(selectedMap.split(" ")[1]);
-            selectedMaps.add(mapNumber);
+            selectedMapsNumbers.add(Integer.parseInt(selectBox.getSelected().split(" ")[1]));
         }
 
-        // Check for duplicate maps
-        if (selectedMaps.size() != selectedMaps.stream().distinct().count()) {
+        if (selectedMapsNumbers.size() != selectedMapsNumbers.stream().distinct().count()) {
             mapStatusLabel.setText("Each player must choose a different map!");
-            mapStatusLabel.setColor(Color.RED);
             return;
         }
 
         try {
-            // Get the Game singleton instance and reset it
-            Game gameInstance = Game.resetInstance();
-
-            // Create new game using the current user as creator and selected players list
+            com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
             gameInstance.newGame(loginController.getLoggedInUser(), selectedPlayers);
 
-            // Add tools to all players
             for (User user : gameInstance.getPlayers()) {
                 Tools.addBeginnerHoeToInventory(user.getInventory());
                 Tools.addBeginnerPickaxeToInventory(user.getInventory());
@@ -373,58 +321,37 @@ public class GameView implements Screen {
                 Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
-            // Get all players and assign them to their selected farms
-            List<User> players = gameInstance.getPlayers();
-
-            // Create a map of username to selected map number
+            FarmManager farmManager = new FarmManager();
+            List<Farm> farms = new ArrayList<>();
             Map<String, Integer> playerMapChoices = new HashMap<>();
-            for (int i = 0; i < selectedPlayers.size(); i++) {
-                String username = selectedPlayers.get(i);
-                int mapNumber = selectedMaps.get(i);
-                playerMapChoices.put(username, mapNumber);
-                System.out.println("Player " + username + " selected map " + mapNumber);
+            for (int i = 0; i < allPlayerUsernames.size(); i++) {
+                playerMapChoices.put(allPlayerUsernames.get(i), selectedMapsNumbers.get(i));
             }
 
-            // Assign maps to players using the Game's selectMap method
-            for (User player : players) {
-                int mapId = playerMapChoices.getOrDefault(player.getUsername(), 1);
+            for (User player : gameInstance.getPlayers()) {
+                int mapId = playerMapChoices.get(player.getUsername());
+                Farm farm = farmManager.getFarm(mapId - 1);
+                farm.setOwner(player);
+                player.setFarm(farm);
+                farms.add(farm);
                 gameInstance.selectMap(player, mapId);
-                System.out.println("Assigned " + player.getUsername() + " to Farm " + mapId);
             }
 
-            // IMPORTANT: Initialize the game map after all players have selected their maps
-            System.out.println("Initializing game map...");
-            gameInstance.initializeGameMap();  // Add this line!
+            VillageTemplate village = VillageTemplate.createDefaultVillage();
+            GameMap gameMap = new GameMap(farms, village);
+            gameInstance.setCurrentMap(gameMap);
+            gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
 
-            // Set the game state to IN_GAME
-            gameInstance.setState(Game.GameState.IN_GAME);
-
-            // Get the current map from the game instance
-            GameMap gameMap = gameInstance.getCurrentMap();
-
-            // Check if gameMap is null before proceeding
-            if (gameMap == null) {
-                throw new RuntimeException("GameMap is null after initialization");
-            }
-
-            // Create the MapView with the initialized map
-            mapView = new MapView(gameMap);
-
-            // Set first farm as active and center camera on it
+            Runnable backToMenuCallback = this::showMainMenu;
+            mapView = new MapView(gameMap, backToMenuCallback, this);
             mapView.setCurrentFarmIndex(0);
 
-            System.out.println("Map created successfully with game map");
-            mapStatusLabel.setText("Game started successfully!");
-            mapStatusLabel.setColor(Color.GREEN);
-
-            // Navigate to gameplay screen
             showGameplayScreen();
-        }
-        catch (Exception e) {
+
+        } catch (Exception e) {
             System.err.println("Error creating game: " + e.getMessage());
             e.printStackTrace();
             mapStatusLabel.setText("Error: " + e.getMessage());
-            mapStatusLabel.setColor(Color.RED);
         }
     }
 
@@ -436,67 +363,58 @@ public class GameView implements Screen {
         mapSelectionBoxes.clear();
         statusLabel.setText("");
     }
+
     private void showGameplayScreen() {
-        // Hide other screens
-        mainMenuTable.setVisible(false);
-        newGameTable.setVisible(false);
-        mapSelectionTable.setVisible(false);
-
-        // Create gameplay table if it doesn't exist
-        if (gameplayTable == null) {
-            gameplayTable = new Table();
-            gameplayTable.setFillParent(true);
-
-            // Add controls (example: back button)
-            TextButton backButton = new TextButton("Back to Menu", menuManager.getPixthulhuSkin());
-            backButton.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    showMainMenu();
-                    // Optional: cleanup or save game state
-                }
-            });
-
-            Table controlsTable = new Table();
-            controlsTable.top().right();
-            controlsTable.add(backButton).pad(10);
-
-            gameplayTable.add(controlsTable).expand().fill().row();
-            stage.addActor(gameplayTable);
-        }
-
-        gameplayTable.setVisible(true);
+        isGameRunning = true;
+        game.setScreen(mapView);
     }
+
+    public void showInventoryScreen() {
+        if (inventoryView == null) {
+            inventoryView = new InventoryView(game, loginController, this);
+        }
+        game.setScreen(inventoryView);
+    }
+
+    // You will need to create this class yourself based on your colleague's code
+    public void showCraftingMenu(User player) {
+        if (craftingMenuScreenView == null) {
+            craftingMenuScreenView = new CraftingMenuScreenView(player, this);
+        }
+        game.setScreen(craftingMenuScreenView);
+    }
+
+    public void showMapView() {
+        if (mapView != null) {
+            game.setScreen(mapView);
+        }
+    }
+
+
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // Background rendering
-        menuManager.updateBackgroundAnimation(delta);
-        float[] positions = menuManager.getBackgroundPositions();
-
-        batch.begin();
-        float width = Gdx.graphics.getWidth();
-        float height = Gdx.graphics.getHeight();
-
-        for (float position : positions) {
-            batch.draw(menuManager.getBackgroundLayer(),
-                position, 0,
-                width, height);
+        if (isGameRunning) {
+            // The active screen (MapView, InventoryView, etc.) will render itself.
+            // This GameView's render is now only for the menus.
+        } else {
+            menuManager.updateBackgroundAnimation(delta);
+            float[] positions = menuManager.getBackgroundPositions();
+            batch.begin();
+            float width = Gdx.graphics.getWidth();
+            float height = Gdx.graphics.getHeight();
+            for (float position : positions) {
+                batch.draw(menuManager.getBackgroundLayer(), position, 0, width, height);
+            }
+            batch.draw(menuManager.getMiddlegroundLayer(), 0, 0, width, height);
+            batch.end();
+            stage.act(delta);
+            stage.draw();
         }
-
-        batch.draw(menuManager.getMiddlegroundLayer(), 0, 0, width, height);
-        batch.end();
-
-        // Render map if MapView exists and gameplay screen is visible
-        if (mapView != null && gameplayTable != null && gameplayTable.isVisible()) {
-            mapView.render();
-        }
-
-        stage.act(delta);
-        stage.draw();
     }
+
 
     @Override
     public void resize(int width, int height) {
@@ -512,13 +430,16 @@ public class GameView implements Screen {
     }
 
     @Override
-    public void hide() {}
+    public void hide() {
+    }
 
     @Override
-    public void pause() {}
+    public void pause() {
+    }
 
     @Override
-    public void resume() {}
+    public void resume() {
+    }
 
     @Override
     public void dispose() {
@@ -526,6 +447,12 @@ public class GameView implements Screen {
         batch.dispose();
         if (mapView != null) {
             mapView.dispose();
+        }
+        if (inventoryView != null) {
+            inventoryView.dispose();
+        }
+        if (craftingMenuScreenView != null) {
+            craftingMenuScreenView.dispose();
         }
     }
 }

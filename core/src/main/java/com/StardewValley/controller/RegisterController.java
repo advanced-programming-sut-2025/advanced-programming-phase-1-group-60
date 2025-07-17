@@ -20,12 +20,33 @@ public class RegisterController {
         this.securityQuestions = new HashMap<>();
         this.userRepository = UserRepository.getInstance();
         populateSecurityQuestions();
+
+        addDefaultUsersForDebug();
     }
 
     private void populateSecurityQuestions() {
         securityQuestions.put(1, "What was the first school that you attended?");
         securityQuestions.put(2, "What was your first pet's name?");
         securityQuestions.put(3, "In which city were you born?");
+    }
+
+    private void addDefaultUsersForDebug() {
+        try {
+            // کاربر اول
+            if (userRepository.getUserByUsername("kamran") == null) {
+                User user1 = new User("kamran", "Kam1234$", "KamranDebug", "kamran@debug.com", "Male");
+                userRepository.addUser(user1);
+                users.put("kamran", user1);
+            }
+            // کاربر دوم
+            if (userRepository.getUserByUsername("kam") == null) {
+                User user2 = new User("kam", "Kam1234$", "KamDebug", "kam@debug.com", "Female");
+                userRepository.addUser(user2);
+                users.put("kam", user2);
+            }
+        } catch (Exception e) {
+            System.out.println("Error adding default debug users: " + e.getMessage());
+        }
     }
 
     public Result register(String username, String password, String passwordConfirm, String nickname, String email, String gender) {

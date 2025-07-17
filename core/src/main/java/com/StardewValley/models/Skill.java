@@ -6,6 +6,7 @@ public class Skill {
     private double experience;
     private double maxExperience;
     private int upgradePrice;
+    private String description;
 
     public static final int MAX_LEVEL = 4;
 
@@ -54,6 +55,14 @@ public class Skill {
 
     public void setUpgradePrice(int upgradePrice) {
         this.upgradePrice = upgradePrice;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public void gainExperience(double amount) {

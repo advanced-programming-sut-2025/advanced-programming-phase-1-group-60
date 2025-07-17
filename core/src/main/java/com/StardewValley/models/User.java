@@ -167,6 +167,7 @@ public class User {
     }
 
     public void addItem(Item item) {
+        this.inventory.addItem(item);
     }
 
     public void updateSkill(Skill skill, int exp) {

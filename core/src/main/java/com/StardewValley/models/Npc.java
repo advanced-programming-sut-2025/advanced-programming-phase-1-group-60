@@ -22,8 +22,9 @@ public class Npc implements StaticElement {
     private String personality;
     private List<String> favoriteItems;
     private List<Quest> quests = new ArrayList<>();
-    private Map<String, Dialog> dialogs = new HashMap<>();
+    private Map<String, String> dialogs = new HashMap<>(); // تغییر به نقشه ساده
     private Set<String> spokenToday = new HashSet<>();
+    private long lastTalkTimestamp = -1; // زمان آخرین مکالمه برای اعمال cooldown
 
     private final int positionX;
     private final int positionY;
@@ -49,18 +50,35 @@ public class Npc implements StaticElement {
     }
 
 
-    public void defineDialog(String season,
-                             String prompt,
-                             List<String> validReplies,
-                             Map<String,String> npcAnswers) {
-        dialogs.put(season, new Dialog(prompt, validReplies, npcAnswers));
+    public void defineDialog(String season, String prompt, List<String> replies, Map<String, String> answers) {
+        // برای سادگی، فقط جمله اول را ذخیره می‌کنیم
+        this.dialogs.put(season, prompt);
     }
+
+    /**
+     * بررسی می‌کند آیا NPC برای صحبت در دسترس است یا خیر (بر اساس cooldown یک ساعته)
+     */
+    public boolean isDialogueReady() {
+        if (lastTalkTimestamp == -1) {
+            return true;
+        }
+        long currentTime = TimeSystem.getInstance().getTotalHoursSinceStart();
+        return (currentTime - lastTalkTimestamp) >= 1;
+    }
+
+    /**
+     * زمان آخرین مکالمه را ثبت می‌کند
+     */
+    public void recordTalkTime() {
+        this.lastTalkTimestamp = TimeSystem.getInstance().getTotalHoursSinceStart();
+    }
+
 
     public String startConversation(User user) {
         String season = TimeSystem.getInstance().getCurrentSeason();
         String date = TimeSystem.getInstance().getCurrentDate();
-        Dialog d = dialogs.get(season);
-        if (d == null) {
+        String prompt = dialogs.get(season);
+        if (prompt == null) {
             return "…";
         }
         String key = user.getUsername() + "#" + name + "#" + date;
@@ -68,20 +86,7 @@ public class Npc implements StaticElement {
             user.increaseFriendshipXpsWithNpc(this, 20);
             spokenToday.add(key);
         }
-        return d.prompt;
-    }
-
-    public String replyConversation(String reply) {
-        String season = TimeSystem.getInstance().getCurrentSeason();
-        Dialog d = dialogs.get(season);
-        if (d == null) {
-            return "…";
-        }
-        if (d.validReplies.contains(reply)) {
-            return d.npcAnswers.get(reply);
-        } else {
-            return "I don't understand.";
-        }
+        return prompt;
     }
 
     public void addQuest(Quest quest) {
@@ -102,15 +107,6 @@ public class Npc implements StaticElement {
 
     public int getPositionY() {
         return positionY;
-    }
-
-    private class Dialog {
-        String prompt;
-        List<String> validReplies;
-        Map<String,String> npcAnswers;
-        Dialog(String p, List<String> vr, Map<String,String> na) {
-            prompt = p; validReplies = vr; npcAnswers = na;
-        }
     }
 
     public void gift() {

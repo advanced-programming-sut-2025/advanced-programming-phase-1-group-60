@@ -1,4 +1,3 @@
-// models/GameMap.java
 package com.StardewValley.models;
 
 import java.util.HashMap;
@@ -46,7 +45,7 @@ public class GameMap {
     public Tile getTile(int x, int y) {
         // ۱) آیا داخل محدودهٔ روستا هست؟
         if (x >= vilX && x < vilX + vilW
-                && y >= vilY && y < vilY + vilH) {
+            && y >= vilY && y < vilY + vilH) {
             return village.getTile(x - vilX, y - vilY);
         }
 
@@ -54,6 +53,11 @@ public class GameMap {
         int fx = (x < vilX) ? 0 : 1;
         int fy = (y < vilY) ? 0 : 1;
         int idx = fy * 2 + fx;
+
+        // بررسی اینکه آیا ایندکس مزرعه معتبر است یا خیر
+        if (idx >= farms.length) {
+            return null; // اگر مزرعه‌ای در این ربع وجود ندارد، فضای خالی است
+        }
         Farm farm = farms[idx];
 
         // ۳) مختصات محلی داخل هر فارم
@@ -62,7 +66,7 @@ public class GameMap {
 
         // ۴) اگر داخل بازهٔ [۰..عرض فارم) و [۰..ارتفاع فارم) بود، تایل را برگردان
         if (localX >= 0 && localX < farmW
-                && localY >= 0 && localY < farmH) {
+            && localY >= 0 && localY < farmH) {
             return farm.getTile(localX, localY);
         }
 

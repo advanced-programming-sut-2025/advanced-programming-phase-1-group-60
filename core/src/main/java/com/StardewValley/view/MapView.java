@@ -1,8 +1,11 @@
 package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MapManager;
+import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -12,7 +15,20 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Timer;
+import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +37,7 @@ import java.util.Optional;
 public class MapView implements Screen {
     private final GameMap gameMap;
     private final Game gameInstance;
+    private final GameView gameView; // Reference to GameView for screen switching
     private SpriteBatch batch;
     private BitmapFont font;
     private OrthographicCamera camera;
@@ -34,27 +51,37 @@ public class MapView implements Screen {
 
     private static final float TILE_SIZE = 32f;
     private int currentFarmIndex = 0;
+    private boolean inVillage = false;
 
-    public MapView(GameMap gameMap) {
+    private Stage stage;
+    private Dialog travelDialog;
+    private Label npcSpeechLabel;
+    private boolean speechIsShowing = false;
+    private Skin skin;
+    private final Runnable onBackToMenu;
+
+    private Dialog npcContextMenu;
+    private Dialog friendshipDialog;
+    private Npc selectedNpc;
+
+    public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
+        this.gameView = gameView;
         this.gameInstance = Game.getInstance();
         this.batch = new SpriteBatch();
         this.font = new BitmapFont();
         font.setColor(Color.WHITE);
+        this.onBackToMenu = onBackToMenu;
 
         this.camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         this.camera.zoom = DEFAULT_ZOOM;
         this.mapManager = MapManager.getInstance();
 
-        // Create fallback texture (green)
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.GREEN);
         pixmap.fill();
         this.fallbackTexture = new Texture(pixmap);
-        pixmap.dispose();
 
-        // Create player texture (red)
-        pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.RED);
         pixmap.fill();
         this.playerTexture = new Texture(pixmap);
@@ -65,16 +92,199 @@ public class MapView implements Screen {
         Vector2 farmCenter = getFarmCenter(0);
         this.playerPos = new Vector2(farmCenter);
         centerCameraOnPlayer();
+
+        stage = new Stage(new ScreenViewport());
+        Gdx.input.setInputProcessor(stage);
+        skin = MenuManager.getInstance().getPixthulhuSkin();
+        createUI();
+    }
+
+    private void createUI() {
+        createTravelDialog();
+        createBackButton();
+        createNpcContextMenu();
+        createFriendshipDialog();
+
+        npcSpeechLabel = new Label("", skin);
+        npcSpeechLabel.setWrap(true);
+        npcSpeechLabel.setAlignment(Align.center);
+        npcSpeechLabel.setVisible(false);
+        stage.addActor(npcSpeechLabel);
+    }
+
+    private void createBackButton() {
+        Table uiTable = new Table();
+        uiTable.setFillParent(true);
+        uiTable.top().right();
+
+        TextButton backButton = new TextButton("Back to Menu", skin);
+        backButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                onBackToMenu.run();
+            }
+        });
+        uiTable.add(backButton).pad(10);
+        stage.addActor(uiTable);
+    }
+
+    private void createNpcContextMenu() {
+        npcContextMenu = new Dialog("NPC Menu", skin);
+        TextButton giftButton = new TextButton("Gift", skin);
+        TextButton questButton = new TextButton("Quest", skin);
+        TextButton friendshipButton = new TextButton("Friendship", skin);
+
+        npcContextMenu.getContentTable().add(giftButton).row();
+        npcContextMenu.getContentTable().add(questButton).row();
+        npcContextMenu.getContentTable().add(friendshipButton).row();
+
+        giftButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                npcContextMenu.hide();
+            }
+        });
+
+        questButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                npcContextMenu.hide();
+            }
+        });
+
+        friendshipButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                showFriendshipDialog();
+                npcContextMenu.hide();
+            }
+        });
+        npcContextMenu.setModal(true);
+    }
+
+    private void createFriendshipDialog() {
+        friendshipDialog = new Dialog("Friendship", skin);
+        friendshipDialog.text("Friendship details will be shown here.");
+        friendshipDialog.button("OK");
+        friendshipDialog.setModal(true);
+    }
+
+    private void showFriendshipDialog() {
+        if (selectedNpc != null) {
+            User currentPlayer = gameInstance.getCurrentPlayer();
+            int friendshipXp = currentPlayer.getFriendshipXpsWithNPCs().getOrDefault(selectedNpc, 0);
+            int friendshipLevel = currentPlayer.getFriendshipLevelWithNpc(selectedNpc);
+
+            Label content = new Label("Friendship with " + selectedNpc.getName() + ":\n" +
+                "Level: " + friendshipLevel + "\n" +
+                "XP: " + friendshipXp, skin);
+            friendshipDialog.getContentTable().clear();
+            friendshipDialog.getContentTable().add(content);
+            friendshipDialog.show(stage);
+        }
+    }
+
+    private void showNpcSpeech(Npc npc, User user, float npcWorldX, float npcWorldY) {
+        if (speechIsShowing) return;
+        speechIsShowing = true;
+
+        String prompt = npc.startConversation(user);
+        npcSpeechLabel.setText(prompt);
+
+        npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f);
+        npcSpeechLabel.pack();
+        npcSpeechLabel.setWidth(250);
+        npcSpeechLabel.setHeight(npcSpeechLabel.getPrefHeight());
+
+        Vector3 npcScreenPos = camera.project(new Vector3(npcWorldX, npcWorldY, 0));
+        npcSpeechLabel.setPosition(
+            npcScreenPos.x - npcSpeechLabel.getWidth() / 2f + (TILE_SIZE / 2f),
+            npcScreenPos.y + TILE_SIZE
+        );
+        npcSpeechLabel.setVisible(true);
+
+        npc.recordTalkTime();
+
+        Timer.schedule(new Timer.Task() {
+            @Override
+            public void run() {
+                npcSpeechLabel.setVisible(false);
+                speechIsShowing = false;
+            }
+        }, 4);
+    }
+
+    private void createTravelDialog() {
+        travelDialog = new Dialog("Travel", skin) {
+            @Override
+            protected void result(Object object) {
+                if ((Boolean) object) {
+                    performTravel();
+                }
+            }
+        };
+        Label contentLabel = new Label("", skin);
+        contentLabel.setWrap(true);
+        contentLabel.setAlignment(Align.center);
+        travelDialog.getContentTable().add(contentLabel).width(250).row();
+    }
+
+    public Stage getStage() {
+        return this.stage;
+    }
+
+    private void showTravelDialog(String destination) {
+        if (speechIsShowing) return;
+
+        ((Label) travelDialog.getContentTable().getCells().first().getActor()).setText("Do you want to travel to " + destination + "?");
+
+        travelDialog.getButtonTable().clearChildren();
+        travelDialog.button("Yes", true);
+        travelDialog.button("No", false);
+
+        travelDialog.show(stage);
+    }
+
+    private void performTravel() {
+        if (inVillage) {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            float destX = 0, destY = 0;
+
+            switch (currentFarmIndex) {
+                case 0:
+                    destX = farmTopLeft.x + (48 * TILE_SIZE);
+                    destY = farmTopLeft.y + (48 * TILE_SIZE);
+                    break;
+                case 1:
+                    destX = farmTopLeft.x + (1 * TILE_SIZE);
+                    destY = farmTopLeft.y + (48 * TILE_SIZE);
+                    break;
+                case 2:
+                    destX = farmTopLeft.x + (48 * TILE_SIZE);
+                    destY = farmTopLeft.y + (1 * TILE_SIZE);
+                    break;
+                case 3:
+                    destX = farmTopLeft.x + (1 * TILE_SIZE);
+                    destY = farmTopLeft.y + (1 * TILE_SIZE);
+                    break;
+            }
+            playerPos.set(destX, destY);
+            inVillage = false;
+        } else {
+            MapCoord villagePortal = gameMap.getEntrance(currentFarmIndex);
+            playerPos.set(villagePortal.getX() * TILE_SIZE + 50, villagePortal.getY() * TILE_SIZE);
+            inVillage = true;
+        }
+        centerCameraOnPlayer();
     }
 
     private void initializeFarmOwnerMap() {
         try {
             List<User> players = gameInstance.getPlayers();
             for (User player : players) {
-                int mapId = gameInstance.getSelectedMaps().get(player);
+                int mapId = gameInstance.getMapSelection(player);
                 if (mapId > 0) {
-                    int farmIndex = mapId - 1;
-                    farmOwners.put(farmIndex, player.getUsername());
+                    farmOwners.put(mapId - 1, player.getUsername());
                 }
             }
         } catch (Exception e) {
@@ -82,26 +292,10 @@ public class MapView implements Screen {
         }
     }
 
-    private Vector2 getFarmTopLeft(int farmIndex) {
-        switch (farmIndex) {
-            case 0: // Farm 1 - Top-left
-                return new Vector2(0, 0);
-            case 1: // Farm 2 - Top-right
-                return new Vector2(70 * TILE_SIZE, 0);
-            case 2: // Farm 3 - Bottom-left
-                return new Vector2(0, 70 * TILE_SIZE);
-            case 3: // Farm 4 - Bottom-right
-                return new Vector2(70 * TILE_SIZE, 70 * TILE_SIZE);
-            default:
-                return new Vector2(0, 0);
-        }
-    }
-
     private Vector2 getFarmCenter(int farmIndex) {
-        Vector2 farmTopLeft = getFarmTopLeft(farmIndex);
-        float centerX = farmTopLeft.x + (FarmTemplate.WIDTH * TILE_SIZE) / 2;
-        float centerY = farmTopLeft.y + (FarmTemplate.HEIGHT * TILE_SIZE) / 2;
-        return new Vector2(centerX, centerY);
+        Vector2 topLeft = getFarmTopLeft(farmIndex);
+        return new Vector2(topLeft.x + (FarmTemplate.WIDTH / 2f) * TILE_SIZE,
+            topLeft.y + (FarmTemplate.HEIGHT / 2f) * TILE_SIZE);
     }
 
     private void centerCameraOnPlayer() {
@@ -111,18 +305,12 @@ public class MapView implements Screen {
 
     public void setCurrentFarmIndex(int index) {
         if (index >= 0 && index <= 3) {
-            System.out.println("Switching to farm " + (index + 1));
             currentFarmIndex = index;
+            inVillage = false;
             gameMap.setActiveFarm(index);
-
-            Vector2 farmCenter = getFarmCenter(index);
-            playerPos.set(farmCenter);
+            playerPos.set(getFarmCenter(index));
             centerCameraOnPlayer();
         }
-    }
-
-    public void render() {
-        render(Gdx.graphics.getDeltaTime());
     }
 
     @Override
@@ -131,357 +319,320 @@ public class MapView implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         handleInput(delta);
+
         centerCameraOnPlayer();
+
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-
-        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
-        int farmWidth = FarmTemplate.WIDTH;
-        int farmHeight = FarmTemplate.HEIGHT;
-
-        // FIRST PASS: Draw grass base
-        for (int y = 0; y < farmHeight; y++) {
-            for (int x = 0; x < farmWidth; x++) {
-                float posX = farmTopLeft.x + x * TILE_SIZE;
-                float posY = farmTopLeft.y + (farmHeight - 1 - y) * TILE_SIZE;
-
-                Texture grassTexture = mapManager.getGrassTile();
-                if (grassTexture != null) {
-                    batch.draw(grassTexture, posX, posY, TILE_SIZE, TILE_SIZE);
-                } else {
-                    batch.draw(fallbackTexture, posX, posY, TILE_SIZE, TILE_SIZE);
-                }
-            }
-        }
-
-        // SECOND PASS: Draw structures LAST so they appear on top
-        drawStructures(farmTopLeft);
-
-
-        // THIRD PASS: Draw tall elements (trees)
-        drawTallElements(farmTopLeft, farmWidth, farmHeight);
-
-        // FOURTH PASS: Draw ground elements (stones, foraging items)
-        drawGroundElements(farmTopLeft, farmWidth, farmHeight);
-
-        // Draw player
-        batch.draw(playerTexture, playerPos.x - TILE_SIZE/2, playerPos.y - TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
-
-        // Draw UI
-        float textX = camera.position.x - camera.viewportWidth/2 + 10;
-        float textY = camera.position.y + camera.viewportHeight/2 - 10;
-        String ownerName = farmOwners.getOrDefault(currentFarmIndex, "Unknown");
-        font.draw(batch, "Farm " + (currentFarmIndex + 1) + " - Owner: " + ownerName, textX, textY);
-        font.draw(batch, "WASD to move", textX, textY - 20);
-        font.draw(batch, "Press 1-4 to switch farms", textX, textY - 40);
-
+        renderMap();
+        batch.draw(playerTexture, playerPos.x, playerPos.y, TILE_SIZE, TILE_SIZE);
+        renderUI();
         batch.end();
+
+        stage.act(delta);
+        stage.draw();
     }
 
-    private void drawStructures(Vector2 farmTopLeft) {
-        // Draw template structures first
-        FarmTemplate template = null;
-        switch (currentFarmIndex) {
-            case 0: template = FarmTemplate.template1(); break;
-            case 1: template = FarmTemplate.template2(); break;
-            case 2: template = FarmTemplate.template3(); break;
-            case 3: template = FarmTemplate.template4(); break;
+    private void renderMap() {
+        int startX, startY, width, height;
+        List<Vector2> npcChatIconPositions = new ArrayList<>();
+
+        if (inVillage) {
+            startX = gameMap.getVilX();
+            startY = gameMap.getVilY();
+            width = gameMap.getVilW();
+            height = gameMap.getVilH();
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            startX = (int) (farmTopLeft.x / TILE_SIZE);
+            startY = (int) (farmTopLeft.y / TILE_SIZE);
+            width = FarmTemplate.WIDTH;
+            height = FarmTemplate.HEIGHT;
         }
 
-        if (template != null) {
-            for (FarmTemplate.Placement placement : template.getPlacements()) {
-                float posX = farmTopLeft.x + placement.x * TILE_SIZE;
-                float posY = farmTopLeft.y + (FarmTemplate.HEIGHT - placement.y - placement.h) * TILE_SIZE;
-                float width = placement.w * TILE_SIZE;
-                float height = placement.h * TILE_SIZE;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int tileX = startX + x;
+                int tileY = startY + y;
+                float posX = tileX * TILE_SIZE;
+                float posY = tileY * TILE_SIZE;
 
-                StaticElement element = placement.element;
+                batch.draw(mapManager.getGrassTile(), posX, posY, TILE_SIZE, TILE_SIZE);
 
-                if (element instanceof Cabin) {
-                    batch.draw(mapManager.getCabinTexture(), posX, posY, width, height);
-                }
-                else if (element instanceof Greenhouse) {
-                    batch.draw(mapManager.getGreenhouseTexture(), posX, posY, width, height);
-                }
-                else if (element instanceof Lake) {
-                    for (int y = 0; y < placement.h; y++) {
-                        for (int x = 0; x < placement.w; x++) {
-                            batch.draw(mapManager.getWaterTexture(),
-                                posX + x * TILE_SIZE,
-                                posY + y * TILE_SIZE,
-                                TILE_SIZE, TILE_SIZE);
-                        }
-                    }
-                }
-                else if (element instanceof Quarry) {
-                    for (int y = 0; y < placement.h; y++) {
-                        for (int x = 0; x < placement.w; x++) {
-                            batch.draw(mapManager.getQuarryTexture(),
-                                posX + x * TILE_SIZE,
-                                posY + y * TILE_SIZE,
-                                TILE_SIZE, TILE_SIZE);
-                        }
-                    }
-                }
-            }
-        }
+                Tile tile = gameMap.getTile(tileX, tileY);
+                if (tile == null) continue;
 
-        // Draw static elements from tiles (foraging items)
-        Farm currentFarm = gameMap.getFarm(currentFarmIndex);
-        if (currentFarm != null) {
-            for (int y = 0; y < FarmTemplate.HEIGHT; y++) {
-                for (int x = 0; x < FarmTemplate.WIDTH; x++) {
-                    float posX = farmTopLeft.x + x * TILE_SIZE;
-                    float posY = farmTopLeft.y + (FarmTemplate.HEIGHT - 1 - y) * TILE_SIZE;
-
-                    try {
-                        Tile tile = currentFarm.getTile(x, y);
-                        if (tile != null) {
-                            Optional<StaticElement> staticElement = tile.getStaticElement();
-                            if (staticElement.isPresent()) {
-                                StaticElement element = staticElement.get();
-                                if (element instanceof ForagingMineral) {
-                                    ForagingMineral mineral = (ForagingMineral) element;
-                                    batch.draw(mapManager.getForagingMineralTexture(mineral.getImagePath()),
-                                        posX, posY, TILE_SIZE, TILE_SIZE);
-                                } else if (element instanceof ForagingCrop) {
-                                    ForagingCrop crop = (ForagingCrop) element;
-                                    batch.draw(mapManager.getForagingCropTexture(crop.getImagePath()),
-                                        posX, posY, TILE_SIZE, TILE_SIZE);
-                                }
+                tile.getStaticElement().ifPresent(element -> {
+                    Texture texture = null;
+                    if (element instanceof Npc) {
+                        Npc npc = (Npc) element;
+                        texture = mapManager.getNpcTexture(npc.getName());
+                        if (texture != null) {
+                            batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
+                            if (npc.isDialogueReady()) {
+                                npcChatIconPositions.add(new Vector2(posX, posY));
                             }
                         }
-                    } catch (Exception e) {
-                        // Continue if error
+                    } else if (element instanceof Store) {
+                        texture = mapManager.getStoreTexture();
+                        if (texture != null) {
+                            batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
+                        }
+                    } else {
+                        batch.setColor(Color.BROWN);
+                        batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
+                        batch.setColor(Color.WHITE);
                     }
-                }
+                });
+
+                tile.getRandomElement().ifPresent(element -> {
+                    if (element instanceof Stone) {
+                        batch.draw(mapManager.getStoneTile(((Stone) element).getStoneVariant()), posX, posY, TILE_SIZE, TILE_SIZE);
+                    } else if (element instanceof Tree) {
+                        batch.setColor(Color.GREEN);
+                        batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
+                        batch.setColor(Color.WHITE);
+                    }
+                });
             }
+        }
+        for (Vector2 pos : npcChatIconPositions) {
+            batch.draw(mapManager.getChatIconTexture(), pos.x + TILE_SIZE / 4, pos.y + TILE_SIZE, TILE_SIZE / 2, TILE_SIZE / 2);
         }
     }
 
-    private void drawGroundElements(Vector2 farmTopLeft, int farmWidth, int farmHeight) {
-        Farm currentFarm = gameMap.getFarm(currentFarmIndex);
-        if (currentFarm != null) {
-            for (int y = 0; y < farmHeight; y++) {
-                for (int x = 0; x < farmWidth; x++) {
-                    float posX = farmTopLeft.x + x * TILE_SIZE;
-                    float posY = farmTopLeft.y + (farmHeight - 1 - y) * TILE_SIZE;
-
-                    try {
-                        Tile tile = currentFarm.getTile(x, y);
-                        if (tile != null) {
-                            Optional<RandomElement> randomElement = tile.getRandomElement();
-                            if (randomElement.isPresent()) {
-                                RandomElement element = randomElement.get();
-                                if (element.symbol() == 'S') {
-                                    Stone stone = (Stone) element;
-                                    batch.draw(mapManager.getStoneTile(stone.getStoneVariant()),
-                                        posX, posY, TILE_SIZE, TILE_SIZE);
-                                }
-                                else if (element instanceof ForagingMineral) {
-                                    ForagingMineral mineral = (ForagingMineral) element;
-                                    batch.draw(mapManager.getForagingMineralTexture(mineral.getImagePath()),
-                                        posX, posY, TILE_SIZE, TILE_SIZE);
-                                }
-                                else if (element instanceof ForagingCrop) {
-                                    ForagingCrop crop = (ForagingCrop) element;
-                                    batch.draw(mapManager.getForagingCropTexture(crop.getImagePath()),
-                                        posX, posY, TILE_SIZE, TILE_SIZE);
-                                }
-                            }
-                        }
-                    } catch (Exception e) {
-                        // Continue if error
-                    }
-                }
-            }
-        }
+    private void renderUI() {
+        float textX = camera.position.x - Gdx.graphics.getWidth() / 2f * camera.zoom + 10;
+        float textY = camera.position.y + Gdx.graphics.getHeight() / 2f * camera.zoom - 10;
+        String ownerName = farmOwners.getOrDefault(currentFarmIndex, "Unknown");
+        font.draw(batch, "Location: " + (inVillage ? "Village" : "Farm " + (currentFarmIndex + 1) + " - Owner: " + ownerName), textX, textY);
+        font.draw(batch, "WASD: Move | +/-: Zoom", textX, textY - 20);
+        font.draw(batch, "1-4: Switch Farm | I: Inventory | B: Crafting", textX, textY - 40);
     }
 
-    private void drawTallElements(Vector2 farmTopLeft, int farmWidth, int farmHeight) {
-        Farm currentFarm = gameMap.getFarm(currentFarmIndex);
-        if (currentFarm != null) {
-            for (int y = 0; y < farmHeight; y++) {
-                for (int x = 0; x < farmWidth; x++) {
-                    float posX = farmTopLeft.x + x * TILE_SIZE;
-                    float posY = farmTopLeft.y + (farmHeight - 1 - y) * TILE_SIZE;
-
-                    try {
-                        Tile tile = currentFarm.getTile(x, y);
-                        if (tile != null) {
-                            Optional<RandomElement> randomElement = tile.getRandomElement();
-                            if (randomElement.isPresent()) {
-                                RandomElement element = randomElement.get();
-                                if (element.symbol() == 'T') {
-                                    Tree tree = (Tree) element;
-                                    drawTree(tree.getImagePath(), posX, posY);
-                                }
-                                else if (element instanceof ForagingTree) {
-                                    ForagingTree foragingTree = (ForagingTree) element;
-                                    drawForagingTree(foragingTree.getImagePath(), posX, posY);
-                                }
-                            }
-
-                            Optional<StaticElement> staticElement = tile.getStaticElement();
-                            if (staticElement.isPresent() && staticElement.get() instanceof ForagingTree) {
-                                ForagingTree foragingTree = (ForagingTree) staticElement.get();
-                                drawForagingTree(foragingTree.getImagePath(), posX, posY);
-                            }
-                        }
-                    } catch (Exception e) {
-                        // Continue if error
-                    }
-                }
-            }
-        }
-    }
     private void handleInput(float delta) {
+        if (speechIsShowing) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
+            return;
+        }
+
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
         float speed = 200 * delta;
-        Vector2 newPos = new Vector2(playerPos);
 
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.A))
-            newPos.x -= speed;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.D))
-            newPos.x += speed;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.W))
-            newPos.y += speed;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.S))
-            newPos.y -= speed;
+        Vector2 velocity = new Vector2();
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) velocity.x -= 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) velocity.x += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) velocity.y += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) velocity.y -= 1;
+        velocity.nor().scl(speed);
 
-        // Handle zoom
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.PLUS) ||
-            Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.EQUALS)) {
+        if(Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            gameView.showInventoryScreen();
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.B)){
+            // This part is for adding items as a cheat for testing
+            Item coal = new Item("Coal",5);
+            currentPlayer.getInventory().addItem(coal);
+            currentPlayer.getInventory().addItem(new Item("Copper_Ore",10));
+            // Unlock recipes for testing
+            HomeController.unlockRecipesByLevel("mining",1);
+            HomeController.unlockRecipesByLevel("farming",1);
+            HomeController.unlockRecipesByLevel("foraging",1);
+            gameView.showCraftingMenu(currentPlayer);
+        }
+
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
+            camera.unproject(clickPos);
+            int clickedTileX = (int) (clickPos.x / TILE_SIZE);
+            int clickedTileY = (int) (clickPos.y / TILE_SIZE);
+            int playerTileX = (int) (playerPos.x / TILE_SIZE);
+            int playerTileY = (int) (playerPos.y / TILE_SIZE);
+            Tile clickedTile = gameMap.getTile(clickedTileX, clickedTileY);
+            if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof Npc) {
+                Npc npc = (Npc) clickedTile.getStaticElement().get();
+                if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
+                    if (npc.isDialogueReady()) {
+                        float npcWorldX = clickedTileX * TILE_SIZE;
+                        float npcWorldY = clickedTileY * TILE_SIZE;
+                        showNpcSpeech(npc, gameInstance.getCurrentPlayer(), npcWorldX, npcWorldY);
+                    }
+                }
+            }
+        }
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
+            Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
+            camera.unproject(clickPos);
+
+            int clickedTileX = (int) (clickPos.x / TILE_SIZE);
+            int clickedTileY = (int) (clickPos.y / TILE_SIZE);
+
+            Tile clickedTile = gameMap.getTile(clickedTileX, clickedTileY);
+            if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof Npc) {
+                Npc npc = (Npc) clickedTile.getStaticElement().get();
+                int playerTileX = (int) (playerPos.x / TILE_SIZE);
+                int playerTileY = (int) (playerPos.y / TILE_SIZE);
+
+                if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
+                    selectedNpc = npc;
+                    npcContextMenu.show(stage);
+                }
+            }
+        }
+
+
+        if (isAreaPassable(playerPos.x + velocity.x, playerPos.y)) {
+            playerPos.x += velocity.x;
+        }
+        if (isAreaPassable(playerPos.x, playerPos.y + velocity.y)) {
+            playerPos.y += velocity.y;
+        }
+
+        if (inVillage) {
+            float minX = gameMap.getVilX() * TILE_SIZE;
+            float minY = gameMap.getVilY() * TILE_SIZE;
+            float maxX = (gameMap.getVilX() + gameMap.getVilW()) * TILE_SIZE - TILE_SIZE;
+            float maxY = (gameMap.getVilY() + gameMap.getVilH()) * TILE_SIZE - TILE_SIZE;
+            playerPos.x = Math.max(minX, Math.min(maxX, playerPos.x));
+            playerPos.y = Math.max(minY, Math.min(maxY, playerPos.y));
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            float minX = farmTopLeft.x;
+            float minY = farmTopLeft.y;
+            float maxX = farmTopLeft.x + FarmTemplate.WIDTH * TILE_SIZE - TILE_SIZE;
+            float maxY = farmTopLeft.y + FarmTemplate.HEIGHT * TILE_SIZE - TILE_SIZE;
+            playerPos.x = Math.max(minX, Math.min(maxX, playerPos.x));
+            playerPos.y = Math.max(minY, Math.min(maxY, playerPos.y));
+        }
+
+        if (Gdx.input.isKeyPressed(Input.Keys.PLUS) || Gdx.input.isKeyPressed(Input.Keys.EQUALS))
             camera.zoom -= 0.02f;
-        }
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.MINUS)) {
-            camera.zoom += 0.02f;
-        }
+        if (Gdx.input.isKeyPressed(Input.Keys.MINUS)) camera.zoom += 0.02f;
         camera.zoom = Math.max(0.3f, Math.min(2f, camera.zoom));
 
-        // Check boundaries
-        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
-        float minX = farmTopLeft.x + TILE_SIZE/2;
-        float maxX = farmTopLeft.x + FarmTemplate.WIDTH * TILE_SIZE - TILE_SIZE/2;
-        float minY = farmTopLeft.y + TILE_SIZE/2;
-        float maxY = farmTopLeft.y + FarmTemplate.HEIGHT * TILE_SIZE - TILE_SIZE/2;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) setCurrentFarmIndex(0);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) setCurrentFarmIndex(1);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) setCurrentFarmIndex(2);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) setCurrentFarmIndex(3);
 
-        newPos.x = Math.max(minX, Math.min(maxX, newPos.x));
-        newPos.y = Math.max(minY, Math.min(maxY, newPos.y));
+        checkTravel();
+    }
 
-        // Check collision
-        if (isTilePassable(newPos.x, newPos.y)) {
-            playerPos.set(newPos);
-        }
+    private boolean isAreaPassable(float worldX, float worldY) {
+        float hitboxInset = TILE_SIZE * 0.1f;
+        float hitboxX = worldX + hitboxInset;
+        float hitboxY = worldY + hitboxInset;
+        float hitboxWidth = TILE_SIZE - (2 * hitboxInset);
+        float hitboxHeight = TILE_SIZE - (2 * hitboxInset);
 
-        // Farm switching
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_1))
-            setCurrentFarmIndex(0);
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_2))
-            setCurrentFarmIndex(1);
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_3))
-            setCurrentFarmIndex(2);
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_4))
-            setCurrentFarmIndex(3);
+        boolean bottomLeft = isTilePassable(hitboxX, hitboxY);
+        boolean bottomRight = isTilePassable(hitboxX + hitboxWidth, hitboxY);
+        boolean topLeft = isTilePassable(hitboxX, hitboxY + hitboxHeight);
+        boolean topRight = isTilePassable(hitboxX + hitboxWidth, hitboxY + hitboxHeight);
+
+        return bottomLeft && bottomRight && topLeft && topRight;
     }
 
     private boolean isTilePassable(float worldX, float worldY) {
+        int tileX = (int) (worldX / TILE_SIZE);
+        int tileY = (int) (worldY / TILE_SIZE);
+
         try {
-            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
-            int farmTileX = (int)((worldX - farmTopLeft.x) / TILE_SIZE);
-            int farmTileY = FarmTemplate.HEIGHT - 1 - (int)((worldY - farmTopLeft.y) / TILE_SIZE);
+            Tile tile = gameMap.getTile(tileX, tileY);
+            if (tile == null) return false;
 
-            if (farmTileX < 0 || farmTileX >= FarmTemplate.WIDTH ||
-                farmTileY < 0 || farmTileY >= FarmTemplate.HEIGHT) {
-                return false;
-            }
-
-            // Check structures from template
-            FarmTemplate template = null;
-            switch (currentFarmIndex) {
-                case 0: template = FarmTemplate.template1(); break;
-                case 1: template = FarmTemplate.template2(); break;
-                case 2: template = FarmTemplate.template3(); break;
-                case 3: template = FarmTemplate.template4(); break;
-            }
-
-            if (template != null) {
-                for (FarmTemplate.Placement placement : template.getPlacements()) {
-                    if (farmTileX >= placement.x && farmTileX < placement.x + placement.w &&
-                        farmTileY >= placement.y && farmTileY < placement.y + placement.h) {
-                        return false;
-                    }
-                }
-            }
-
-            // Check for trees and stones collision using farm's local coordinates
-            Farm currentFarm = gameMap.getFarm(currentFarmIndex);
-            if (currentFarm != null) {
-                try {
-                    Tile tile = currentFarm.getTile(farmTileX, farmTileY);
-                    if (tile != null) {
-                        Optional<RandomElement> randomElement = tile.getRandomElement();
-                        if (randomElement.isPresent()) {
-                            RandomElement element = randomElement.get();
-                            if (element.symbol() == 'T' || element.symbol() == 'S') {
-                                return false;
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    // Continue if error
-                }
-            }
-
-            return true;
+            return tile.isPassable();
         } catch (Exception e) {
             return false;
         }
     }
 
-    private void drawTree(String imagePath, float posX, float posY) {
-        float widthMultiplier = 2f;
-        float heightMultiplier = 3.0f;
-        float width = TILE_SIZE * widthMultiplier;
-        float height = TILE_SIZE * heightMultiplier;
-        float adjustedX = posX - (width - TILE_SIZE) / 2;
-        float adjustedY = posY;
-        batch.draw(mapManager.getTreeTexture(imagePath), adjustedX, adjustedY, width, height);
+
+    private void checkTravel() {
+        if (speechIsShowing) return;
+
+        int playerGlobalTileX = (int) (playerPos.x / TILE_SIZE);
+        int playerGlobalTileY = (int) (playerPos.y / TILE_SIZE);
+
+        if (inVillage) {
+            MapCoord portal = gameMap.getEntrance(currentFarmIndex);
+            if (playerGlobalTileX == portal.getX() && playerGlobalTileY == portal.getY()) {
+                showTravelDialog("Farm " + (currentFarmIndex + 1));
+            }
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            int farmStartX = (int) (farmTopLeft.x / TILE_SIZE);
+            int farmStartY = (int) (farmTopLeft.y / TILE_SIZE);
+
+            int playerLocalX = playerGlobalTileX - farmStartX;
+            int playerLocalY = playerGlobalTileY - farmStartY;
+
+            boolean onPortal = false;
+            switch (currentFarmIndex) {
+                case 0:
+                    if (playerLocalX >= 49 && playerLocalY >= 49) onPortal = true;
+                    break;
+                case 1:
+                    if (playerLocalX <= 0 && playerLocalY >= 49) onPortal = true;
+                    break;
+                case 2:
+                    if (playerLocalX >= 49 && playerLocalY <= 0) onPortal = true;
+                    break;
+                case 3:
+                    if (playerLocalX <= 0 && playerLocalY <= 0) onPortal = true;
+                    break;
+            }
+
+            if (onPortal) {
+                showTravelDialog("the Village");
+            }
+        }
     }
 
-    private void drawForagingTree(String imagePath, float posX, float posY) {
-        float widthMultiplier = 2f;
-        float heightMultiplier = 3.0f;
-        float width = TILE_SIZE * widthMultiplier;
-        float height = TILE_SIZE * heightMultiplier;
-        float adjustedX = posX - (width - TILE_SIZE) / 2;
-        float adjustedY = posY;
-        batch.draw(mapManager.getForagingTreeTexture(imagePath), adjustedX, adjustedY, width, height);
+    private Vector2 getFarmTopLeft(int farmIndex) {
+        int farmW = FarmTemplate.WIDTH;
+        int farmH = FarmTemplate.HEIGHT;
+        int vilW = gameMap.getVilW();
+        int vilH = gameMap.getVilH();
+
+        float x_offset = (farmIndex % 2 == 1) ? (farmW + vilW) * TILE_SIZE : 0;
+        float y_offset = (farmIndex / 2 == 1) ? (farmH + vilH) * TILE_SIZE : 0;
+
+        return new Vector2(x_offset, y_offset);
     }
 
     @Override
     public void resize(int width, int height) {
+        stage.getViewport().update(width, height, true);
         camera.viewportWidth = width;
         camera.viewportHeight = height;
         camera.update();
     }
 
     @Override
-    public void show() {}
+    public void show() {
+        Gdx.input.setInputProcessor(stage);
+    }
 
     @Override
-    public void hide() {}
+    public void hide() {
+    }
 
     @Override
-    public void pause() {}
+    public void pause() {
+    }
 
     @Override
-    public void resume() {}
+    public void resume() {
+    }
 
     @Override
     public void dispose() {
-        batch.dispose();
-        font.dispose();
-        fallbackTexture.dispose();
-        playerTexture.dispose();
+        if (batch != null) batch.dispose();
+        if (font != null) font.dispose();
+        if (fallbackTexture != null) fallbackTexture.dispose();
+        if (playerTexture != null) playerTexture.dispose();
+        if (stage != null) stage.dispose();
     }
 }
