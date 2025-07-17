@@ -275,7 +275,13 @@ public class HomeController {
         return "Successfully crafted '" + itemName + "'.";
     }
 
-
+    public static Map<String, Integer> getInventoryItemMap(User user) {
+        Map<String, Integer> map = new HashMap<>();
+        for (Item item : currentPlayer.getInventory().getItems()) {
+            map.put(item.getName(), item.getQuantity());
+        }
+        return map;
+    }
     private static String placeItem(String itemName, int direction, User user, GameMap gameMap) {
         Inventory inventory = user.getInventory();
 

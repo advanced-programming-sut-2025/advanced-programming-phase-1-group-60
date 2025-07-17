@@ -66,6 +66,7 @@ public class Inventory {
             items.add(item);
             return true;
         } else {
+            items.add(item);
             return false;
         }
     }

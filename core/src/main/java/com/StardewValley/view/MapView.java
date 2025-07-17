@@ -3,6 +3,7 @@ package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -37,6 +38,7 @@ import java.util.Optional;
 public class MapView implements Screen {
     private final GameMap gameMap;
     private final Game gameInstance;
+    private final GameView gameView;
     private SpriteBatch batch;
     private BitmapFont font;
     private OrthographicCamera camera;
@@ -63,8 +65,9 @@ public class MapView implements Screen {
     private Dialog friendshipDialog;
     private Npc selectedNpc;
 
-    public MapView(GameMap gameMap, Runnable onBackToMenu) {
+    public MapView(GameMap gameMap, Runnable onBackToMenu , GameView gameView) {
         this.gameMap = gameMap;
+        this.gameView = gameView;
         this.gameInstance = Game.getInstance();
         this.batch = new SpriteBatch();
         this.font = new BitmapFont();
@@ -423,7 +426,7 @@ public class MapView implements Screen {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
         }
-
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
         float speed = 200 * delta;
 
         // --- محاسبه سرعت حرکت ---
@@ -433,7 +436,18 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.W)) velocity.y += 1;
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.S)) velocity.y -= 1;
         velocity.nor().scl(speed);
-
+        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.B)){
+            ///  this part is for adding items as cheat
+            Item coal = new Item("Coal",5);
+            currentPlayer.getInventory().addItem(coal);
+            currentPlayer.getInventory().addItem(new Item("Copper_Ore",10));
+            ///
+            // Call GameView to switch to the crafting screen
+            HomeController.unlockRecipesByLevel("mining",1);
+            HomeController.unlockRecipesByLevel("farming",1);
+            HomeController.unlockRecipesByLevel("foraging",1);
+            gameView.showCraftingMenu(currentPlayer);
+        }
         // --- بررسی کلیک موس برای صحبت با NPC ---
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
