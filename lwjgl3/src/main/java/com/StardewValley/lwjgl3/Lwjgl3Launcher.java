@@ -27,7 +27,7 @@ public class Lwjgl3Launcher {
             Lwjgl3ApplicationConfiguration.getDisplayMode().height);
 
         // Optional: If you want true fullscreen instead of borderless windowed
-        // configuration.setFullscreenMode(Lwjgl3ApplicationConfiguration.getDisplayMode());
+         configuration.setFullscreenMode(Lwjgl3ApplicationConfiguration.getDisplayMode());
 
         configuration.setWindowIcon("libgdx128.png", "libgdx64.png", "libgdx32.png", "libgdx16.png");
         return configuration;
