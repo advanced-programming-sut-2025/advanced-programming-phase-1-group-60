@@ -99,7 +99,7 @@ public class MapView implements Screen {
 
     private void createUI() {
         createTravelDialog();
-        createBackButton();
+        // createBackButton(); // This is now handled by the InventoryView
         createNpcContextMenu();
         createFriendshipDialog();
 
@@ -169,23 +169,6 @@ public class MapView implements Screen {
         }
     }
 
-
-    private void createBackButton() {
-        Table uiTable = new Table();
-        uiTable.setFillParent(true);
-        uiTable.top().right();
-
-        TextButton backButton = new TextButton("Back to Menu", skin);
-        backButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                onBackToMenu.run();
-            }
-        });
-        uiTable.add(backButton).pad(10);
-        stage.addActor(uiTable);
-    }
-
     private void showNpcSpeech(Npc npc, User user, float npcWorldX, float npcWorldY) {
         if (speechIsShowing) return;
         speechIsShowing = true;
@@ -193,13 +176,11 @@ public class MapView implements Screen {
         String prompt = npc.startConversation(user);
         npcSpeechLabel.setText(prompt);
 
-        // ***[مهم] تنظیم عرض لیبل برای جلوگیری از نمایش ستونی***
-        npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f); // یک پس زمینه نیمه شفاف
-        npcSpeechLabel.pack(); // محاسبه اندازه اولیه
-        npcSpeechLabel.setWidth(250); // تنظیم یک عرض مشخص برای شکستن متن
-        npcSpeechLabel.setHeight(npcSpeechLabel.getPrefHeight()); // تنظیم ارتفاع بر اساس متن
+        npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f);
+        npcSpeechLabel.pack();
+        npcSpeechLabel.setWidth(250);
+        npcSpeechLabel.setHeight(npcSpeechLabel.getPrefHeight());
 
-        // تبدیل مختصات دنیای بازی به مختصات صفحه
         Vector3 npcScreenPos = camera.project(new Vector3(npcWorldX, npcWorldY, 0));
         npcSpeechLabel.setPosition(
             npcScreenPos.x - npcSpeechLabel.getWidth() / 2f + (TILE_SIZE / 2f),
@@ -209,7 +190,6 @@ public class MapView implements Screen {
 
         npc.recordTalkTime();
 
-        // تایمر برای محو کردن لیبل پس از 4 ثانیه
         Timer.schedule(new Timer.Task() {
             @Override
             public void run() {
@@ -237,7 +217,6 @@ public class MapView implements Screen {
     public Stage getStage() {
         return this.stage;
     }
-
 
     private void showTravelDialog(String destination) {
         if (speechIsShowing) return;
@@ -375,7 +354,6 @@ public class MapView implements Screen {
                         texture = mapManager.getNpcTexture(npc.getName());
                         if (texture != null) {
                             batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
-                            // ذخیره موقعیت برای رندر آیکون چت در مرحله بعد
                             if (npc.isDialogueReady()) {
                                 npcChatIconPositions.add(new Vector2(posX, posY));
                             }
@@ -403,7 +381,6 @@ public class MapView implements Screen {
                 });
             }
         }
-        // رندر کردن آیکون‌های چت پس از رندر کامل نقشه
         for (Vector2 pos : npcChatIconPositions) {
             batch.draw(mapManager.getChatIconTexture(), pos.x + TILE_SIZE / 4, pos.y + TILE_SIZE, TILE_SIZE / 2, TILE_SIZE / 2);
         }
@@ -416,17 +393,17 @@ public class MapView implements Screen {
         font.draw(batch, "Location: " + (inVillage ? "Village" : "Farm " + (currentFarmIndex + 1) + " - Owner: " + ownerName), textX, textY);
         font.draw(batch, "WASD to move, +/- to zoom", textX, textY - 20);
         font.draw(batch, "Press 1-4 to switch farms", textX, textY - 40);
+        font.draw(batch, "Press I for Inventory", textX, textY - 60);
     }
 
     private void handleInput(float delta) {
-        if (speechIsShowing) { // اگر دیالوگ در حال نمایش است، فقط حرکت را غیرفعال کن
+        if (speechIsShowing) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
         }
 
         float speed = 200 * delta;
 
-        // --- محاسبه سرعت حرکت ---
         Vector2 velocity = new Vector2();
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.A)) velocity.x -= 1;
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.D)) velocity.x += 1;
@@ -434,17 +411,13 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.S)) velocity.y -= 1;
         velocity.nor().scl(speed);
 
-        // --- بررسی کلیک موس برای صحبت با NPC ---
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
-
             int clickedTileX = (int) (clickPos.x / TILE_SIZE);
             int clickedTileY = (int) (clickPos.y / TILE_SIZE);
-
             int playerTileX = (int) (playerPos.x / TILE_SIZE);
             int playerTileY = (int) (playerPos.y / TILE_SIZE);
-
             Tile clickedTile = gameMap.getTile(clickedTileX, clickedTileY);
             if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof Npc) {
                 Npc npc = (Npc) clickedTile.getStaticElement().get();
@@ -477,8 +450,6 @@ public class MapView implements Screen {
             }
         }
 
-
-        // --- بررسی برخورد و اعمال حرکت ---
         if (isAreaPassable(playerPos.x + velocity.x, playerPos.y)) {
             playerPos.x += velocity.x;
         }
@@ -486,7 +457,6 @@ public class MapView implements Screen {
             playerPos.y += velocity.y;
         }
 
-        // --- کنترل‌های دیگر ---
         if (inVillage) {
             float minX = gameMap.getVilX() * TILE_SIZE;
             float minY = gameMap.getVilY() * TILE_SIZE;
@@ -539,13 +509,11 @@ public class MapView implements Screen {
         try {
             Tile tile = gameMap.getTile(tileX, tileY);
             if (tile == null) return false;
-
             return tile.isPassable();
         } catch (Exception e) {
             return false;
         }
     }
-
 
     private void checkTravel() {
         if (speechIsShowing) return;
@@ -562,10 +530,8 @@ public class MapView implements Screen {
             Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
             int farmStartX = (int) (farmTopLeft.x / TILE_SIZE);
             int farmStartY = (int) (farmTopLeft.y / TILE_SIZE);
-
             int playerLocalX = playerGlobalTileX - farmStartX;
             int playerLocalY = playerGlobalTileY - farmStartY;
-
             boolean onPortal = false;
             switch (currentFarmIndex) {
                 case 0:
@@ -581,7 +547,6 @@ public class MapView implements Screen {
                     if (playerLocalX <= 0 && playerLocalY <= 0) onPortal = true;
                     break;
             }
-
             if (onPortal) {
                 showTravelDialog("the Village");
             }

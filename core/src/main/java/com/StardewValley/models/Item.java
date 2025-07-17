@@ -15,6 +15,8 @@ public class Item {
     private int sellPrice;
     private HashMap<String, Object> properties = new HashMap<>();
 
+    private String path;
+
     public boolean isEdible() {
         return "Food".equals(type) || "Ingredient".equals(type);
     }
@@ -22,6 +24,12 @@ public class Item {
     public Item(String name, int quantity) {
         this.name = name;
         this.quantity = quantity;
+    }
+
+    public Item (String name, int quantity, String path) {
+        this.name = name;
+        this.quantity = quantity;
+        this.path = path;
     }
 
     public Item() {}
@@ -110,8 +118,13 @@ public class Item {
     public void use() {
     }
 
+    public String getPath() { return path; }
+
+    public void setPath(String path) { this.path = path; }
+
     @Override
     public String toString() {
         return name + " " + quantity;
     }
 }
+

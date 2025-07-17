@@ -6,6 +6,7 @@ import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.models.*;
 import com.StardewValley.repository.UserRepository;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -30,6 +31,7 @@ public class GameView implements Screen {
     private final LoginMenuController loginController;
     private final GameController gameController;
     private MapView mapView;
+    private InventoryView inventoryView;
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -257,7 +259,7 @@ public class GameView implements Screen {
         newGameTable.setVisible(false);
         mapSelectionTable.setVisible(false);
         mainMenuTable.setVisible(true);
-        if(mapView != null){
+        if (mapView != null) {
             mapView.dispose();
             mapView = null;
         }
@@ -281,7 +283,7 @@ public class GameView implements Screen {
                     statusLabel.setText("User '" + username + "' not found!");
                     return;
                 }
-                if(selectedPlayers.contains(username) || username.equals(loginController.getLoggedInUser().getUsername())){
+                if (selectedPlayers.contains(username) || username.equals(loginController.getLoggedInUser().getUsername())) {
                     statusLabel.setText("Duplicate username: " + username);
                     return;
                 }
@@ -307,7 +309,7 @@ public class GameView implements Screen {
         }
 
         try {
-            Game gameInstance = Game.resetInstance();
+            com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
             gameInstance.newGame(loginController.getLoggedInUser(), selectedPlayers);
 
             for (User user : gameInstance.getPlayers()) {
@@ -341,7 +343,7 @@ public class GameView implements Screen {
             VillageTemplate village = VillageTemplate.createDefaultVillage();
             GameMap gameMap = new GameMap(farms, village);
             gameInstance.setCurrentMap(gameMap);
-            gameInstance.setState(Game.GameState.IN_GAME);
+            gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
 
             Runnable backToMenuCallback = this::showMainMenu;
             mapView = new MapView(gameMap, backToMenuCallback);
@@ -377,8 +379,16 @@ public class GameView implements Screen {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        if (isGameRunning && mapView != null) {
-            mapView.render(delta);
+        if (isGameRunning) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+                if (inventoryView == null) {
+                    inventoryView = new InventoryView(game, loginController, this);
+                }
+                game.setScreen(inventoryView);
+            }
+            if (mapView != null) {
+                mapView.render(delta);
+            }
         } else {
             menuManager.updateBackgroundAnimation(delta);
             float[] positions = menuManager.getBackgroundPositions();
@@ -395,6 +405,7 @@ public class GameView implements Screen {
         }
     }
 
+
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
@@ -409,13 +420,16 @@ public class GameView implements Screen {
     }
 
     @Override
-    public void hide() {}
+    public void hide() {
+    }
 
     @Override
-    public void pause() {}
+    public void pause() {
+    }
 
     @Override
-    public void resume() {}
+    public void resume() {
+    }
 
     @Override
     public void dispose() {
