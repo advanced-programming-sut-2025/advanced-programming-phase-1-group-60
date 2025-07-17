@@ -178,7 +178,7 @@ public class InventoryView implements Screen {
         mapButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* map logic */ } });
         questsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* quests logic */ } });
         settingsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new MainView(game, loginController)); } });
-        exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(gameView); } });
+        exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { gameView.showMapView(); } });
         return sidebar;
     }
 

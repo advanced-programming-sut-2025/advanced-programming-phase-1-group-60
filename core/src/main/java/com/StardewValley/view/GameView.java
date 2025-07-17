@@ -30,8 +30,11 @@ public class GameView implements Screen {
     private final SpriteBatch batch;
     private final LoginMenuController loginController;
     private final GameController gameController;
+
+    // References to the other screens
     private MapView mapView;
     private InventoryView inventoryView;
+    private CraftingMenuScreenView craftingMenuScreenView; // Assumed you will add this class
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -42,6 +45,7 @@ public class GameView implements Screen {
     private Label statusLabel;
     private Label mapStatusLabel;
     private boolean isGameRunning = false;
+
 
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController) {
         this.game = game;
@@ -63,7 +67,6 @@ public class GameView implements Screen {
         createNewGameMenu();
         createMapSelectionMenu();
 
-        // Show main menu initially
         mainMenuTable.setVisible(true);
         newGameTable.setVisible(false);
         mapSelectionTable.setVisible(false);
@@ -78,34 +81,28 @@ public class GameView implements Screen {
         mainMenuTable.setFillParent(true);
         mainMenuTable.top().padTop(50);
 
-        // Title
         Label titleLabel = new Label("Game Menu", menuManager.getPixthulhuSkin(), "title");
         titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
 
-        // Status label
         statusLabel = new Label("", menuManager.getPixthulhuSkin());
-        statusLabel.setColor(0.2f, 0.8f, 0.2f, 1f);
+        statusLabel.setColor(Color.GREEN);
 
-        // Buttons
         Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
         Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
 
         TextButton startNewGameButton = new TextButton("Start New Game", menuManager.getPixthulhuSkin());
         TextButton backButton = new TextButton("Back", menuManager.getPixthulhuSkin());
 
-        // Apply button styling
         for (TextButton button : new TextButton[]{startNewGameButton, backButton}) {
             button.setColor(buttonColor);
             button.getLabel().setColor(textColor);
         }
 
-        // Layout
         mainMenuTable.add(titleLabel).padBottom(30).row();
         mainMenuTable.add(statusLabel).padBottom(20).row();
         mainMenuTable.add(startNewGameButton).width(500).height(90).padBottom(20).row();
         mainMenuTable.add(backButton).width(200).height(90).padTop(20);
 
-        // Button listeners
         startNewGameButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -200,7 +197,7 @@ public class GameView implements Screen {
 
         String[] mapOptions = {"Map 1", "Map 2", "Map 3", "Map 4"};
 
-        List<String> allPlayersForUI = new ArrayList<>(selectedPlayers);
+        final List<String> allPlayersForUI = new ArrayList<>(selectedPlayers);
         allPlayersForUI.add(0, loginController.getLoggedInUser().getUsername());
 
         for (int i = 0; i < allPlayersForUI.size(); i++) {
@@ -209,7 +206,7 @@ public class GameView implements Screen {
 
             SelectBox<String> mapSelectBox = new SelectBox<>(menuManager.getPixthulhuSkin());
             mapSelectBox.setItems(mapOptions);
-            mapSelectBox.setSelectedIndex(i % 4);
+            mapSelectBox.setSelectedIndex(i % mapOptions.length);
             mapSelectionBoxes.add(mapSelectBox);
 
             mapSelectionTable.add(playerLabel).padRight(20);
@@ -346,7 +343,7 @@ public class GameView implements Screen {
             gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
 
             Runnable backToMenuCallback = this::showMainMenu;
-            mapView = new MapView(gameMap, backToMenuCallback);
+            mapView = new MapView(gameMap, backToMenuCallback, this);
             mapView.setCurrentFarmIndex(0);
 
             showGameplayScreen();
@@ -369,10 +366,30 @@ public class GameView implements Screen {
 
     private void showGameplayScreen() {
         isGameRunning = true;
-        mainMenuTable.setVisible(false);
-        newGameTable.setVisible(false);
-        mapSelectionTable.setVisible(false);
+        game.setScreen(mapView);
     }
+
+    public void showInventoryScreen() {
+        if (inventoryView == null) {
+            inventoryView = new InventoryView(game, loginController, this);
+        }
+        game.setScreen(inventoryView);
+    }
+
+    // You will need to create this class yourself based on your colleague's code
+    public void showCraftingMenu(User player) {
+        if (craftingMenuScreenView == null) {
+            craftingMenuScreenView = new CraftingMenuScreenView(player, this);
+        }
+        game.setScreen(craftingMenuScreenView);
+    }
+
+    public void showMapView() {
+        if (mapView != null) {
+            game.setScreen(mapView);
+        }
+    }
+
 
     @Override
     public void render(float delta) {
@@ -380,15 +397,8 @@ public class GameView implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         if (isGameRunning) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
-                if (inventoryView == null) {
-                    inventoryView = new InventoryView(game, loginController, this);
-                }
-                game.setScreen(inventoryView);
-            }
-            if (mapView != null) {
-                mapView.render(delta);
-            }
+            // The active screen (MapView, InventoryView, etc.) will render itself.
+            // This GameView's render is now only for the menus.
         } else {
             menuManager.updateBackgroundAnimation(delta);
             float[] positions = menuManager.getBackgroundPositions();
@@ -437,6 +447,12 @@ public class GameView implements Screen {
         batch.dispose();
         if (mapView != null) {
             mapView.dispose();
+        }
+        if (inventoryView != null) {
+            inventoryView.dispose();
+        }
+        if (craftingMenuScreenView != null) {
+            craftingMenuScreenView.dispose();
         }
     }
 }

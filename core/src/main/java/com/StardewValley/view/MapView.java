@@ -1,8 +1,8 @@
-// StardewValley/view/MapView.java
 package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -37,6 +37,7 @@ import java.util.Optional;
 public class MapView implements Screen {
     private final GameMap gameMap;
     private final Game gameInstance;
+    private final GameView gameView; // Reference to GameView for screen switching
     private SpriteBatch batch;
     private BitmapFont font;
     private OrthographicCamera camera;
@@ -54,7 +55,7 @@ public class MapView implements Screen {
 
     private Stage stage;
     private Dialog travelDialog;
-    private Label npcSpeechLabel; // استفاده از لیبل ساده
+    private Label npcSpeechLabel;
     private boolean speechIsShowing = false;
     private Skin skin;
     private final Runnable onBackToMenu;
@@ -63,8 +64,9 @@ public class MapView implements Screen {
     private Dialog friendshipDialog;
     private Npc selectedNpc;
 
-    public MapView(GameMap gameMap, Runnable onBackToMenu) {
+    public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
+        this.gameView = gameView;
         this.gameInstance = Game.getInstance();
         this.batch = new SpriteBatch();
         this.font = new BitmapFont();
@@ -99,16 +101,31 @@ public class MapView implements Screen {
 
     private void createUI() {
         createTravelDialog();
-        // createBackButton(); // This is now handled by the InventoryView
+        createBackButton();
         createNpcContextMenu();
         createFriendshipDialog();
 
-        // ایجاد لیبل برای نمایش دیالوگ NPC
         npcSpeechLabel = new Label("", skin);
-        npcSpeechLabel.setWrap(true); // فعال کردن شکستن خطوط
+        npcSpeechLabel.setWrap(true);
         npcSpeechLabel.setAlignment(Align.center);
         npcSpeechLabel.setVisible(false);
         stage.addActor(npcSpeechLabel);
+    }
+
+    private void createBackButton() {
+        Table uiTable = new Table();
+        uiTable.setFillParent(true);
+        uiTable.top().right();
+
+        TextButton backButton = new TextButton("Back to Menu", skin);
+        backButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                onBackToMenu.run();
+            }
+        });
+        uiTable.add(backButton).pad(10);
+        stage.addActor(uiTable);
     }
 
     private void createNpcContextMenu() {
@@ -124,7 +141,6 @@ public class MapView implements Screen {
         giftButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                // Placeholder for now
                 npcContextMenu.hide();
             }
         });
@@ -132,7 +148,6 @@ public class MapView implements Screen {
         questButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                // Placeholder for now
                 npcContextMenu.hide();
             }
         });
@@ -391,9 +406,8 @@ public class MapView implements Screen {
         float textY = camera.position.y + Gdx.graphics.getHeight() / 2f * camera.zoom - 10;
         String ownerName = farmOwners.getOrDefault(currentFarmIndex, "Unknown");
         font.draw(batch, "Location: " + (inVillage ? "Village" : "Farm " + (currentFarmIndex + 1) + " - Owner: " + ownerName), textX, textY);
-        font.draw(batch, "WASD to move, +/- to zoom", textX, textY - 20);
-        font.draw(batch, "Press 1-4 to switch farms", textX, textY - 40);
-        font.draw(batch, "Press I for Inventory", textX, textY - 60);
+        font.draw(batch, "WASD: Move | +/-: Zoom", textX, textY - 20);
+        font.draw(batch, "1-4: Switch Farm | I: Inventory | B: Crafting", textX, textY - 40);
     }
 
     private void handleInput(float delta) {
@@ -402,14 +416,31 @@ public class MapView implements Screen {
             return;
         }
 
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
         float speed = 200 * delta;
 
         Vector2 velocity = new Vector2();
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.A)) velocity.x -= 1;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.D)) velocity.x += 1;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.W)) velocity.y += 1;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.S)) velocity.y -= 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) velocity.x -= 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) velocity.x += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) velocity.y += 1;
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) velocity.y -= 1;
         velocity.nor().scl(speed);
+
+        if(Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            gameView.showInventoryScreen();
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.B)){
+            // This part is for adding items as a cheat for testing
+            Item coal = new Item("Coal",5);
+            currentPlayer.getInventory().addItem(coal);
+            currentPlayer.getInventory().addItem(new Item("Copper_Ore",10));
+            // Unlock recipes for testing
+            HomeController.unlockRecipesByLevel("mining",1);
+            HomeController.unlockRecipesByLevel("farming",1);
+            HomeController.unlockRecipesByLevel("foraging",1);
+            gameView.showCraftingMenu(currentPlayer);
+        }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
@@ -450,6 +481,7 @@ public class MapView implements Screen {
             }
         }
 
+
         if (isAreaPassable(playerPos.x + velocity.x, playerPos.y)) {
             playerPos.x += velocity.x;
         }
@@ -474,15 +506,15 @@ public class MapView implements Screen {
             playerPos.y = Math.max(minY, Math.min(maxY, playerPos.y));
         }
 
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.PLUS) || Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.EQUALS))
+        if (Gdx.input.isKeyPressed(Input.Keys.PLUS) || Gdx.input.isKeyPressed(Input.Keys.EQUALS))
             camera.zoom -= 0.02f;
-        if (Gdx.input.isKeyPressed(com.badlogic.gdx.Input.Keys.MINUS)) camera.zoom += 0.02f;
+        if (Gdx.input.isKeyPressed(Input.Keys.MINUS)) camera.zoom += 0.02f;
         camera.zoom = Math.max(0.3f, Math.min(2f, camera.zoom));
 
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_1)) setCurrentFarmIndex(0);
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_2)) setCurrentFarmIndex(1);
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_3)) setCurrentFarmIndex(2);
-        if (Gdx.input.isKeyJustPressed(com.badlogic.gdx.Input.Keys.NUM_4)) setCurrentFarmIndex(3);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) setCurrentFarmIndex(0);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) setCurrentFarmIndex(1);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) setCurrentFarmIndex(2);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) setCurrentFarmIndex(3);
 
         checkTravel();
     }
@@ -509,11 +541,13 @@ public class MapView implements Screen {
         try {
             Tile tile = gameMap.getTile(tileX, tileY);
             if (tile == null) return false;
+
             return tile.isPassable();
         } catch (Exception e) {
             return false;
         }
     }
+
 
     private void checkTravel() {
         if (speechIsShowing) return;
@@ -530,8 +564,10 @@ public class MapView implements Screen {
             Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
             int farmStartX = (int) (farmTopLeft.x / TILE_SIZE);
             int farmStartY = (int) (farmTopLeft.y / TILE_SIZE);
+
             int playerLocalX = playerGlobalTileX - farmStartX;
             int playerLocalY = playerGlobalTileY - farmStartY;
+
             boolean onPortal = false;
             switch (currentFarmIndex) {
                 case 0:
@@ -547,6 +583,7 @@ public class MapView implements Screen {
                     if (playerLocalX <= 0 && playerLocalY <= 0) onPortal = true;
                     break;
             }
+
             if (onPortal) {
                 showTravelDialog("the Village");
             }
