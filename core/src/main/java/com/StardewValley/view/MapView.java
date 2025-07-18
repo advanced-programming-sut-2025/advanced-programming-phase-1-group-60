@@ -236,7 +236,16 @@ public class MapView implements Screen {
     private void showTravelDialog(String destination) {
         if (speechIsShowing) return;
 
-        ((Label) travelDialog.getContentTable().getCells().first().getActor()).setText("Do you want to travel to " + destination + "?");
+        String dialogText;
+        if (destination.startsWith("Farm")) {
+            int farmNum = Integer.parseInt(destination.split(" ")[1]);
+            String ownerName = farmOwners.getOrDefault(farmNum - 1, "Unknown");
+            dialogText = "Do you want to travel to " + destination + " (Owner: " + ownerName + ")?";
+        } else {
+            dialogText = "Do you want to travel to " + destination + "?";
+        }
+
+        ((Label) travelDialog.getContentTable().getCells().first().getActor()).setText(dialogText);
 
         travelDialog.getButtonTable().clearChildren();
         travelDialog.button("Yes", true);
@@ -247,32 +256,54 @@ public class MapView implements Screen {
 
     private void performTravel() {
         if (inVillage) {
+            // Going from village to farm
             Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
             float destX = 0, destY = 0;
 
+            // Place player at the correct portal position on the farm
             switch (currentFarmIndex) {
-                case 0:
-                    destX = farmTopLeft.x + (48 * TILE_SIZE);
-                    destY = farmTopLeft.y + (48 * TILE_SIZE);
+                case 0: // Farm1 - portal at bottom-right (49,0)
+                    destX = farmTopLeft.x + (49 * TILE_SIZE);
+                    destY = farmTopLeft.y + (0 * TILE_SIZE);
                     break;
-                case 1:
-                    destX = farmTopLeft.x + (1 * TILE_SIZE);
-                    destY = farmTopLeft.y + (48 * TILE_SIZE);
+                case 1: // Farm2 - portal at bottom-left (0,0)
+                    destX = farmTopLeft.x + (0 * TILE_SIZE);
+                    destY = farmTopLeft.y + (0 * TILE_SIZE);
                     break;
-                case 2:
-                    destX = farmTopLeft.x + (48 * TILE_SIZE);
-                    destY = farmTopLeft.y + (1 * TILE_SIZE);
+                case 2: // Farm3 - portal at top-right (49,49)
+                    destX = farmTopLeft.x + (49 * TILE_SIZE);
+                    destY = farmTopLeft.y + (49 * TILE_SIZE);
                     break;
-                case 3:
-                    destX = farmTopLeft.x + (1 * TILE_SIZE);
-                    destY = farmTopLeft.y + (1 * TILE_SIZE);
+                case 3: // Farm4 - portal at top-left (0,49)
+                    destX = farmTopLeft.x + (0 * TILE_SIZE);
+                    destY = farmTopLeft.y + (49 * TILE_SIZE);
                     break;
             }
             playerPos.set(destX, destY);
             inVillage = false;
         } else {
-            MapCoord villagePortal = gameMap.getEntrance(currentFarmIndex);
-            playerPos.set(villagePortal.getX() * TILE_SIZE + 50, villagePortal.getY() * TILE_SIZE);
+            // Going from farm to village - place player at correct village corner
+            float destX = 0, destY = 0;
+
+            switch (currentFarmIndex) {
+                case 0: // Farm1 -> Top-left corner of village (0,19)
+                    destX = 0 * TILE_SIZE;
+                    destY = 19 * TILE_SIZE;
+                    break;
+                case 1: // Farm2 -> Top-right corner of village (19,19)
+                    destX = 19 * TILE_SIZE;
+                    destY = 19 * TILE_SIZE;
+                    break;
+                case 2: // Farm3 -> Bottom-left corner of village (0,0)
+                    destX = 0 * TILE_SIZE;
+                    destY = 0 * TILE_SIZE;
+                    break;
+                case 3: // Farm4 -> Bottom-right corner of village (19,0)
+                    destX = 19 * TILE_SIZE;
+                    destY = 0 * TILE_SIZE;
+                    break;
+            }
+            playerPos.set(destX, destY);
             inVillage = true;
         }
         centerCameraOnPlayer();
@@ -334,39 +365,65 @@ public class MapView implements Screen {
     }
 
     private void renderMap() {
-        int startX, startY, width, height;
+        int width, height;
         List<Vector2> npcChatIconPositions = new ArrayList<>();
+        List<TreeRenderData> treesToRender = new ArrayList<>();
+        List<StructureRenderData> structuresToRender = new ArrayList<>();
 
         if (inVillage) {
-            startX = gameMap.getVilX();
-            startY = gameMap.getVilY();
-            width = gameMap.getVilW();
-            height = gameMap.getVilH();
+            width = 20;
+            height = 20;
         } else {
-            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
-            startX = (int) (farmTopLeft.x / TILE_SIZE);
-            startY = (int) (farmTopLeft.y / TILE_SIZE);
             width = FarmTemplate.WIDTH;
             height = FarmTemplate.HEIGHT;
         }
 
+        Vector2 renderOffset = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
+
+        // First pass: render ground and collect structures
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                int tileX = startX + x;
-                int tileY = startY + y;
-                float posX = tileX * TILE_SIZE;
-                float posY = tileY * TILE_SIZE;
+                // Create final copies for lambda expressions
+                final int finalX = x;
+                final int finalY = y;
+
+                float posX = renderOffset.x + (x * TILE_SIZE);
+                float posY = renderOffset.y + (y * TILE_SIZE);
 
                 batch.draw(mapManager.getGrassTile(), posX, posY, TILE_SIZE, TILE_SIZE);
 
-                Tile tile = gameMap.getTile(tileX, tileY);
+                Tile tile;
+                if (inVillage) {
+                    tile = gameMap.getVillage().getTile(x, 20 - 1 - y);
+                } else {
+                    tile = gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - y);
+                }
+
                 if (tile == null) continue;
 
+                // Handle static elements
                 tile.getStaticElement().ifPresent(element -> {
-                    Texture texture = null;
-                    if (element instanceof Npc) {
+                    if (element instanceof Cabin) {
+                        // Only render cabin at its top-left corner
+                        if (isStructureOrigin(finalX, finalY, element, width, height)) {
+                            structuresToRender.add(new StructureRenderData(
+                                mapManager.getCabinTexture(), posX, posY, 4, 4
+                            ));
+                        }
+                    } else if (element instanceof Greenhouse) {
+                        // Only render greenhouse at its top-left corner
+                        if (isStructureOrigin(finalX, finalY, element, width, height)) {
+                            structuresToRender.add(new StructureRenderData(
+                                mapManager.getGreenhouseTexture(), posX, posY, 5, 6
+                            ));
+                        }
+                    } else if (element instanceof Lake) {
+                        batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
+                    } else if (element instanceof Quarry) {
+                        batch.draw(mapManager.getQuarryTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
+                    } else if (element instanceof Npc) {
                         Npc npc = (Npc) element;
-                        texture = mapManager.getNpcTexture(npc.getName());
+                        Texture texture = mapManager.getNpcTexture(npc.getName());
                         if (texture != null) {
                             batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
                             if (npc.isDialogueReady()) {
@@ -374,7 +431,7 @@ public class MapView implements Screen {
                             }
                         }
                     } else if (element instanceof Store) {
-                        texture = mapManager.getStoreTexture();
+                        Texture texture = mapManager.getStoreTexture();
                         if (texture != null) {
                             batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
                         }
@@ -385,22 +442,126 @@ public class MapView implements Screen {
                     }
                 });
 
+                // Handle random elements - rest remains the same
                 tile.getRandomElement().ifPresent(element -> {
                     if (element instanceof Stone) {
                         batch.draw(mapManager.getStoneTile(((Stone) element).getStoneVariant()), posX, posY, TILE_SIZE, TILE_SIZE);
                     } else if (element instanceof Tree) {
-                        batch.setColor(Color.GREEN);
-                        batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
-                        batch.setColor(Color.WHITE);
+                        Tree tree = (Tree) element;
+                        Texture treeTexture = mapManager.getTreeTexture(tree.getImagePath());
+                        if (treeTexture != null) {
+                            treesToRender.add(new TreeRenderData(treeTexture, posX, posY, false));
+                        }
+                    } else if (element instanceof ForagingTree) {
+                        ForagingTree foragingTree = (ForagingTree) element;
+                        Texture foragingTreeTexture = mapManager.getForagingTreeTexture(foragingTree.getImagePath());
+                        if (foragingTreeTexture != null) {
+                            treesToRender.add(new TreeRenderData(foragingTreeTexture, posX, posY, true));
+                        }
+                    } else if (element instanceof ForagingMineral) {
+                        ForagingMineral mineral = (ForagingMineral) element;
+                        Texture mineralTexture = mapManager.getForagingMineralTexture(mineral.getImagePath());
+                        if (mineralTexture != null) {
+                            batch.draw(mineralTexture, posX, posY, TILE_SIZE, TILE_SIZE);
+                        }
+                    } else if (element instanceof ForagingCrop) {
+                        ForagingCrop crop = (ForagingCrop) element;
+                        Texture cropTexture = mapManager.getForagingCropTexture(crop.getImagePath());
+                        if (cropTexture != null) {
+                            batch.draw(cropTexture, posX, posY, TILE_SIZE, TILE_SIZE);
+                        }
                     }
                 });
             }
         }
+
+        // Rest of the method remains the same...
+        // Second pass: render structures
+        for (StructureRenderData structure : structuresToRender) {
+            renderStructure(structure.texture, structure.posX, structure.posY, structure.width, structure.height);
+        }
+
+        // Third pass: render trees on top
+        for (TreeRenderData tree : treesToRender) {
+            float treeWidth = TILE_SIZE * 1.8f;
+            float treeHeight = TILE_SIZE * 2.5f;
+            float treeX = tree.posX - (treeWidth - TILE_SIZE) / 2f;
+            float treeY = tree.posY;
+            batch.draw(tree.texture, treeX, treeY, treeWidth, treeHeight);
+        }
+
+        // Fourth pass: render chat icons
         for (Vector2 pos : npcChatIconPositions) {
             batch.draw(mapManager.getChatIconTexture(), pos.x + TILE_SIZE / 4, pos.y + TILE_SIZE, TILE_SIZE / 2, TILE_SIZE / 2);
         }
     }
+    private boolean isStructureOrigin(int x, int y, Object element, int mapWidth, int mapHeight) {
+        if (element instanceof Cabin) {
+            return isTopLeftOfStructure(x, y, 4, 4, mapWidth, mapHeight, Cabin.class);
+        } else if (element instanceof Greenhouse) {
+            return isTopLeftOfStructure(x, y, 5, 6, mapWidth, mapHeight, Greenhouse.class);
+        }
+        return false;
+    }
 
+    private boolean isTopLeftOfStructure(int x, int y, int structWidth, int structHeight,
+                                         int mapWidth, int mapHeight, Class<?> structureType) {
+        for (int dy = 0; dy < structHeight; dy++) {
+            for (int dx = 0; dx < structWidth; dx++) {
+                int checkX = x + dx;
+                int checkY = y + dy;
+
+                if (checkX >= mapWidth || checkY >= mapHeight) return false;
+
+                Tile checkTile;
+                if (inVillage) {
+                    checkTile = gameMap.getVillage().getTile(checkX, 20 - 1 - checkY);
+                } else {
+                    checkTile = gameMap.getFarm(currentFarmIndex).getTile(checkX, FarmTemplate.HEIGHT - 1 - checkY);
+                }
+
+                if (checkTile == null || !checkTile.getStaticElement().isPresent() ||
+                    !structureType.isInstance(checkTile.getStaticElement().get())) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static class StructureRenderData {
+        final Texture texture;
+        final float posX;
+        final float posY;
+        final int width;
+        final int height;
+
+        StructureRenderData(Texture texture, float posX, float posY, int width, int height) {
+            this.texture = texture;
+            this.posX = posX;
+            this.posY = posY;
+            this.width = width;
+            this.height = height;
+        }
+    }
+    private void renderStructure(Texture texture, float startX, float startY, int width, int height) {
+        float structureWidth = width * TILE_SIZE;
+        float structureHeight = height * TILE_SIZE;
+        batch.draw(texture, startX, startY, structureWidth, structureHeight);
+    }
+    private static class TreeRenderData {
+        final Texture texture;
+        final float posX;
+        final float posY;
+        final boolean isForagingTree;
+
+        TreeRenderData(Texture texture, float posX, float posY, boolean isForagingTree) {
+            this.texture = texture;
+            this.posX = posX;
+            this.posY = posY;
+            this.isForagingTree = isForagingTree;
+        }
+    }
     private void renderUI() {
         float textX = camera.position.x - Gdx.graphics.getWidth() / 2f * camera.zoom + 10;
         float textY = camera.position.y + Gdx.graphics.getHeight() / 2f * camera.zoom - 10;
@@ -441,38 +602,98 @@ public class MapView implements Screen {
             gameView.showCraftingMenu(currentPlayer);
         }
 
+        // Fix left click (NPC dialogue)
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
-            int clickedTileX = (int) (clickPos.x / TILE_SIZE);
-            int clickedTileY = (int) (clickPos.y / TILE_SIZE);
-            int playerTileX = (int) (playerPos.x / TILE_SIZE);
-            int playerTileY = (int) (playerPos.y / TILE_SIZE);
-            Tile clickedTile = gameMap.getTile(clickedTileX, clickedTileY);
-            if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof Npc) {
+
+            int clickedTileX, clickedTileY;
+            int playerTileX, playerTileY;
+
+            if (inVillage) {
+                clickedTileX = (int) (clickPos.x / TILE_SIZE);
+                clickedTileY = (int) (clickPos.y / TILE_SIZE);
+                playerTileX = (int) (playerPos.x / TILE_SIZE);
+                playerTileY = (int) (playerPos.y / TILE_SIZE);
+            } else {
+                Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+                clickedTileX = (int) ((clickPos.x - farmTopLeft.x) / TILE_SIZE);
+                clickedTileY = (int) ((clickPos.y - farmTopLeft.y) / TILE_SIZE);
+                playerTileX = (int) ((playerPos.x - farmTopLeft.x) / TILE_SIZE);
+                playerTileY = (int) ((playerPos.y - farmTopLeft.y) / TILE_SIZE);
+            }
+
+            Tile clickedTile;
+            if (inVillage) {
+                // Check bounds and apply Y-coordinate flipping
+                if (clickedTileX >= 0 && clickedTileX < 20 && clickedTileY >= 0 && clickedTileY < 20) {
+                    clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
+                } else {
+                    clickedTile = null;
+                }
+            } else {
+                // Check bounds and apply Y-coordinate flipping
+                if (clickedTileX >= 0 && clickedTileX < FarmTemplate.WIDTH &&
+                    clickedTileY >= 0 && clickedTileY < FarmTemplate.HEIGHT) {
+                    clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
+                } else {
+                    clickedTile = null;
+                }
+            }
+
+            if (clickedTile != null && clickedTile.getStaticElement().isPresent() &&
+                clickedTile.getStaticElement().get() instanceof Npc) {
                 Npc npc = (Npc) clickedTile.getStaticElement().get();
                 if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                     if (npc.isDialogueReady()) {
-                        float npcWorldX = clickedTileX * TILE_SIZE;
-                        float npcWorldY = clickedTileY * TILE_SIZE;
+                        float npcWorldX = clickPos.x;
+                        float npcWorldY = clickPos.y;
                         showNpcSpeech(npc, gameInstance.getCurrentPlayer(), npcWorldX, npcWorldY);
                     }
                 }
             }
         }
+
+        // Fix right click (NPC context menu)
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
 
-            int clickedTileX = (int) (clickPos.x / TILE_SIZE);
-            int clickedTileY = (int) (clickPos.y / TILE_SIZE);
+            int clickedTileX, clickedTileY;
+            int playerTileX, playerTileY;
 
-            Tile clickedTile = gameMap.getTile(clickedTileX, clickedTileY);
-            if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof Npc) {
+            if (inVillage) {
+                clickedTileX = (int) (clickPos.x / TILE_SIZE);
+                clickedTileY = (int) (clickPos.y / TILE_SIZE);
+                playerTileX = (int) (playerPos.x / TILE_SIZE);
+                playerTileY = (int) (playerPos.y / TILE_SIZE);
+            } else {
+                Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+                clickedTileX = (int) ((clickPos.x - farmTopLeft.x) / TILE_SIZE);
+                clickedTileY = (int) ((clickPos.y - farmTopLeft.y) / TILE_SIZE);
+                playerTileX = (int) ((playerPos.x - farmTopLeft.x) / TILE_SIZE);
+                playerTileY = (int) ((playerPos.y - farmTopLeft.y) / TILE_SIZE);
+            }
+
+            Tile clickedTile;
+            if (inVillage) {
+                if (clickedTileX >= 0 && clickedTileX < 20 && clickedTileY >= 0 && clickedTileY < 20) {
+                    clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
+                } else {
+                    clickedTile = null;
+                }
+            } else {
+                if (clickedTileX >= 0 && clickedTileX < FarmTemplate.WIDTH &&
+                    clickedTileY >= 0 && clickedTileY < FarmTemplate.HEIGHT) {
+                    clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
+                } else {
+                    clickedTile = null;
+                }
+            }
+
+            if (clickedTile != null && clickedTile.getStaticElement().isPresent() &&
+                clickedTile.getStaticElement().get() instanceof Npc) {
                 Npc npc = (Npc) clickedTile.getStaticElement().get();
-                int playerTileX = (int) (playerPos.x / TILE_SIZE);
-                int playerTileY = (int) (playerPos.y / TILE_SIZE);
-
                 if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                     selectedNpc = npc;
                     npcContextMenu.show(stage);
@@ -480,7 +701,7 @@ public class MapView implements Screen {
             }
         }
 
-
+        // Rest of movement and input handling remains the same...
         if (isAreaPassable(playerPos.x + velocity.x, playerPos.y)) {
             playerPos.x += velocity.x;
         }
@@ -489,10 +710,10 @@ public class MapView implements Screen {
         }
 
         if (inVillage) {
-            float minX = gameMap.getVilX() * TILE_SIZE;
-            float minY = gameMap.getVilY() * TILE_SIZE;
-            float maxX = (gameMap.getVilX() + gameMap.getVilW()) * TILE_SIZE - TILE_SIZE;
-            float maxY = (gameMap.getVilY() + gameMap.getVilH()) * TILE_SIZE - TILE_SIZE;
+            float minX = 0;
+            float minY = 0;
+            float maxX = 20 * TILE_SIZE - TILE_SIZE;
+            float maxY = 20 * TILE_SIZE - TILE_SIZE;
             playerPos.x = Math.max(minX, Math.min(maxX, playerPos.x));
             playerPos.y = Math.max(minY, Math.min(maxY, playerPos.y));
         } else {
@@ -534,52 +755,88 @@ public class MapView implements Screen {
     }
 
     private boolean isTilePassable(float worldX, float worldY) {
-        int tileX = (int) (worldX / TILE_SIZE);
-        int tileY = (int) (worldY / TILE_SIZE);
+        Tile tile;
 
-        try {
-            Tile tile = gameMap.getTile(tileX, tileY);
-            if (tile == null) return false;
+        if (inVillage) {
+            int tileX = (int) (worldX / TILE_SIZE);
+            int tileY = (int) (worldY / TILE_SIZE);
 
-            return tile.isPassable();
-        } catch (Exception e) {
-            return false;
+            // Check bounds
+            if (tileX < 0 || tileX >= 20 || tileY < 0 || tileY >= 20) {
+                return false;
+            }
+
+            // Apply Y-coordinate flipping for village
+            tile = gameMap.getVillage().getTile(tileX, 20 - 1 - tileY);
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            int localX = (int) ((worldX - farmTopLeft.x) / TILE_SIZE);
+            int localY = (int) ((worldY - farmTopLeft.y) / TILE_SIZE);
+
+            // Check bounds
+            if (localX < 0 || localX >= FarmTemplate.WIDTH || localY < 0 || localY >= FarmTemplate.HEIGHT) {
+                return false;
+            }
+
+            // Flip Y coordinate when accessing farm tile
+            tile = gameMap.getFarm(currentFarmIndex).getTile(localX, FarmTemplate.HEIGHT - 1 - localY);
         }
+
+        if (tile == null) return false;
+        if (tile.getStaticElement().isPresent()) {
+            Object element = tile.getStaticElement().get();
+            if (element instanceof Cabin) {
+                return false; // Cabins are not passable
+            }
+        }
+        return tile.isPassable();
     }
 
 
     private void checkTravel() {
         if (speechIsShowing) return;
 
-        int playerGlobalTileX = (int) (playerPos.x / TILE_SIZE);
-        int playerGlobalTileY = (int) (playerPos.y / TILE_SIZE);
-
         if (inVillage) {
-            MapCoord portal = gameMap.getEntrance(currentFarmIndex);
-            if (playerGlobalTileX == portal.getX() && playerGlobalTileY == portal.getY()) {
-                showTravelDialog("Farm " + (currentFarmIndex + 1));
+            int playerTileX = (int) (playerPos.x / TILE_SIZE);
+            int playerTileY = (int) (playerPos.y / TILE_SIZE);
+
+            // Check which corner the player is at and set the appropriate farm
+            if (playerTileX == 0 && playerTileY == 19) {
+                // Top-left corner -> Farm1
+                currentFarmIndex = 0;
+                showTravelDialog("Farm 1");
+            } else if (playerTileX == 19 && playerTileY == 19) {
+                // Top-right corner -> Farm2
+                currentFarmIndex = 1;
+                showTravelDialog("Farm 2");
+            } else if (playerTileX == 0 && playerTileY == 0) {
+                // Bottom-left corner -> Farm3
+                currentFarmIndex = 2;
+                showTravelDialog("Farm 3");
+            } else if (playerTileX == 19 && playerTileY == 0) {
+                // Bottom-right corner -> Farm4
+                currentFarmIndex = 3;
+                showTravelDialog("Farm 4");
             }
         } else {
+            // Same farm portal detection as before
             Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
-            int farmStartX = (int) (farmTopLeft.x / TILE_SIZE);
-            int farmStartY = (int) (farmTopLeft.y / TILE_SIZE);
-
-            int playerLocalX = playerGlobalTileX - farmStartX;
-            int playerLocalY = playerGlobalTileY - farmStartY;
+            int localX = (int) ((playerPos.x - farmTopLeft.x) / TILE_SIZE);
+            int localY = (int) ((playerPos.y - farmTopLeft.y) / TILE_SIZE);
 
             boolean onPortal = false;
             switch (currentFarmIndex) {
-                case 0:
-                    if (playerLocalX >= 49 && playerLocalY >= 49) onPortal = true;
+                case 0: // Farm1 - portal at bottom-right (49,0)
+                    if (localX == 49 && localY == 0) onPortal = true;
                     break;
-                case 1:
-                    if (playerLocalX <= 0 && playerLocalY >= 49) onPortal = true;
+                case 1: // Farm2 - portal at bottom-left (0,0)
+                    if (localX == 0 && localY == 0) onPortal = true;
                     break;
-                case 2:
-                    if (playerLocalX >= 49 && playerLocalY <= 0) onPortal = true;
+                case 2: // Farm3 - portal at top-right (49,49)
+                    if (localX == 49 && localY == 49) onPortal = true;
                     break;
-                case 3:
-                    if (playerLocalX <= 0 && playerLocalY <= 0) onPortal = true;
+                case 3: // Farm4 - portal at top-left (0,49)
+                    if (localX == 0 && localY == 49) onPortal = true;
                     break;
             }
 
@@ -590,13 +847,34 @@ public class MapView implements Screen {
     }
 
     private Vector2 getFarmTopLeft(int farmIndex) {
-        int farmW = FarmTemplate.WIDTH;
-        int farmH = FarmTemplate.HEIGHT;
+        int farmW = FarmTemplate.WIDTH;  // 50
+        int farmH = FarmTemplate.HEIGHT; // 50
         int vilW = gameMap.getVilW();
         int vilH = gameMap.getVilH();
 
-        float x_offset = (farmIndex % 2 == 1) ? (farmW + vilW) * TILE_SIZE : 0;
-        float y_offset = (farmIndex / 2 == 1) ? (farmH + vilH) * TILE_SIZE : 0;
+        float x_offset, y_offset;
+
+        switch (farmIndex) {
+            case 0: // Farm1 - Top Left
+                x_offset = 0;
+                y_offset = vilH * TILE_SIZE;
+                break;
+            case 1: // Farm2 - Top Right
+                x_offset = (vilW + farmW) * TILE_SIZE;
+                y_offset = vilH * TILE_SIZE;
+                break;
+            case 2: // Farm3 - Bottom Left
+                x_offset = 0;
+                y_offset = 0;
+                break;
+            case 3: // Farm4 - Bottom Right
+                x_offset = (vilW + farmW) * TILE_SIZE;
+                y_offset = 0;
+                break;
+            default:
+                x_offset = 0;
+                y_offset = 0;
+        }
 
         return new Vector2(x_offset, y_offset);
     }

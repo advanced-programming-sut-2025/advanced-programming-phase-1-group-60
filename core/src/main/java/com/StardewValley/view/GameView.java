@@ -273,42 +273,58 @@ public class GameView implements Screen {
 
     private void validateAndProceedToMapSelection() {
         selectedPlayers.clear();
+
+        // Collect non-empty player names
         for (TextField field : playerFields) {
             String username = field.getText().trim();
             if (!username.isEmpty()) {
-                if (UserRepository.getInstance().getUserByUsername(username) == null) {
+                // Check if user exists
+                User user = UserRepository.getInstance().getUserByUsername(username);
+                if (user == null) {
                     statusLabel.setText("User '" + username + "' not found!");
-                    return;
-                }
-                if (selectedPlayers.contains(username) || username.equals(loginController.getLoggedInUser().getUsername())) {
-                    statusLabel.setText("Duplicate username: " + username);
+                    statusLabel.setColor(Color.RED);
                     return;
                 }
                 selectedPlayers.add(username);
             }
         }
-        if (selectedPlayers.isEmpty()) {
-            statusLabel.setText("Please add at least one other player.");
+
+        // Validate player count (need at least 1 player total including the logged-in user)
+        if (selectedPlayers.size() < 0) { // Changed from 1 to 0 since we're not adding logged-in user here
+            statusLabel.setText("Please add at least one other player");
+            statusLabel.setColor(Color.RED);
             return;
         }
+
+        // All validations passed, proceed to map selection
         showMapSelectionMenu();
     }
 
     private void createGameWithSelectedMaps(List<String> allPlayerUsernames) {
-        List<Integer> selectedMapsNumbers = new ArrayList<>();
+        List<Integer> selectedMaps = new ArrayList<>();
+
+        // Collect selected maps
         for (SelectBox<String> selectBox : mapSelectionBoxes) {
-            selectedMapsNumbers.add(Integer.parseInt(selectBox.getSelected().split(" ")[1]));
+            String selectedMap = selectBox.getSelected();
+            int mapNumber = Integer.parseInt(selectedMap.split(" ")[1]);
+            selectedMaps.add(mapNumber);
         }
 
-        if (selectedMapsNumbers.size() != selectedMapsNumbers.stream().distinct().count()) {
+        // Check for duplicate maps
+        if (selectedMaps.size() != selectedMaps.stream().distinct().count()) {
             mapStatusLabel.setText("Each player must choose a different map!");
+            mapStatusLabel.setColor(Color.RED);
             return;
         }
 
         try {
+            // Get the Game singleton instance and reset it
             com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
+
+            // Create new game using the current user as creator and selected players list
             gameInstance.newGame(loginController.getLoggedInUser(), selectedPlayers);
 
+            // Add tools to all players
             for (User user : gameInstance.getPlayers()) {
                 Tools.addBeginnerHoeToInventory(user.getInventory());
                 Tools.addBeginnerPickaxeToInventory(user.getInventory());
@@ -321,37 +337,59 @@ public class GameView implements Screen {
                 Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
-            FarmManager farmManager = new FarmManager();
-            List<Farm> farms = new ArrayList<>();
+            // Get all players and assign them to their selected farms
+            List<User> players = gameInstance.getPlayers();
+
+            // Create a map of username to selected map number
             Map<String, Integer> playerMapChoices = new HashMap<>();
             for (int i = 0; i < allPlayerUsernames.size(); i++) {
-                playerMapChoices.put(allPlayerUsernames.get(i), selectedMapsNumbers.get(i));
+                String username = allPlayerUsernames.get(i);
+                int mapNumber = selectedMaps.get(i);
+                playerMapChoices.put(username, mapNumber);
+                System.out.println("Player " + username + " selected map " + mapNumber);
             }
 
-            for (User player : gameInstance.getPlayers()) {
-                int mapId = playerMapChoices.get(player.getUsername());
-                Farm farm = farmManager.getFarm(mapId - 1);
-                farm.setOwner(player);
-                player.setFarm(farm);
-                farms.add(farm);
+            // Assign maps to players using the Game's selectMap method
+            for (User player : players) {
+                int mapId = playerMapChoices.getOrDefault(player.getUsername(), 1);
                 gameInstance.selectMap(player, mapId);
+                System.out.println("Assigned " + player.getUsername() + " to Farm " + mapId);
             }
 
-            VillageTemplate village = VillageTemplate.createDefaultVillage();
-            GameMap gameMap = new GameMap(farms, village);
-            gameInstance.setCurrentMap(gameMap);
+            // IMPORTANT: Initialize the game map after all players have selected their maps
+            System.out.println("Initializing game map...");
+            gameInstance.initializeGameMap();
+
+            // Set the game state to IN_GAME
             gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
 
+            // Get the current map from the game instance
+            GameMap gameMap = gameInstance.getCurrentMap();
+
+            // Check if gameMap is null before proceeding
+            if (gameMap == null) {
+                throw new RuntimeException("GameMap is null after initialization");
+            }
+
+            // Create the MapView with the initialized map
             Runnable backToMenuCallback = this::showMainMenu;
             mapView = new MapView(gameMap, backToMenuCallback, this);
+
+            // Set first farm as active and center camera on it
             mapView.setCurrentFarmIndex(0);
 
-            showGameplayScreen();
+            System.out.println("Map created successfully with game map");
+            mapStatusLabel.setText("Game started successfully!");
+            mapStatusLabel.setColor(Color.GREEN);
 
-        } catch (Exception e) {
+            // Navigate to gameplay screen
+            showGameplayScreen();
+        }
+        catch (Exception e) {
             System.err.println("Error creating game: " + e.getMessage());
             e.printStackTrace();
             mapStatusLabel.setText("Error: " + e.getMessage());
+            mapStatusLabel.setColor(Color.RED);
         }
     }
 
