@@ -63,7 +63,7 @@ public class InventoryView implements Screen {
         pixmap.dispose();
 
         // پاک کردن آیتم های قبلی برای جلوگیری از تکرار
-        player.getInventory().getItems().clear();
+       // player.getInventory().getItems().clear();
 
         // اضافه کردن آیتم ها با مسیر و نام دقیق از روی لیست فایل شما
         player.getInventory().addItem(new Item("Warrior_Ring", 1, "assets/Inventory/Warrior_Ring.png"));

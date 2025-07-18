@@ -248,7 +248,7 @@ public class HomeController {
         user.getEnergy().decreaseEnergy(CRAFT_ENERGY_COST); // Use the passed user's energy
 
         // Add crafted item to inventory
-        if (!inventory.tryAddItem(new Item(itemName, 1))) {
+        if (!inventory.tryAddItem(new Item(itemName, 1,"assets/Inventory/"+itemName+".png"))) {
             // Note: If tryAddItem returns false, the item was not added.
             // However, materials and energy were already consumed.
             // You might want to consider rolling back the transaction here if addItem fails.
