@@ -17,7 +17,7 @@ public class Inventory {
         this.type = type;
         items = new ArrayList<>();
         switch (type) {
-            case NORMAL -> capacity = 12;
+            case NORMAL -> capacity = 56;
             case BIG -> capacity = 24;
             case DELUXE -> capacity = Integer.MAX_VALUE;
         }
