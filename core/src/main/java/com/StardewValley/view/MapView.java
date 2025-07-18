@@ -415,7 +415,6 @@ public class MapView implements Screen {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
         }
-
         User currentPlayer = Game.getInstance().getCurrentPlayer();
         float speed = 200 * delta;
 

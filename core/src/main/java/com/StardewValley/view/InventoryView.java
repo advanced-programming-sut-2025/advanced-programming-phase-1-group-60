@@ -54,7 +54,7 @@ public class InventoryView implements Screen {
         this.menuManager = MenuManager.getInstance();
         this.dragAndDrop = new DragAndDrop();
         this.textureCache = new HashMap<>();
-
+        System.out.println(player.getInventory().getItemQuantityByName("cherry_bomb"));
         // ساخت تصویر جایگزین (Fallback)
         Pixmap pixmap = new Pixmap(64, 64, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.SLATE);
@@ -186,7 +186,8 @@ public class InventoryView implements Screen {
         contentTable.clear();
         contentTable.top().left().pad(10);
         int col = 0;
-        final int ITEMS_PER_ROW = 2; // افزایش تعداد آیتم در هر ردیف
+        final int ITEMS_PER_ROW = 2;
+        // افزایش تعداد آیتم در هر ردیف
         for (Item item : player.getInventory().getItems()) {
             Image itemImage = createItemImage(item);
             itemImage.setUserObject(item);

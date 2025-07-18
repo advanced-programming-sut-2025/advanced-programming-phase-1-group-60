@@ -139,6 +139,7 @@ public class GamePlayController {
                         System.out.println("pleas go home first");
                     }
                     String itemName = parts[1];
+                    System.out.println(itemName);
                     String result = HomeController.crafting("craft", itemName, user);
                     System.out.println(result);
                 }
