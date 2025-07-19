@@ -4,6 +4,7 @@ import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
+import com.StardewValley.models.Tree;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
@@ -18,11 +19,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Timer;
@@ -36,8 +33,8 @@ import java.util.Optional;
 
 public class MapView implements Screen {
     private final GameMap gameMap;
-    private final Game gameInstance;
-    private final GameView gameView; // Reference to GameView for screen switching
+    private final com.StardewValley.models.Game gameInstance;
+    private final GameView gameView;
     private SpriteBatch batch;
     private BitmapFont font;
     private OrthographicCamera camera;
@@ -62,12 +59,13 @@ public class MapView implements Screen {
 
     private Dialog npcContextMenu;
     private Dialog friendshipDialog;
+    private Dialog questDialog;
     private Npc selectedNpc;
 
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
         this.gameView = gameView;
-        this.gameInstance = Game.getInstance();
+        this.gameInstance = com.StardewValley.models.Game.getInstance();
         this.batch = new SpriteBatch();
         this.font = new BitmapFont();
         font.setColor(Color.WHITE);
@@ -104,6 +102,7 @@ public class MapView implements Screen {
         createBackButton();
         createNpcContextMenu();
         createFriendshipDialog();
+        createQuestDialog();
 
         npcSpeechLabel = new Label("", skin);
         npcSpeechLabel.setWrap(true);
@@ -111,6 +110,105 @@ public class MapView implements Screen {
         npcSpeechLabel.setVisible(false);
         stage.addActor(npcSpeechLabel);
     }
+
+    private void createQuestDialog() {
+        questDialog = new Dialog("Quests", skin);
+        questDialog.setModal(true);
+        // The content will be populated dynamically
+        ScrollPane scrollPane = new ScrollPane(null, skin);
+        questDialog.getContentTable().add(scrollPane).grow().pad(10);
+        questDialog.getButtonTable().add(new TextButton("Close", skin)).pad(10).getActor().addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                questDialog.hide();
+            }
+        });
+    }
+
+    private void showQuestDialog(Npc npc) {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        Table questListTable = new Table(skin);
+        questListTable.top().left();
+
+        if (npc.getQuests() == null || npc.getQuests().isEmpty()) {
+            questListTable.add("This person has no quests.").pad(20);
+        } else {
+            for (Quest quest : npc.getQuests()) {
+                String questText = "ID " + quest.getId() + ": Bring " + quest.getRequiredItems().getQuantity() + " " + quest.getRequiredItems().getName();
+                TextButton questButton = new TextButton(questText, skin);
+
+                User completer = quest.getCompletedBy();
+                if (completer != null) {
+                    if (completer.equals(currentPlayer)) {
+                        questButton.getLabel().setColor(Color.GREEN); // Completed by current player
+                    } else {
+                        questButton.getLabel().setColor(Color.RED); // Completed by another player
+                    }
+                    questButton.setDisabled(true);
+                } else {
+                    questButton.getLabel().setColor(Color.LIGHT_GRAY); // Not completed
+                    questButton.addListener(new ChangeListener() {
+                        @Override
+                        public void changed(ChangeEvent event, Actor actor) {
+                            completeQuest(currentPlayer, npc, quest);
+                            // Refresh the dialog content
+                            questDialog.hide();
+                            showQuestDialog(npc);
+                        }
+                    });
+                }
+                questListTable.add(questButton).left().pad(5).row();
+            }
+        }
+
+        // Set the table into the scroll pane of the dialog
+        ((ScrollPane) questDialog.getContentTable().getCells().first().getActor()).setActor(questListTable);
+        questDialog.show(stage);
+    }
+
+    private void completeQuest(User user, Npc npc, Quest quest) {
+        // Check activation conditions (friendship level, season, etc.)
+        if (quest.getActivationFriendLevel() > 0 && user.getFriendshipLevelWithNpc(npc) < quest.getActivationFriendLevel()) {
+            showResultDialog("Quest not active yet. You need a higher friendship level.");
+            return;
+        }
+
+        // Check for required items
+        Item requiredItem = quest.getRequiredItems();
+        if (requiredItem != null) {
+            if (!user.getInventory().hasItem(requiredItem.getName(), requiredItem.getQuantity())) {
+                showResultDialog("You don't have the required items: " + requiredItem.getQuantity() + " " + requiredItem.getName());
+                return;
+            }
+            user.getInventory().removeItemByName(requiredItem.getName(), requiredItem.getQuantity());
+        }
+
+        // Grant rewards
+        Reward reward = quest.getReward();
+        if (reward != null) {
+            if (reward.getMoney() > 0) {
+                user.setMoney(user.getMoney() + reward.getMoney());
+            }
+            if (reward.getItems() != null) {
+                user.getInventory().addItem(reward.getItems());
+            }
+            if (reward.getFriendshipXp() > 0) {
+                user.increaseFriendshipXpsWithNpc(npc, reward.getFriendshipXp());
+            }
+        }
+
+        // Mark quest as completed by this user
+        quest.complete(user);
+        showResultDialog("Quest '" + quest.getId() + "' completed successfully!");
+    }
+
+    private void showResultDialog(String message) {
+        Dialog dialog = new Dialog("Result", skin);
+        dialog.text(message);
+        dialog.button("OK");
+        dialog.show(stage);
+    }
+
 
     private void createBackButton() {
         Table uiTable = new Table();
@@ -141,6 +239,9 @@ public class MapView implements Screen {
         giftButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
+                if (selectedNpc != null) {
+                    gameView.showInventoryForGifting(selectedNpc);
+                }
                 npcContextMenu.hide();
             }
         });
@@ -148,6 +249,9 @@ public class MapView implements Screen {
         questButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
+                if (selectedNpc != null) {
+                    showQuestDialog(selectedNpc);
+                }
                 npcContextMenu.hide();
             }
         });
@@ -191,7 +295,7 @@ public class MapView implements Screen {
         String prompt = npc.startConversation(user);
         npcSpeechLabel.setText(prompt);
 
-        npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f);
+     //   npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f);
         npcSpeechLabel.pack();
         npcSpeechLabel.setWidth(250);
         npcSpeechLabel.setHeight(npcSpeechLabel.getPrefHeight());
@@ -211,7 +315,7 @@ public class MapView implements Screen {
                 npcSpeechLabel.setVisible(false);
                 speechIsShowing = false;
             }
-        }, 4);
+        }, 3);
     }
 
     private void createTravelDialog() {
@@ -362,6 +466,11 @@ public class MapView implements Screen {
 
         stage.act(delta);
         stage.draw();
+
+        // FIX: Reset the stage's batch color after drawing to prevent state leakage
+        if (stage.getBatch() != null) {
+            stage.getBatch().setColor(Color.WHITE);
+        }
     }
 
     private void renderMap() {

@@ -384,7 +384,7 @@ public class User {
         Result result = new Result();
 
         if (Math.abs(position.getPositionX() - receiver.getPosition().getPositionX()) > 1 ||
-                Math.abs(position.getPositionY() - receiver.getPosition().getPositionY()) > 1) {
+            Math.abs(position.getPositionY() - receiver.getPosition().getPositionY()) > 1) {
             result.setSuccess(false);
             result.setMessage("You are too far away to talk!");
             return result;
@@ -418,9 +418,9 @@ public class User {
         for (Map.Entry<User, String> entry : new HashMap<>(unreadMessages).entrySet()) {
             if (entry.getValue() != null && !entry.getValue().isEmpty()) {
                 sb.append(entry.getKey().getNickname())
-                        .append(": ")
-                        .append(entry.getValue())
-                        .append("\n");
+                    .append(": ")
+                    .append(entry.getValue())
+                    .append("\n");
             }
         }
         unreadMessages.clear();
@@ -559,9 +559,9 @@ public class User {
         for (User requester : marriageRequests.keySet()) {
             if (!marriageRequests.get(requester).isResponded()) {
                 sb.append(requester.getNickname())
-                        .append(" wants to marry you (Ring: ")
-                        .append(marriageRequests.get(requester).getRing().getName())
-                        .append(")\n");
+                    .append(" wants to marry you (Ring: ")
+                    .append(marriageRequests.get(requester).getRing().getName())
+                    .append(")\n");
             }
         }
         return sb.toString();

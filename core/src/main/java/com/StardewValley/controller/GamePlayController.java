@@ -576,8 +576,8 @@ public class GamePlayController {
                 // Old branch logic
                 target.setToNormalTile();
                 target.setType(".");
-                user.consumeEnergy(tool.getEnergyCost());
                 energyUsedThisTurn += tool.getEnergyCost();
+                user.consumeEnergy(tool.getEnergyCost());
                 user.getSkill("Foraging").gainExperience(10);
                 System.out.println("Used axe on branch at (" + tx + ", " + ty + "). Energy left: " + user.getEnergy());
             }
@@ -1744,9 +1744,7 @@ public class GamePlayController {
             return;
         }
 
-        int currentFriendshipXp = user.getFriendshipXpsWithNPCs().getOrDefault(npc, 0);
-        int requiredFriendshipLevel = quest.getActivationFriendLevel();
-        if (currentFriendshipXp < requiredFriendshipLevel * 200) {
+        if (user.getFriendshipLevelWithNpc(npc) < quest.getActivationFriendLevel()) {
             System.out.println("Insufficient friendship level.");
             return;
         }
@@ -1770,23 +1768,23 @@ public class GamePlayController {
         if (reward != null) {
 
             if (reward.getMoney() > 0) {
-                if (currentFriendshipXp >= 200) reward.setMoney(reward.getMoney() * 2);
+                if (user.getFriendshipLevelWithNpc(npc) >= 1) reward.setMoney(reward.getMoney() * 2);
                 user.setMoney(user.getMoney() + reward.getMoney());
             }
 
             Item rewardItem = reward.getItems();
             if (rewardItem != null) {
-                if (currentFriendshipXp >= 200) rewardItem.setQuantity(rewardItem.getQuantity() * 2);
+                if (user.getFriendshipLevelWithNpc(npc) >= 1) rewardItem.setQuantity(rewardItem.getQuantity() * 2);
                 user.getInventory().addItemByName(rewardItem.getName(), rewardItem.getQuantity());
             }
 
             if (reward.getFriendshipXp() > 0) {
-                if (currentFriendshipXp >= 200) reward.setFriendshipXp(reward.getFriendshipXp() * 2);
+                if (user.getFriendshipLevelWithNpc(npc) >= 1) reward.setFriendshipXp(reward.getFriendshipXp() * 2);
                 user.increaseFriendshipXpsWithNpc(npc, reward.getFriendshipXp());
             }
         }
 
-        quest.complete();
+        // quest.complete();
         System.out.println("Quest " + questId + " completed successfully!");
     }
 

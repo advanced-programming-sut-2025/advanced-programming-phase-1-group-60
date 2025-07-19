@@ -8,18 +8,20 @@ public class Quest {
     private Npc giver;                       // NPC که این مأموریت را ارائه می‌دهد
     private Item requiredItem;        // آیتم‌های مورد نیاز برای تکمیل
     private Reward reward;                   // جایزه مأموریت
-    private boolean completed;               // وضعیت اتمام مأموریت
+    private boolean completed;               // وضعیت اتمام مأموریت (برای سازگاری با کد قبلی)
+    private User completedBy;                // بازیکنی که ماموریت را تکمیل کرده است
     private int activationFriendLevel;       // سطح دوستی برای فعال‌سازی (برای مأموریت دوم)
     private int activationSeasonOffset;      // تعداد فصل بعد از دریافت برای فعال‌سازی مأموریت سوم (مثال: 1)
 
     public Quest(int id, Npc giver,
-                Item requiredItem, Reward reward,
+                 Item requiredItem, Reward reward,
                  int activationFriendLevel, int activationSeasonOffset) {
         this.id = id;
         this.giver = giver;
         this.requiredItem = requiredItem;
         this.reward = reward;
         this.completed = false;
+        this.completedBy = null; // در ابتدا هیچکس تکمیل نکرده
         this.activationFriendLevel = activationFriendLevel;
         this.activationSeasonOffset = activationSeasonOffset;
     }
@@ -29,21 +31,37 @@ public class Quest {
     public Npc getGiver() { return giver; }
     public Item getRequiredItems() { return requiredItem; }
     public Reward getReward() { return reward; }
+    @Deprecated // از متد isCompletedByUser استفاده کنید
     public boolean isCompleted() { return completed; }
+    public User getCompletedBy() { return completedBy; }
     public int getActivationFriendLevel() { return activationFriendLevel; }
     public int getActivationSeasonOffset() { return activationSeasonOffset; }
 
-    // علامت‌گذاری به‌عنوان انجام شده
-    public void complete() {
-        this.completed = true;
+    // متد جدید برای بررسی اینکه آیا ماموریت توسط بازیکنی تکمیل شده است یا خیر
+    public boolean isCompletedByAnyone() {
+        return completedBy != null;
+    }
+
+    // علامت‌گذاری به‌عنوان انجام شده توسط یک بازیکن خاص
+    public void complete(User user) {
+        this.completed = true; // برای سازگاری
+        this.completedBy = user;
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("ID: ").append(id).append("\n");
+        sb.append("Quest ID: ").append(id).append("\n");
         sb.append("Giver: ").append(giver.getName()).append("\n");
-        sb.append("RequiredItem: ").append(requiredItem.getName()).append(" ").append(requiredItem.getQuantity()).append("\n");
+        if (requiredItem != null) {
+            sb.append("Requires: ").append(requiredItem.getName()).append(" x").append(requiredItem.getQuantity()).append("\n");
+        }
+        if (reward != null) {
+            sb.append("Reward: ");
+            if (reward.getMoney() > 0) sb.append(reward.getMoney()).append("g ");
+            if (reward.getItems() != null) sb.append(reward.getItems().getName()).append(" x").append(reward.getItems().getQuantity());
+            if (reward.getFriendshipXp() > 0) sb.append(reward.getFriendshipXp()).append(" XP");
+        }
         return sb.toString();
     }
 }

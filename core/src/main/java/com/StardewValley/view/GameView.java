@@ -337,6 +337,9 @@ public class GameView implements Screen {
                 Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
+            // FIX: Initialize quests BEFORE creating the map
+            com.StardewValley.repository.QuestRepository.getInstance().initialize();
+
             // Get all players and assign them to their selected farms
             List<User> players = gameInstance.getPlayers();
 
@@ -408,11 +411,21 @@ public class GameView implements Screen {
     }
 
     public void showInventoryScreen() {
-        if (inventoryView == null) {
-            inventoryView = new InventoryView(game, loginController, this);
+        if (inventoryView == null || inventoryView.isDisposed()) {
+            inventoryView = new InventoryView(game, loginController, this, null);
         }
         game.setScreen(inventoryView);
     }
+
+    public void showInventoryForGifting(Npc targetNpc) {
+        if (inventoryView == null || inventoryView.isDisposed()) {
+            inventoryView = new InventoryView(game, loginController, this, targetNpc);
+        } else {
+            inventoryView.setGiftingTarget(targetNpc);
+        }
+        game.setScreen(inventoryView);
+    }
+
 
     // You will need to create this class yourself based on your colleague's code
     public void showCraftingMenu(User player) {

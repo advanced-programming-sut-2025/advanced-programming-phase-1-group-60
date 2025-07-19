@@ -28,6 +28,12 @@ public class GiftController {
         npcName = npcName.toUpperCase();
         Npc npc = NpcRepository.getInstance().getNpcByName(npcName);
         if (npc == null) return "NPC not found.";
+
+        return giftToNpc(player, npc, itemName, quantity);
+    }
+
+    public String giftToNpc(User player, Npc npc, String itemName, Integer quantity) {
+        if (npc == null) return "NPC not found.";
         if (!player.getInventory().hasItem(itemName, quantity))
             return "You do not have enough of this item.";
 
@@ -36,15 +42,22 @@ public class GiftController {
         String date = TimeSystem.getInstance().getCurrentDate();
         GiftEvent ev = new GiftEvent(player.getUsername(), npc.getName(), itemName, quantity, date);
         giftEvents.add(ev);
-        pendingRatings.put(ev.getEventKey(), ev);
-        return "You've sent " + itemName + " x" + quantity + " to " + npc.getName()
-                + ". Awaiting rating: use 'gift rate -r [1-5]'";
+
+        // افزایش/کاهش دوستی بر اساس علاقه NPC
+        int friendshipChange = 40; // هدیه معمولی
+        if (npc.isFavoriteItem(itemName)) {
+            friendshipChange = 80; // هدیه مورد علاقه
+        }
+        player.increaseFriendshipXpsWithNpc(npc, friendshipChange);
+
+        return "You gave " + itemName + " x" + quantity + " to " + npc.getName() + ".\nFriendship changed by " + friendshipChange + " XP.";
     }
+
 
     public String giftToPlayer(User from, String toUsername, String itemName, Integer quantity) {
         User to = UserRepository.getInstance().getUserByUsername(toUsername);
         if (Math.abs(from.getPosition().getPositionX() - to.getPosition().getPositionX()) > 1 ||
-        Math.abs(from.getPosition().getPositionY() - to.getPosition().getPositionY()) > 1) {
+            Math.abs(from.getPosition().getPositionY() - to.getPosition().getPositionY()) > 1) {
             return "too far";
         }
         if (to == null) return "Target player not found.";
@@ -62,7 +75,7 @@ public class GiftController {
         giftEvents.add(ev);
         pendingRatings.put(ev.getEventKey(), ev);
         return "You gave " + toUsername + " " + itemName + " x" + quantity
-                + ". They can rate it with 'gift rate -r [1-5]'";
+            + ". They can rate it with 'gift rate -r [1-5]'";
     }
 
     /**
@@ -85,7 +98,7 @@ public class GiftController {
                     }
                 }
                 return "You've rated " + ev.getItemName() + " x" + ev.getQuantity()
-                        + " with " + rating + ". Friendship XP change: " + xpDelta;
+                    + " with " + rating + ". Friendship XP change: " + xpDelta;
             }
         }
         return "No pending gifts to rate.";
@@ -96,11 +109,11 @@ public class GiftController {
         for (GiftEvent ev : giftEvents) {
             String key = ev.getEventKey();
             if (ev.getReceiver().equals(username)
-                    && !notifiedEvents.contains(key)
-                    && pendingRatings.containsKey(key)) {
+                && !notifiedEvents.contains(key)
+                && pendingRatings.containsKey(key)) {
                 notifiedEvents.add(key);
                 return ev.getSender() + " sent you " + ev.getItemName() + " x" + ev.getQuantity()
-                        + ". Use 'gift rate -r [1-5]' to rate it.";
+                    + ". Use 'gift rate -r [1-5]' to rate it.";
             }
         }
         return null;
@@ -112,7 +125,7 @@ public class GiftController {
         for (GiftEvent ev : giftEvents) {
             if (ev.getReceiver().equals(username)) {
                 history.add(ev.getDate() + ": " + ev.getSender() + " sent you "
-                        + ev.getItemName() + " x" + ev.getQuantity());
+                    + ev.getItemName() + " x" + ev.getQuantity());
             }
         }
         return history;
