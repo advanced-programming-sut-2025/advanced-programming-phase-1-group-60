@@ -23,6 +23,7 @@ public class GamePlayController {
     public int homeX, homeY;
     private final Farm farm;
     public boolean hasFaintedLastDay = false;
+    private boolean mapViewControlled = false;
 
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.farm = f;
@@ -35,7 +36,9 @@ public class GamePlayController {
         homeY = f.getHomeY();
         user.setPosition(tiles[homeX][homeY]);
     }
-
+    public void setMapViewControlled(boolean controlled) {
+        this.mapViewControlled = controlled;
+    }
     public void initializeNextDay() {
         processCrowAttack();
         farm.spawnDailyForageItems();
@@ -1521,32 +1524,21 @@ public class GamePlayController {
 
     public void walkTo(int tx, int ty, boolean isForced) {
         if (tx < 0 || ty < 0 || ty >= tiles.length || tx >= tiles[0].length) {
-            System.out.println("خارج از مرز مزرعه!");
+            System.out.println("Invalid coordinates");
             return;
         }
         Tile target = tiles[ty][tx];
         if (!target.isPassable()) {
-            System.out.println("غیرقابل عبور");
             return;
         }
         var opt = PathFinder.findShortest(tiles, user.getPosition(), target);
         if (opt.isEmpty()) {
-            System.out.println("مسیر نیست");
             return;
         }
         var path = opt.get();
-        int need = (path.getDistance() + 10 * path.getTurns()) / 20;
-        System.out.printf("مسافت=%d، پیچ=%d، انرژی=%d. ادامه؟ (y/n)\n",
-            path.getDistance(), path.getTurns(), need);
-        String response = isForced ? "y" : sc.nextLine();
-        if (!response.equalsIgnoreCase("y")) return;
-        if (user.getEnergy().getCurrentEnergy() >= need || user.getEnergy().isUnlimited()) {
-            user.consumeEnergy(need);
-            energyUsedThisTurn += need;
-            user.setPosition(target);
-            System.out.println("حرکت شد. انرژی=" + user.getEnergy());
-            if (user.getEnergy().getCurrentEnergy() == 0) user.faint();
-        } else user.faintAlong(path);
+
+        // Remove energy consumption - handled by MapView now
+        user.setPosition(target);
     }
 
     private void printRegion(int width, int height) {
