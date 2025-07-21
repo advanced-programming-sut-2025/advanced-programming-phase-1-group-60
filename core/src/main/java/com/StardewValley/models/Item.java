@@ -14,7 +14,7 @@ public class Item {
     private int energy;
     private int sellPrice;
     private HashMap<String, Object> properties = new HashMap<>();
-
+    private User owner; // Added owner field
     private String path;
 
     public boolean isEdible() {
@@ -94,12 +94,10 @@ public class Item {
         this.properties = properties;
     }
 
-
     public void setEdible(boolean edible) {
         this.edible = edible;
     }
 
-    // Energy
     public int getEnergy() {
         return energy;
     }
@@ -115,6 +113,14 @@ public class Item {
         this.energy = energy;
     }
 
+    public User getOwner() { // Added getOwner method
+        return owner;
+    }
+
+    public void setOwner(User owner) { // Added setOwner method
+        this.owner = owner;
+    }
+
     public void use() {
     }
 
@@ -127,4 +133,3 @@ public class Item {
         return name + " " + quantity;
     }
 }
-

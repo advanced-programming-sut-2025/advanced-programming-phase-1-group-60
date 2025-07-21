@@ -13,7 +13,6 @@ public class Tools extends Item {
     private PickaxeStage pickaxeStage;
     private WateringcanStage wateringcanStage;
     private FishingpoleStage fishingpoleStage;
-    private TrashbinStage trashbinStage;
     private int currentUsage;
     private int maxUsage;
     private int radius;
@@ -34,7 +33,7 @@ public class Tools extends Item {
         TRAINING, BAMBOO, FIBERGLASS, IRIDIUM
     }
     public static enum TrashbinStage {
-        BEGINNER, COPPER, IRON, GOLD, IRIDIUM
+        BEGINNER, COPPER, STEEL, GOLD, IRIDIUM
     }
     public static void addBeginnerHoeToInventory(Inventory inventory) {
         Tools hoe = new Tools();
@@ -43,6 +42,7 @@ public class Tools extends Item {
         hoe.setType("Tool");
         hoe.setQuantity(1);
         hoe.setHoeStage(HoeStage.BEGINNER); // Add this line
+        hoe.setPath("assets/Inventory/ToolsAndUpgrade/Hoe.png");
         inventory.getItems().add(hoe);
     }
     public static void addBeginnerPickaxeToInventory(Inventory inventory) {
@@ -52,6 +52,7 @@ public class Tools extends Item {
         pickaxe.setType("Tool");
         pickaxe.setQuantity(1);
         pickaxe.setPickaxeStage(PickaxeStage.BEGINNER); // Add this line
+        pickaxe.setPath("assets/Inventory/ToolsAndUpgrade/Pickaxe.png");
         inventory.getItems().add(pickaxe);
     }
 
@@ -62,15 +63,17 @@ public class Tools extends Item {
         axe.setType("Tool");
         axe.setQuantity(1);
         axe.setAxeStage(AxeStage.BEGINNER); // Add this line
+        axe.setPath("assets/Inventory/ToolsAndUpgrade/Axe.png");
         inventory.getItems().add(axe);
     }
     public static void addBeginnerWateringcanToInventory(Inventory inventory) {
         Tools wateringcan = new Tools();
         wateringcan.setId(4);
-        wateringcan.setName("Wateringcan");
+        wateringcan.setName("Watering_Can");
         wateringcan.setType("Tool");
         wateringcan.setQuantity(1);
         wateringcan.setWateringcanStage(WateringcanStage.BEGINNER);
+        wateringcan.setPath("assets/Inventory/ToolsAndUpgrade/Watering_Can.png");
         wateringcan.setMaxUsage(40);
         wateringcan.setCurrentUsage(40);
         wateringcan.setRadius(40);
@@ -92,13 +95,15 @@ public class Tools extends Item {
         scythe.setType("Tool");
         scythe.setQuantity(1);
         scythe.setEnergyCost(2);
+        scythe.setPath("assets/Inventory/ToolsAndUpgrade/Scythe.png");
         inventory.getItems().add(scythe);
     }
     public static void addBeginnerMilkPailToInventory(Inventory inventory) {
         Tools milkPail = new Tools();
         milkPail.setId(7); // Use a unique ID not used by other tools
-        milkPail.setName("Milk Pail");
+        milkPail.setName("Milk_Pail");
         milkPail.setType("Tool");
+        milkPail.setPath("assets/Inventory/ToolsAndUpgrade/Milk_Pail.png");
         milkPail.setQuantity(1);
         milkPail.setEnergyCost(4);
         inventory.getItems().add(milkPail);
@@ -106,21 +111,14 @@ public class Tools extends Item {
     public static void addBeginnerShearToInventory(Inventory inventory) {
         Tools shear = new Tools();
         shear.setId(8);
-        shear.setName("shear");
+        shear.setName("Shears");
         shear.setType("Tool");
+        shear.setPath("assets/Inventory/ToolsAndUpgrade/Shears.png");
         shear.setQuantity(1);
         shear.setEnergyCost(4);
         inventory.getItems().add(shear);
     }
-    public static void addBeginnerTrashbinToInventory(Inventory inventory) {
-        Tools trashbin = new Tools();
-        trashbin.setId(9); // Use a unique ID
-        trashbin.setName("Trashbin");
-        trashbin.setType("Tool");
-        trashbin.setQuantity(1);
-        trashbin.setTrashbinStage(TrashbinStage.BEGINNER);
-        inventory.getItems().add(trashbin);
-    }
+
     public Tools() {
         // Default to Beginner Hoe
         this.hoeStage = HoeStage.BEGINNER;
@@ -143,37 +141,34 @@ public class Tools extends Item {
     public FishingpoleStage getFishingpoleStage() {
         return fishingpoleStage;
     }
-    public TrashbinStage getTrashbinStage() {
-        return trashbinStage;
-    }
     public void setHoeStage(HoeStage hoeStage) {
         this.hoeStage = hoeStage;
         switch (hoeStage) {
-            case BEGINNER: this.energyCost = 5; break;
-            case COPPER: this.energyCost = 4; break;
-            case IRON: this.energyCost = 3; break;
-            case GOLD: this.energyCost = 2; break;
-            case IRIDIUM: this.energyCost = 1; break;
+            case BEGINNER: this.energyCost = 5; setPath("assets/Inventory/ToolsAndUpgrade/Hoe.png"); break;
+            case COPPER: this.energyCost = 4; setPath("assets/Inventory/ToolsAndUpgrade/Copper_Hoe.png"); break;
+            case IRON: this.energyCost = 3; setPath("assets/Inventory/ToolsAndUpgrade/Steel_Hoe.png"); break;
+            case GOLD: this.energyCost = 2; setPath("assets/Inventory/ToolsAndUpgrade/Gold_Hoe.png"); break;
+            case IRIDIUM: this.energyCost = 1; setPath("assets/Inventory/ToolsAndUpgrade/Iridium_Hoe.png"); break;
         }
     }
     public void setAxeStage(AxeStage axeStage) {
         this.axeStage = axeStage;
         switch (axeStage) {
-            case BEGINNER: this.energyCost = 5; break;
-            case COPPER: this.energyCost = 4; break;
-            case IRON: this.energyCost = 3; break;
-            case GOLD: this.energyCost = 2; break;
-            case IRIDIUM: this.energyCost = 1; break;
+            case BEGINNER: this.energyCost = 5; setPath("assets/Inventory/ToolsAndUpgrade/Axe.png"); break;
+            case COPPER: this.energyCost = 4; setPath("assets/Inventory/ToolsAndUpgrade/Copper_Axe.png"); break;
+            case IRON: this.energyCost = 3; setPath("assets/Inventory/ToolsAndUpgrade/Steel_Axe.png"); break;
+            case GOLD: this.energyCost = 2; setPath("assets/Inventory/ToolsAndUpgrade/Gold_Axe.png"); break;
+            case IRIDIUM: this.energyCost = 1; setPath("assets/Inventory/ToolsAndUpgrade/Iridium_Axe.png"); break;
         }
     }
     public void setPickaxeStage(PickaxeStage pickaxeStage) {
         this.pickaxeStage = pickaxeStage;
         switch (pickaxeStage) {
-            case BEGINNER: this.energyCost = 5; break;
-            case COPPER: this.energyCost = 4; break;
-            case IRON: this.energyCost = 3; break;
-            case GOLD: this.energyCost = 2; break;
-            case IRIDIUM: this.energyCost = 1; break;
+            case BEGINNER: this.energyCost = 5; setPath("assets/Inventory/ToolsAndUpgrade/Pickaxe.png"); break;
+            case COPPER: this.energyCost = 4; setPath("assets/Inventory/ToolsAndUpgrade/Copper_Pickaxe.png"); break;
+            case IRON: this.energyCost = 3; setPath("assets/Inventory/ToolsAndUpgrade/Steel_Pickaxe.png"); break;
+            case GOLD: this.energyCost = 2; setPath("assets/Inventory/ToolsAndUpgrade/Gold_Pickaxe.png"); break;
+            case IRIDIUM: this.energyCost = 1; setPath("assets/Inventory/ToolsAndUpgrade/Iridium_Pickaxe.png"); break;
         }
     }
     public void setWateringcanStage(WateringcanStage wateringcanStage) {
@@ -182,27 +177,32 @@ public class Tools extends Item {
             case BEGINNER:
                 this.energyCost = 5;
                 this.maxUsage = 40;
-                this.radius = 40;
+                this.radius = 1;
+                setPath("assets/Inventory/ToolsAndUpgrade/Watering_Can.png");
                 break;
             case COPPER:
                 this.energyCost = 4;
-                this.maxUsage = 40;
-                this.radius = 55;
+                this.maxUsage = 55;
+                this.radius = 3;
+                setPath("assets/Inventory/ToolsAndUpgrade/Copper_Watering_Can.png");
                 break;
             case IRON:
                 this.energyCost = 3;
-                this.maxUsage = 40;
-                this.radius = 70;
+                this.maxUsage = 70;
+                this.radius = 5;
+                setPath("assets/Inventory/ToolsAndUpgrade/Steel_Watering_Can.png");
                 break;
             case GOLD:
                 this.energyCost = 2;
-                this.maxUsage = 40;
-                this.radius = 85;
+                this.maxUsage = 85;
+                this.radius = 9;
+                setPath("assets/Inventory/ToolsAndUpgrade/Gold_Watering_Can.png");
                 break;
             case IRIDIUM:
                 this.energyCost = 1;
-                this.maxUsage = 40;
-                this.radius = 100;
+                this.maxUsage = 100;
+                this.radius = 18;
+                setPath("assets/Inventory/ToolsAndUpgrade/Iridium_Watering_Can.png");
                 break;
         }
         this.currentUsage = this.maxUsage;
@@ -210,15 +210,13 @@ public class Tools extends Item {
     public void setFishingpoleStage(FishingpoleStage fishingpoleStage) {
         this.fishingpoleStage = fishingpoleStage;
         switch (fishingpoleStage) {
-            case TRAINING: this.energyCost = 8; break;
-            case BAMBOO: this.energyCost = 8; break;
-            case FIBERGLASS: this.energyCost = 6; break;
-            case IRIDIUM: this.energyCost = 4; break;
+            case TRAINING: this.energyCost = 8; setPath("assets/Inventory/ToolsAndUpgrade/Training_Rod.png"); break;
+            case BAMBOO: this.energyCost = 8; setPath("assets/Inventory/ToolsAndUpgrade/Bamboo_Pole.png"); break;
+            case FIBERGLASS: this.energyCost = 6; setPath("assets/Inventory/ToolsAndUpgrade/Fiberglass_Rod.png"); break;
+            case IRIDIUM: this.energyCost = 4; setPath("assets/Inventory/ToolsAndUpgrade/Iridium_Rod.png"); break;
         }
     }
-    public void setTrashbinStage(TrashbinStage trashbinStage) {
-        this.trashbinStage = trashbinStage;
-    }
+
     private void initDefaultAttributes() {
 
     }

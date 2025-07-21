@@ -12,14 +12,16 @@ public class Inventory {
     private int currentSize;
     private InventoryType type;
     private User owner;
+    private Tools.TrashbinStage trashCanStage = Tools.TrashbinStage.BEGINNER;
 
-    public Inventory(InventoryType type) {
+    public Inventory(InventoryType type, User owner) {
         this.type = type;
+        this.owner = owner;
         items = new ArrayList<>();
         switch (type) {
-            case NORMAL -> capacity = 56;
+            case NORMAL -> capacity = 12;
             case BIG -> capacity = 24;
-            case DELUXE -> capacity = Integer.MAX_VALUE;
+            case DELUXE -> capacity = 36;
         }
     }
     public List<Item> getItems() {
@@ -28,6 +30,14 @@ public class Inventory {
 
     public enum InventoryType {
         NORMAL, BIG, DELUXE
+    }
+
+    public void setTrashCanStage(Tools.TrashbinStage stage) {
+        this.trashCanStage = stage;
+    }
+
+    public Tools.TrashbinStage getTrashCanStage() {
+        return this.trashCanStage;
     }
 
     public void setItems(List<Item> items) {
@@ -51,7 +61,7 @@ public class Inventory {
         switch (type) {
             case NORMAL -> capacity = 12;
             case BIG -> capacity = 24;
-            case DELUXE -> capacity = Integer.MAX_VALUE;
+            case DELUXE -> capacity = 36;
         }
     }
 
@@ -62,11 +72,10 @@ public class Inventory {
                 return true;
             }
         }
-        if (type == InventoryType.DELUXE || items.size() < capacity) {
+        if (items.size() < capacity) {
             items.add(item);
             return true;
         } else {
-            items.add(item);
             return false;
         }
     }
@@ -75,15 +84,15 @@ public class Inventory {
         for (Item i : items) {
             if (i.getName().equalsIgnoreCase(item.getName())) {
                 i.setQuantity(i.getQuantity() + item.getQuantity());
-                return true; // آیتم با موفقیت اضافه شد
+                return true;
             }
         }
-        if (type == InventoryType.DELUXE || items.size() < capacity) {
+        if (items.size() < capacity) {
             items.add(item);
-            return true; // آیتم با موفقیت اضافه شد
+            return true;
         } else {
             System.out.println("Inventory is full!");
-            return false; // موجودی پر است
+            return false;
         }
     }
 
@@ -108,7 +117,7 @@ public class Inventory {
                 return;
             }
         }
-        if (type == InventoryType.DELUXE || items.size() < capacity) {
+        if (items.size() < capacity) {
             Item i = new Item();
             i.setName(itemName);
             i.setQuantity(count);
@@ -187,7 +196,7 @@ public class Inventory {
             int requiredQuantity = entry.getValue();
 
             if (!hasItem(materialName, requiredQuantity)) {
-                return false; // اگر حتی یک ماده اولیه کافی نباشد
+                return false;
             }
         }
         return true;
@@ -198,7 +207,42 @@ public class Inventory {
             String materialName = entry.getKey();
             int quantityToRemove = entry.getValue();
 
-            removeItemByName(materialName, quantityToRemove); // حذف مواد اولیه
+            removeItemByName(materialName, quantityToRemove);
+        }
+    }
+
+    public String trashItem(Item item) {
+        double refundRate = 0;
+        switch (trashCanStage) {
+            case COPPER: refundRate = 0.10; break;
+            case STEEL: refundRate = 0.30; break;
+            case GOLD: refundRate = 0.50; break;
+            case IRIDIUM: refundRate = 0.70; break;
+            default: break;
+        }
+
+        int price = 0;
+        if (item.getStorePrice() > 0) {
+            price = item.getStorePrice();
+        } else if (item.getSellPrice() > 0) {
+            price = item.getSellPrice();
+        } else if (item.getBasePrice() > 0) {
+            price = item.getBasePrice();
+        } else {
+            price = 10;
+        }
+
+        int refundAmount = (int) (price * refundRate);
+        if (owner != null) {
+            owner.setMoney(owner.getMoney() + refundAmount);
+        }
+
+        removeItem(item);
+
+        if (refundAmount > 0) {
+            return "Item trashed. You received " + refundAmount + "g back.";
+        } else {
+            return "Item trashed.";
         }
     }
 }

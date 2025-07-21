@@ -861,14 +861,14 @@ public class GamePlayController {
         Item tool = user.getInventory().getItems().stream()
             .filter(i -> i instanceof Tools && i.getId() == toolId)
             .findFirst().orElse(null);
-        if (tool instanceof Tools t && t.getName().toLowerCase().contains("trashbin")) {
+      /*  if (tool instanceof Tools t && t.getName().toLowerCase().contains("trashbin")) {
             Tools.TrashbinStage[] stages = Tools.TrashbinStage.values();
             int currentIndex = Arrays.asList(stages).indexOf(t.getTrashbinStage());
             int targetIndex = Math.min(currentIndex + level, stages.length - 1);
             t.setTrashbinStage(stages[targetIndex]);
             System.out.println("Trashbin upgraded to: " + t.getTrashbinStage());
             return;
-        }
+        }*/
         if (tool == null) {
             Inventory.InventoryType currentType = user.getInventory().getType();
             Inventory.InventoryType[] types = Inventory.InventoryType.values();
@@ -1394,9 +1394,9 @@ public class GamePlayController {
                 break;
             }
         }
-        Tools.TrashbinStage stage = (trashbin != null && trashbin.getTrashbinStage() != null)
-            ? trashbin.getTrashbinStage()
-            : Tools.TrashbinStage.BEGINNER;
+        Tools.AxeStage stage =trashbin.getAxeStage();
+         /*   ? trashbin.getTrashbinStage()
+            : Tools.TrashbinStage.BEGINNER;*/
 
         double percent = switch (stage) {
             case BEGINNER -> 0.0;

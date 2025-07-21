@@ -35,6 +35,8 @@ public class GameView implements Screen {
     private MapView mapView;
     private InventoryView inventoryView;
     private CraftingMenuScreenView craftingMenuScreenView; // Assumed you will add this class
+    private BlacksmithView blacksmithView;
+    private FishShopView fishShopView;
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -330,11 +332,11 @@ public class GameView implements Screen {
                 Tools.addBeginnerPickaxeToInventory(user.getInventory());
                 Tools.addBeginnerAxeToInventory(user.getInventory());
                 Tools.addBeginnerWateringcanToInventory(user.getInventory());
-                Tools.addLearningFishingpoleToInventory(user.getInventory());
+          //      Tools.addLearningFishingpoleToInventory(user.getInventory());
                 Tools.addBeginnerScytheToInventory(user.getInventory());
                 Tools.addBeginnerMilkPailToInventory(user.getInventory());
                 Tools.addBeginnerShearToInventory(user.getInventory());
-                Tools.addBeginnerTrashbinToInventory(user.getInventory());
+           //     Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
             // FIX: Initialize quests BEFORE creating the map
@@ -424,6 +426,30 @@ public class GameView implements Screen {
             inventoryView.setGiftingTarget(targetNpc);
         }
         game.setScreen(inventoryView);
+    }
+
+    public void showInventoryForSelling() {
+        if (inventoryView == null || inventoryView.isDisposed()) {
+            inventoryView = new InventoryView(game, loginController, this, null);
+            inventoryView.setSellingMode(true);
+        } else {
+            inventoryView.setSellingMode(true);
+        }
+        game.setScreen(inventoryView);
+    }
+
+    public void showBlacksmithView(Store blacksmith) {
+        if (blacksmithView == null) { // or some isDisposed check
+            blacksmithView = new BlacksmithView(game, loginController, this, blacksmith);
+        }
+        game.setScreen(blacksmithView);
+    }
+
+    public void showFishShopView(Store fishShop) {
+        if (fishShopView == null) { // or some isDisposed check
+            fishShopView = new FishShopView(game, loginController, this, fishShop);
+        }
+        game.setScreen(fishShopView);
     }
 
 

@@ -23,7 +23,7 @@ public class User {
     private Tile position;
     private Energy energy = new Energy();
     private List<Skill> skills = new ArrayList<>();
-    private Inventory inventory = new Inventory(Inventory.InventoryType.NORMAL);
+    private Inventory inventory = new Inventory(Inventory.InventoryType.NORMAL, this);
     private List<Game> games = new ArrayList<>();
     private List<String> craftInstructions;
     private Map<User, Integer> friendshipLevelWithUsers;

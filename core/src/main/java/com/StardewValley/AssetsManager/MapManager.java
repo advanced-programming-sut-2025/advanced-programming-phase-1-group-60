@@ -37,6 +37,7 @@ public class MapManager {
     private Texture greenhouseTexture;
     private Texture waterTexture;
     private Texture quarryTexture;
+    private Texture sellingBinTexture;
 
     // NPC and Store textures (from new version)
     private Map<String, Texture> npcTextures;
@@ -66,6 +67,7 @@ public class MapManager {
         greenhouseTexture = new Texture(Gdx.files.internal("Map/Floor/Greenhouse.png"));
         waterTexture = new Texture(Gdx.files.internal("Map/Floor/Water.png"));
         quarryTexture = new Texture(Gdx.files.internal("Map/Floor/Quarry.png"));
+        sellingBinTexture = new Texture(Gdx.files.internal("assets/Inventory/Bin.png"));
 
         // Load stone textures
         stoneTiles = new Texture[8];
@@ -129,6 +131,10 @@ public class MapManager {
 
     public Texture getQuarryTexture() {
         return quarryTexture;
+    }
+
+    public Texture getSellingBinTexture() {
+        return sellingBinTexture;
     }
 
     // Tree texture methods
@@ -226,6 +232,7 @@ public class MapManager {
         if (greenhouseTexture != null) greenhouseTexture.dispose();
         if (waterTexture != null) waterTexture.dispose();
         if (quarryTexture != null) quarryTexture.dispose();
+        if (sellingBinTexture != null) sellingBinTexture.dispose();
 
         // Dispose stone textures
         for (Texture stoneTile : stoneTiles) {

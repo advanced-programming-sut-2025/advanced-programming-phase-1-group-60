@@ -70,7 +70,7 @@ public class GameController {
             Tools.addBeginnerScytheToInventory(user.getInventory());
             Tools.addBeginnerMilkPailToInventory(user.getInventory());
             Tools.addBeginnerShearToInventory(user.getInventory());
-            Tools.addBeginnerTrashbinToInventory(user.getInventory());
+           // Tools.addBeginnerTrashbinToInventory(user.getInventory());
         }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {

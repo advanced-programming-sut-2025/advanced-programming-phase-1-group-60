@@ -295,7 +295,7 @@ public class MapView implements Screen {
         String prompt = npc.startConversation(user);
         npcSpeechLabel.setText(prompt);
 
-     //   npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f);
+        //   npcSpeechLabel.getStyle().background = skin.newDrawable("white", 0, 0, 0, 0.7f);
         npcSpeechLabel.pack();
         npcSpeechLabel.setWidth(250);
         npcSpeechLabel.setHeight(npcSpeechLabel.getPrefHeight());
@@ -544,6 +544,11 @@ public class MapView implements Screen {
                         if (texture != null) {
                             batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
                         }
+                    } else if (element instanceof SellingBin) {
+                        Texture texture = mapManager.getSellingBinTexture();
+                        if (texture != null) {
+                            batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
+                        }
                     } else {
                         batch.setColor(Color.BROWN);
                         batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
@@ -750,14 +755,40 @@ public class MapView implements Screen {
                 }
             }
 
-            if (clickedTile != null && clickedTile.getStaticElement().isPresent() &&
-                clickedTile.getStaticElement().get() instanceof Npc) {
-                Npc npc = (Npc) clickedTile.getStaticElement().get();
-                if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
-                    if (npc.isDialogueReady()) {
-                        float npcWorldX = clickPos.x;
-                        float npcWorldY = clickPos.y;
-                        showNpcSpeech(npc, gameInstance.getCurrentPlayer(), npcWorldX, npcWorldY);
+            if (clickedTile != null && clickedTile.getStaticElement().isPresent()) {
+                StaticElement element = clickedTile.getStaticElement().get();
+                if (element instanceof Npc) {
+                    Npc npc = (Npc) element;
+                    if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
+                        if (npc.isDialogueReady()) {
+                            float npcWorldX = clickPos.x;
+                            float npcWorldY = clickPos.y;
+                            showNpcSpeech(npc, gameInstance.getCurrentPlayer(), npcWorldX, npcWorldY);
+                        }
+                    }
+                } else if (element instanceof SellingBin) {
+                    if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
+                        gameView.showInventoryForSelling();
+                    }
+                } else if (element instanceof Store) {
+                    Store store = (Store) element;
+                    if (store.getName().equalsIgnoreCase("Blacksmith")) {
+                        if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
+                            if (store.isOpen()) {
+                                gameView.showBlacksmithView(store);
+                            } else {
+                                showResultDialog("The Blacksmith is closed.");
+                            }
+                        }
+                    } else if (store.getName().equalsIgnoreCase("Fish Shop")) {
+                        // **FIX**: Added proximity check for the Fish Shop
+                        if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
+                            if (store.isOpen()) {
+                                gameView.showFishShopView(store);
+                            } else {
+                                showResultDialog("The Fish Shop is closed.");
+                            }
+                        }
                     }
                 }
             }

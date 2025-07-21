@@ -109,6 +109,12 @@ public class VillageTemplate {
             ));
         }
 
+        // Add selling bins
+        placements.add(new Placement(new SellingBin(), 0, 8, 1, 1));
+        placements.add(new Placement(new SellingBin(), 19, 8, 1, 1));
+        placements.add(new Placement(new SellingBin(), 10, 0, 1, 1));
+
+
         return new VillageTemplate(20, 20, placements);
     }
 }
