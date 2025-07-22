@@ -610,7 +610,7 @@ public class User {
 
     public Item getRefrigeratorItem(String itemName) {
         for (Item item : refrigeratorItems) {
-            if (item.getName().equals(itemName)) {
+            if (item.getName().equalsIgnoreCase(itemName)) {
                 return item;
             }
         }
@@ -626,6 +626,7 @@ public class User {
             newItem.setName(item.getName());
             newItem.setType(item.getType());
             newItem.setQuantity(item.getQuantity());
+            newItem.setPath(item.getPath());
             refrigeratorItems.add(newItem);
         }
     }

@@ -280,13 +280,13 @@ public class Store implements StaticElement {
                 }
 
                 int endIndex = parts.length;
-                if (parts.length > 0 && parts[parts.length - 1].equals("Recipe")) {
+                if (parts.length > 0 && parts[parts.length - 1].equalsIgnoreCase("Recipe")) {
                     endIndex = parts.length - 1;
                 }
 
                 String productName = String.join(" ", Arrays.copyOfRange(parts, startIndex, endIndex));
 
-                if (parts[parts.length - 1].equals("Recipe")) {
+                if (input.toLowerCase().endsWith("recipe")) {
                     return handleRecipePurchase(player, productName);
                 } else {
                     return handleFoodPurchase(player, productName);
@@ -354,20 +354,21 @@ public class Store implements StaticElement {
             return result;
         }
 
-        if (!availableRecipes.contains(recipeName)) {
+        String lowerCaseRecipeName = recipeName.toLowerCase();
+        if (!availableRecipes.stream().anyMatch(r -> r.equalsIgnoreCase(recipeName))) {
             result.setMessage("Recipe not available");
             result.setSuccess(false);
             return result;
         }
 
-        int price = recipePrices.get(recipeName.toLowerCase());
+        int price = recipePrices.get(lowerCaseRecipeName);
         if (player.getMoney() < price) {
             result.setMessage("Not enough money");
             result.setSuccess(false);
             return result;
         }
 
-        if (player.getCookRecipes().contains(recipeName)) {
+        if (player.getCookRecipes().stream().anyMatch(r -> r.equalsIgnoreCase(recipeName))) {
             result.setMessage("Already know this recipe");
             result.setSuccess(false);
             return result;
@@ -375,7 +376,7 @@ public class Store implements StaticElement {
 
         player.setMoney(player.getMoney() - price);
         player.learnRecipe(recipeName);
-        soldRecipes.put(recipeName, 1);
+        soldRecipes.put(recipeName, soldRecipes.getOrDefault(recipeName, 0) + 1);
 
         result.setSuccess(true);
         result.setMessage("Learned " + recipeName + " recipe");

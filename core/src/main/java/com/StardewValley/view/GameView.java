@@ -37,6 +37,8 @@ public class GameView implements Screen {
     private CraftingMenuScreenView craftingMenuScreenView; // Assumed you will add this class
     private BlacksmithView blacksmithView;
     private FishShopView fishShopView;
+    private SaloonView saloonView;
+    private KitchenView kitchenView;
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -332,11 +334,11 @@ public class GameView implements Screen {
                 Tools.addBeginnerPickaxeToInventory(user.getInventory());
                 Tools.addBeginnerAxeToInventory(user.getInventory());
                 Tools.addBeginnerWateringcanToInventory(user.getInventory());
-          //      Tools.addLearningFishingpoleToInventory(user.getInventory());
+                //      Tools.addLearningFishingpoleToInventory(user.getInventory());
                 Tools.addBeginnerScytheToInventory(user.getInventory());
                 Tools.addBeginnerMilkPailToInventory(user.getInventory());
                 Tools.addBeginnerShearToInventory(user.getInventory());
-           //     Tools.addBeginnerTrashbinToInventory(user.getInventory());
+                //     Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
             // FIX: Initialize quests BEFORE creating the map
@@ -452,6 +454,20 @@ public class GameView implements Screen {
         game.setScreen(fishShopView);
     }
 
+    public void showSaloonView(Store saloon) {
+        if (saloonView == null) { // or some isDisposed check
+            saloonView = new SaloonView(game, loginController, this, saloon);
+        }
+        game.setScreen(saloonView);
+    }
+
+    public void showKitchenView() {
+        if (kitchenView == null) {
+            kitchenView = new KitchenView(game, loginController, this);
+        }
+        game.setScreen(kitchenView);
+    }
+
 
     // You will need to create this class yourself based on your colleague's code
     public void showCraftingMenu(User player) {
@@ -530,6 +546,9 @@ public class GameView implements Screen {
         }
         if (craftingMenuScreenView != null) {
             craftingMenuScreenView.dispose();
+        }
+        if (kitchenView != null) {
+            kitchenView.dispose();
         }
     }
 }

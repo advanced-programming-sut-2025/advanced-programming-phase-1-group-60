@@ -1,7 +1,6 @@
 package com.StardewValley.models;
 
 import java.util.HashMap;
-import java.util.Map;
 
 public class Item {
     private int id;
@@ -54,8 +53,9 @@ public class Item {
         return type;
     }
 
-    public void setType(String type) {
+    public Item setType(String type) {
         this.type = type;
+        return this;
     }
 
     public int getBasePrice() {

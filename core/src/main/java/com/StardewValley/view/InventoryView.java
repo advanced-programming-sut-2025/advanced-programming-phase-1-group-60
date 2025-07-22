@@ -99,6 +99,8 @@ public class InventoryView implements Screen {
     }
 
     private void addTestItems() {
+        player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
+        player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
         player.getInventory().addItem(new Item("Copper_Bar", 100, "assets/Inventory/Copper_Bar.png"));
         player.getInventory().addItem(new Item("Wood", 200, "assets/Inventory/Wood.png"));
     }

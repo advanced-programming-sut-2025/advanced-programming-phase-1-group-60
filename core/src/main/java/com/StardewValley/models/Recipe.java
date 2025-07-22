@@ -9,6 +9,7 @@ public class Recipe {
     private int energy;
     private String source;
     private int sellPrice;
+    private String Path;
 
     public Recipe(String name, Map<String, Integer> ingredients, int energy, String source, int sellPrice) {
         this.name = name;
@@ -21,9 +22,24 @@ public class Recipe {
         this.sellPrice = sellPrice;
     }
 
+    public Recipe(String name, Map<String, Integer> ingredients, int energy, String source, int sellPrice, String Path) {
+        this.name = name;
+        // >>> FIX HERE <<<
+        // If the 'ingredients' map passed to the constructor is null,
+        // initialize it to an empty HashMap instead.
+        this.ingredients = (ingredients != null) ? ingredients : new HashMap<>();
+        this.energy = energy;
+        this.source = source;
+        this.sellPrice = sellPrice;
+        this.Path = Path;
+    }
+
     // Getters and Setters
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getPath() { return Path; }
+    public void setPath(String Path) { this.Path = Path; }
 
     public Map<String, Integer> getIngredients() { return ingredients; }
 

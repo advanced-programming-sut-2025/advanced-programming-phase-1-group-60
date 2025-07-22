@@ -273,11 +273,6 @@ public class Tools extends Item {
         return type;
     }
 
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
     public HashMap<String, Object> getAttributes() {
         return attributes;
     }

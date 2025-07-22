@@ -84,34 +84,40 @@ public class StoreRepository {
                 store.addFoodItem(createFoodItem(
                     "Beer",
                     400,
-                    0
+                    0,
+                    "assets/Inventory/Food/Beer.png"
                 ));
 
                 store.addFoodItem(createFoodItem(
                     "Salad",
                     220,
-                    113
+                    113,
+                    "assets/Inventory/FoodRecipes/Salad.png"
                 ));
 
                 store.addFoodItem(createFoodItem(
                     "Bread",
                     120,
-                    50
+                    50,
+                    "assets/Inventory/FoodRecipes/Bread.png"
                 ));
                 store.addFoodItem(createFoodItem(
                     "Spaghetti",
                     240,
-                    75
+                    75,
+                    "assets/Inventory/FoodRecipes/Spaghetti.png"
                 ));
                 store.addFoodItem(createFoodItem(
                     "Pizza",
                     240,
-                    150
+                    150,
+                    "assets/Inventory/FoodRecipes/Pizza.png"
                 ));
                 store.addFoodItem(createFoodItem(
                     "Coffee",
                     300,
-                    60
+                    60,
+                    "assets/Inventory/Food/Coffee.png"
                 ));
                 store.soldRecipes.clear();
                 store.workTime = new Store.WorkTime(12, 24);
@@ -142,12 +148,14 @@ public class StoreRepository {
         return item;
     }
 
-    private Item createFoodItem(String name, int price, int energy) {
+    private Item createFoodItem(String name, int price, int energy, String path) {
         Item item = new Item();
         item.setName(name);
         item.setStorePrice(price);
         item.setType("Food");
         item.getProperties().put("energy", energy);
+        item.setPath(path);
+        item.setQuantity(1);
         return item;
     }
 }
