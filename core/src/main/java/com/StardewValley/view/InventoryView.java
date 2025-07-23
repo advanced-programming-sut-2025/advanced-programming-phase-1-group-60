@@ -18,12 +18,14 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.DragAndDrop;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
@@ -66,9 +68,12 @@ public class InventoryView implements Screen {
     private Label sellQuantityLabel;
     private Item selectedSellItem;
     private int sellQuantity = 1;
-
+    private Texture gameBackgroundTexture;
     // Field for the trash can image to allow for dynamic updates
     private Image trashBinImage;
+    private Texture inventoryTexture;
+    private Texture inventoryNothingTexture;
+    private Label sectionTitleLabel;
 
     public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget) {
         this.game = game;
@@ -81,6 +86,8 @@ public class InventoryView implements Screen {
         this.dragAndDrop = new DragAndDrop();
         this.textureCache = new HashMap<>();
         this.giftingTarget = giftingTarget;
+        inventoryTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Inventory.png"));
+        inventoryNothingTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Inventory_nothing.png"));
 
         Pixmap pixmap = new Pixmap(64, 64, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.MAGENTA);
@@ -151,35 +158,82 @@ public class InventoryView implements Screen {
     }
 
     private void createUI() {
-        Table root = new Table();
-        root.setFillParent(true);
-        root.setBackground(new TextureRegionDrawable(new Texture(Gdx.files.internal("assets/Background/layers/background.png"))));
+        stage.clear();
+        if (gameBackgroundTexture != null) {
+            Image backgroundImage = new Image(gameBackgroundTexture);
+            backgroundImage.setFillParent(true);
+            stage.addActor(backgroundImage);
+            Pixmap overlayPixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+            overlayPixmap.setColor(0, 0, 0, 0.6f);
+            overlayPixmap.fill();
+            Texture overlayTexture = new Texture(overlayPixmap);
+            overlayPixmap.dispose();
+            Image darkOverlay = new Image(overlayTexture);
+            darkOverlay.setFillParent(true);
+            stage.addActor(darkOverlay);
+        }
+
+        Image inventoryImage = new Image(inventoryTexture);
+        float inventoryWidth = 1000;
+        float inventoryHeight = 600;
+        inventoryImage.setSize(inventoryWidth, inventoryHeight);
+        inventoryImage.setPosition(
+            (Gdx.graphics.getWidth() - inventoryWidth) / 2f,
+            (Gdx.graphics.getHeight() - inventoryHeight) / 2f
+        );
+        stage.addActor(inventoryImage);
+
+        sectionTitleLabel = new Label("Items", menuManager.getPixthulhuSkin(), "title");
+        sectionTitleLabel.setAlignment(Align.center);
+        sectionTitleLabel.setFontScale(0.8f);
+        sectionTitleLabel.setPosition(1045, 315);
+        sectionTitleLabel.setSize(280, 140);
+        stage.addActor(sectionTitleLabel);
 
         Table sidebarContent = createSidebarContent();
-        ScrollPane sidebar = new ScrollPane(sidebarContent, menuManager.getPixthulhuSkin());
+        Table sidebarTable = new Table();
+        sidebarTable.setFillParent(true);
+        sidebarTable.top().left().pad(0, 100, 0, 0);
+        sidebarTable.add(sidebarContent).width(200).top().left();
+        stage.addActor(sidebarTable);
 
-        Table contentArea = new Table();
         contentTable = new Table();
-        ScrollPane scrollPane = new ScrollPane(contentTable, menuManager.getPixthulhuSkin());
-        contentArea.add(scrollPane).expand().fill().pad(20).row();
+        contentTable.top().left();
+        contentTable.setPosition(550, 720 - 400);
+        contentTable.setSize(300, 400);
+        stage.addActor(contentTable);
 
         giftControlsTable = new Table(menuManager.getPixthulhuSkin());
         createGiftControls();
         giftControlsTable.setVisible(false);
-        contentArea.add(giftControlsTable).expandX().bottom().pad(10).row();
+        Table giftControlsContainer = new Table();
+        giftControlsContainer.setFillParent(true);
+        giftControlsContainer.bottom().padBottom(20);
+        giftControlsContainer.add(giftControlsTable);
+        stage.addActor(giftControlsContainer);
 
         sellControlsTable = new Table(menuManager.getPixthulhuSkin());
         createSellControls();
         sellControlsTable.setVisible(false);
-        contentArea.add(sellControlsTable).expandX().bottom().pad(10).row();
+        Table sellControlsContainer = new Table();
+        sellControlsContainer.setFillParent(true);
+        sellControlsContainer.bottom().padBottom(20);
+        sellControlsContainer.add(sellControlsTable);
+        stage.addActor(sellControlsContainer);
 
-        trashBinImage = new Image(); // Initialize as an empty image
-        contentArea.add(trashBinImage).size(96).expandX().bottom().right().pad(15);
+        trashBinImage = new Image(trashCanBeginnerTexture);
+        Table trashContainer = new Table();
+        trashContainer.setFillParent(true);
+        trashContainer.bottom().right().pad(50);
+        trashContainer.add(trashBinImage).size(70);
+        stage.addActor(trashContainer);
 
-        root.add(sidebar).width(450).growY();
-        root.add(contentArea).expand().fill();
-        stage.addActor(root);
+        setupDragAndDrop();
 
+        showItems();
+    }
+    private void setupDragAndDrop() {
+        dragAndDrop = new DragAndDrop();
         dragAndDrop.addTarget(new DragAndDrop.Target(trashBinImage) {
             @Override
             public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
@@ -200,10 +254,7 @@ public class InventoryView implements Screen {
                 showItems();
             }
         });
-
-        showItems();
     }
-
     private void showResultDialog(String message) {
         Dialog dialog = new Dialog("Result", menuManager.getPixthulhuSkin());
         dialog.text(message);
@@ -319,8 +370,7 @@ public class InventoryView implements Screen {
     private Table createSidebarContent() {
         Table sidebar = new Table();
         sidebar.top().pad(5);
-        sidebar.setBackground(new TextureRegionDrawable(new Texture(Gdx.files.internal("assets/Background/layers/middleground.png"))));
-        float buttonHeight = 48;
+        float buttonHeight = 90;
         float pad = 6;
 
         TextButton itemsButton = new TextButton("Items", menuManager.getPixthulhuSkin());
@@ -353,23 +403,28 @@ public class InventoryView implements Screen {
 
     private void showItems() {
         contentTable.clear();
-        contentTable.top().left().pad(10);
+        contentTable.top().left();
+        sectionTitleLabel.setText("Items");
+
+        updateBackgroundToItems();
+
         int col = 0;
-        final int ITEMS_PER_ROW = 5;
+        final int ITEMS_PER_ROW = 6;
 
         if (giftingTarget != null) {
-            contentTable.add(new Label("Select an item to gift to " + giftingTarget.getName(), menuManager.getPixthulhuSkin(), "title")).colspan(ITEMS_PER_ROW).padBottom(20).row();
+            contentTable.add(new Label("Select an item to gift to " + giftingTarget.getName(),
+                menuManager.getPixthulhuSkin())).colspan(ITEMS_PER_ROW).padBottom(5).row();
         } else if (sellingMode) {
-            contentTable.add(new Label("Select an item to sell", menuManager.getPixthulhuSkin(), "title")).colspan(ITEMS_PER_ROW).padBottom(20).row();
+            contentTable.add(new Label("Select an item to sell",
+                menuManager.getPixthulhuSkin())).colspan(ITEMS_PER_ROW).padBottom(5).row();
         }
-
 
         for (Item item : player.getInventory().getItems()) {
             Button itemButton = new Button(new Button.ButtonStyle());
             Stack itemSlot = createItemSlot(item);
             itemButton.add(itemSlot);
 
-            contentTable.add(itemButton).size(80).pad(8);
+            contentTable.add(itemButton).size(60, 60);
 
             if (giftingTarget == null && !sellingMode) {
                 dragAndDrop.addSource(new DragAndDrop.Source(itemButton) {
@@ -383,7 +438,8 @@ public class InventoryView implements Screen {
                     }
 
                     @Override
-                    public void dragStop(InputEvent event, float x, float y, int pointer, DragAndDrop.Payload payload, DragAndDrop.Target target) {
+                    public void dragStop(InputEvent event, float x, float y, int pointer,
+                                         DragAndDrop.Payload payload, DragAndDrop.Target target) {
                         getActor().setColor(Color.WHITE);
                     }
                 });
@@ -474,10 +530,15 @@ public class InventoryView implements Screen {
         giftControlsTable.setVisible(false);
         sellControlsTable.setVisible(false);
         contentTable.clear();
-        contentTable.pad(20).top().left();
-        contentTable.add(new Label("Skills", menuManager.getPixthulhuSkin(), "title")).padBottom(20).row();
+        sectionTitleLabel.setText("Skills");
+        sectionTitleLabel.setFontScale(0.8f);
+        updateBackgroundToEmpty();
+
+        contentTable.pad(30).top().left();
         for (Skill skill : player.getSkills()) {
-            Label skillLabel = new Label(skill.getName() + " - Level: " + skill.getLevel(), menuManager.getPixthulhuSkin());
+            Label skillLabel = new Label(skill.getName() + " - Level: " + skill.getLevel(),
+                menuManager.getPixthulhuSkin());
+            skillLabel.setFontScale(0.7f); // Make skills text smaller
             contentTable.add(skillLabel).left().pad(10).row();
         }
     }
@@ -486,23 +547,80 @@ public class InventoryView implements Screen {
         giftControlsTable.setVisible(false);
         sellControlsTable.setVisible(false);
         contentTable.clear();
-        contentTable.pad(20).top().left();
-        contentTable.add(new Label("Social", menuManager.getPixthulhuSkin(), "title")).padBottom(20).row();
+        sectionTitleLabel.setText("Social");
+        sectionTitleLabel.setFontScale(0.8f);
+        updateBackgroundToEmpty();
+
+        contentTable.pad(30).top().left();
+
         Table socialTable = new Table();
         socialTable.top().left();
-        socialTable.add(new Label("--- Players ---", menuManager.getPixthulhuSkin())).pad(10).row();
+        Table playersColumn = new Table();
+        playersColumn.top().left();
+        Label playersHeader = new Label("--- Players ---", menuManager.getPixthulhuSkin());
+        playersHeader.setFontScale(0.7f);
+        playersColumn.add(playersHeader).pad(10).row();
+
         for (Map.Entry<User, Integer> entry : player.getFriendshipXpsWithUsers().entrySet()) {
             if (entry.getKey() != player) {
-                socialTable.add(new Label(entry.getKey().getUsername() + ": " + entry.getValue() + " XP", menuManager.getPixthulhuSkin())).left().pad(5).row();
+                Label playerLabel = new Label(entry.getKey().getUsername() + ": " + entry.getValue() + " XP",
+                    menuManager.getPixthulhuSkin());
+                playerLabel.setFontScale(0.6f);
+                playersColumn.add(playerLabel).left().pad(5).row();
             }
         }
-        socialTable.add(new Label("\n--- NPCs ---", menuManager.getPixthulhuSkin())).pad(10).row();
+
+        Table npcsColumn = new Table();
+        npcsColumn.top().left();
+        Label npcsHeader = new Label("--- NPCs ---", menuManager.getPixthulhuSkin());
+        npcsHeader.setFontScale(0.7f);
+        npcsColumn.add(npcsHeader).pad(10).row();
+
         for (Map.Entry<Npc, Integer> entry : player.getFriendshipXpsWithNPCs().entrySet()) {
-            socialTable.add(new Label(entry.getKey().getName() + ": " + entry.getValue() + " XP", menuManager.getPixthulhuSkin())).left().pad(5).row();
+            Label npcLabel = new Label(entry.getKey().getName() + ": " + entry.getValue() + " XP",
+                menuManager.getPixthulhuSkin());
+            npcLabel.setFontScale(0.6f);
+            npcsColumn.add(npcLabel).left().pad(5).row();
         }
+        socialTable.add(playersColumn).top().left().padRight(100);
+        socialTable.add(npcsColumn).top().left();
         contentTable.add(socialTable);
     }
-
+    public void setBackgroundTexture(Texture texture) {
+        this.gameBackgroundTexture = texture;
+        if (stage != null) {
+            stage.clear();
+            createUI();
+        }
+    }
+    private void updateBackgroundToEmpty() {
+        for (Actor actor : stage.getActors()) {
+            if (actor instanceof Image) {
+                Drawable drawable = ((Image)actor).getDrawable();
+                if (drawable instanceof TextureRegionDrawable) {
+                    TextureRegion region = ((TextureRegionDrawable)drawable).getRegion();
+                    if (region != null && region.getTexture() == inventoryTexture) {
+                        ((Image)actor).setDrawable(new TextureRegionDrawable(inventoryNothingTexture));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    private void updateBackgroundToItems() {
+        for (Actor actor : stage.getActors()) {
+            if (actor instanceof Image) {
+                Drawable drawable = ((Image)actor).getDrawable();
+                if (drawable instanceof TextureRegionDrawable) {
+                    TextureRegion region = ((TextureRegionDrawable)drawable).getRegion();
+                    if (region != null && region.getTexture() == inventoryNothingTexture) {
+                        ((Image)actor).setDrawable(new TextureRegionDrawable(inventoryTexture));
+                        break;
+                    }
+                }
+            }
+        }
+    }
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -510,7 +628,6 @@ public class InventoryView implements Screen {
 
         stage.act(delta);
         stage.draw();
-
         if (stage.getBatch() != null) {
             stage.getBatch().setColor(Color.WHITE);
         }

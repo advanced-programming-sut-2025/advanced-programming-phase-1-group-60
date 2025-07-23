@@ -10,6 +10,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Stage;
@@ -49,7 +50,7 @@ public class GameView implements Screen {
     private Label statusLabel;
     private Label mapStatusLabel;
     private boolean isGameRunning = false;
-
+    private Texture lastFrameTexture;
 
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController) {
         this.game = game;
@@ -417,6 +418,11 @@ public class GameView implements Screen {
     public void showInventoryScreen() {
         if (inventoryView == null || inventoryView.isDisposed()) {
             inventoryView = new InventoryView(game, loginController, this, null);
+            if (lastFrameTexture != null) {
+                inventoryView.setBackgroundTexture(lastFrameTexture);
+            }
+        } else {
+            inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
@@ -424,8 +430,12 @@ public class GameView implements Screen {
     public void showInventoryForGifting(Npc targetNpc) {
         if (inventoryView == null || inventoryView.isDisposed()) {
             inventoryView = new InventoryView(game, loginController, this, targetNpc);
+            if (lastFrameTexture != null) {
+                inventoryView.setBackgroundTexture(lastFrameTexture);
+            }
         } else {
             inventoryView.setGiftingTarget(targetNpc);
+            inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
@@ -434,8 +444,12 @@ public class GameView implements Screen {
         if (inventoryView == null || inventoryView.isDisposed()) {
             inventoryView = new InventoryView(game, loginController, this, null);
             inventoryView.setSellingMode(true);
+            if (lastFrameTexture != null) {
+                inventoryView.setBackgroundTexture(lastFrameTexture);
+            }
         } else {
             inventoryView.setSellingMode(true);
+            inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
@@ -483,7 +497,9 @@ public class GameView implements Screen {
         }
     }
 
-
+    public void setLastFrameTexture(Texture texture) {
+        this.lastFrameTexture = texture;
+    }
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
@@ -550,5 +566,6 @@ public class GameView implements Screen {
         if (kitchenView != null) {
             kitchenView.dispose();
         }
+        if (lastFrameTexture != null) lastFrameTexture.dispose();
     }
 }
