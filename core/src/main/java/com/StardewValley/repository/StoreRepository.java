@@ -36,20 +36,28 @@ public class StoreRepository {
                 store.soldBinsUpgrades.clear();
                 store.workTime = new Store.WorkTime(9, 16);
             } else if ("Marin'sRanch".equalsIgnoreCase(store.getName())) {
-          /* store.getItems().addAll(List.of(
-                    createItem(220, "Hay", 50),
-                    createItem(227, "Milk Pail", 1000),
-                    createItem(228, "Shears", 1000)
-                ));*/
+                store.getItems().addAll(List.of(
+                    createItem(220, "Hay", 50, "assets/Inventory/ToolsAndUpgrade/Hay.png"),
+                    createItem(227, "Milk Pail", 1000, "assets/Inventory/ToolsAndUpgrade/Milk_Pail.png"),
+                    createItem(228, "Shears", 1000, "assets/Inventory/ToolsAndUpgrade/Shears.png")
+                ));
                 store.animals.addAll(List.of(
-                    new Animal("Chicken", "Coop", new String[]{"Coop"}, 800),
-                    new Animal("Duck", "Coop", new String[]{"Big Coop", "Deluxe Coop"}, 1200),
-                    new Animal("Rabbit", "Coop", new String[]{"Deluxe Coop"}, 8000),
-                    new Animal("Dinosaur", "Coop", new String[]{"Big Coop"}, 14000),
-                    new Animal("Cow", "Barn", new String[]{"Barn"}, 1500),
-                    new Animal("Goat", "Barn", new String[]{"Big Barn", "Deluxe"}, 4000),
-                    new Animal("Sheep", "Barn", new String[]{"Deluxe Barn"}, 8000),
-                    new Animal("Pig", "Barn", new String[]{"Deluxe Barn"}, 16000)
+                    new Animal("Chicken", "Coop", new String[]{"Coop"}, 800,
+                        "assets/Inventory/Animals/Chicken.png"),
+                    new Animal("Duck", "Coop", new String[]{"Big Coop", "Deluxe Coop"}, 1200,
+                        "assets/Inventory/Animals/Duck.png"),
+                    new Animal("Rabbit", "Coop", new String[]{"Deluxe Coop"}, 8000,
+                        "assets/Inventory/Animals/Rabbit.png"),
+                    new Animal("Dinosaur", "Coop", new String[]{"Big Coop"}, 14000,
+                        "assets/Inventory/Animals/Dinosaur.png"),
+                    new Animal("Cow", "Barn", new String[]{"Barn"}, 1500,
+                        "assets/Inventory/Animals/Cow.png"),
+                    new Animal("Goat", "Barn", new String[]{"Big Barn", "Deluxe"}, 4000,
+                        "assets/Inventory/Animals/Goat.png"),
+                    new Animal("Sheep", "Barn", new String[]{"Deluxe Barn"}, 8000,
+                        "assets/Inventory/Animals/Sheep.png"),
+                    new Animal("Pig", "Barn", new String[]{"Deluxe Barn"}, 16000,
+                        "assets/Inventory/Animals/Pig.png")
                 ));
                 store.workTime = new Store.WorkTime(9, 16);
             } else if ("Carpenter'sShop".equalsIgnoreCase(store.getName())) {

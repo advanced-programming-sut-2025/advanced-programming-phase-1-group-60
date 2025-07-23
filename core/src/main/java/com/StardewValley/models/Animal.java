@@ -23,13 +23,15 @@ public class Animal {
     private String secondaryProduct;
     private boolean hasProducedToday;
     private Item currentProduct;
+    private String path;
 
-    public Animal(String type, String buildingType,String buildings[], int basePrice) {
+    public Animal(String type, String buildingType,String buildings[], int basePrice, String path) {
         this.type = type;
         this.buildings = buildings;
         this.buildingType = buildingType;
         this.friendship = 0;
         this.baseProductPrice = basePrice;
+        this.path = path;
         initializeProducts();
     }
 
@@ -241,6 +243,10 @@ public class Animal {
     public void setName (String newName) {
         name = newName;
     }
+
+    public void setPath (String newPath) { path = newPath; }
+
+    public String getPath() { return path; }
 
 
 

@@ -940,7 +940,7 @@ public class MapView implements Screen {
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                         gameView.showInventoryForSelling();
                     }
-                } else if (element instanceof Store) {
+                }  else if (element instanceof Store) {
                     Store store = (Store) element;
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                         if (store.isOpen()) {
@@ -950,6 +950,8 @@ public class MapView implements Screen {
                                 gameView.showFishShopView(store);
                             } else if (store.getName().equalsIgnoreCase("The Stardrop Saloon")) {
                                 gameView.showSaloonView(store);
+                            } else if (store.getName().equalsIgnoreCase("Marin'sRanch")) {
+                                gameView.showMarinsRanchView(store);
                             }
                         } else {
                             showResultDialog("The " + store.getName() + " is closed.");

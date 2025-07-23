@@ -38,6 +38,7 @@ public class GameView implements Screen {
     private BlacksmithView blacksmithView;
     private FishShopView fishShopView;
     private SaloonView saloonView;
+    private MarinsRanchView marinsRanchView;
     private KitchenView kitchenView;
 
     private Table mainMenuTable;
@@ -336,8 +337,8 @@ public class GameView implements Screen {
                 Tools.addBeginnerWateringcanToInventory(user.getInventory());
                 //      Tools.addLearningFishingpoleToInventory(user.getInventory());
                 Tools.addBeginnerScytheToInventory(user.getInventory());
-                Tools.addBeginnerMilkPailToInventory(user.getInventory());
-                Tools.addBeginnerShearToInventory(user.getInventory());
+               // Tools.addBeginnerMilkPailToInventory(user.getInventory());
+             //   Tools.addBeginnerShearToInventory(user.getInventory());
                 //     Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
@@ -459,6 +460,13 @@ public class GameView implements Screen {
             saloonView = new SaloonView(game, loginController, this, saloon);
         }
         game.setScreen(saloonView);
+    }
+
+    public void showMarinsRanchView(Store marinsRanch) {
+        if (marinsRanchView == null) { // or some isDisposed check
+            marinsRanchView = new MarinsRanchView(game, loginController, this, marinsRanch);
+        }
+        game.setScreen(marinsRanchView);
     }
 
     public void showKitchenView() {
