@@ -11,6 +11,8 @@ import com.badlogic.gdx.graphics.Texture;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 public class MapManager {
     private static MapManager instance;
@@ -43,6 +45,14 @@ public class MapManager {
     private Map<String, Texture> npcTextures;
     private Texture storeTexture;
 
+    // Character textures
+    private Texture playerSpriteSheet;
+    private Animation<TextureRegion> walkDownAnimation;
+    private Animation<TextureRegion> walkRightAnimation;
+    private Animation<TextureRegion> walkUpAnimation;
+    private Animation<TextureRegion> walkLeftAnimation;
+    private Animation<TextureRegion> idleDownAnimation;
+
     private MapManager() {
         random = new Random();
         npcTextures = new HashMap<>();
@@ -55,7 +65,44 @@ public class MapManager {
         }
         return instance;
     }
+    private void loadPlayerAnimations() {
+        playerSpriteSheet = new Texture(Gdx.files.internal("Map/Character/Alex.png"));
 
+        // Split the sprite sheet into 4x4 grid
+        TextureRegion[][] frames = TextureRegion.split(playerSpriteSheet,
+            playerSpriteSheet.getWidth() / 4, playerSpriteSheet.getHeight() / 4);
+
+        // Create animations for each direction (4 frames each)
+        TextureRegion[] walkDownFrames = new TextureRegion[4];
+        TextureRegion[] walkRightFrames = new TextureRegion[4];
+        TextureRegion[] walkUpFrames = new TextureRegion[4];
+        TextureRegion[] walkLeftFrames = new TextureRegion[4];
+
+        // Extract frames for each direction
+        for (int i = 0; i < 4; i++) {
+            walkDownFrames[i] = frames[0][i];  // First row - walking down
+            walkRightFrames[i] = frames[1][i]; // Second row - walking right
+            walkUpFrames[i] = frames[2][i];    // Third row - walking up
+            walkLeftFrames[i] = frames[3][i];  // Fourth row - walking left
+        }
+
+        // Create animations with 0.15f frame duration
+        float frameDuration = 0.15f;
+        walkDownAnimation = new Animation<>(frameDuration, walkDownFrames);
+        walkRightAnimation = new Animation<>(frameDuration, walkRightFrames);
+        walkUpAnimation = new Animation<>(frameDuration, walkUpFrames);
+        walkLeftAnimation = new Animation<>(frameDuration, walkLeftFrames);
+
+        // Idle animation uses first frame of walking down
+        idleDownAnimation = new Animation<>(frameDuration, walkDownFrames[0]);
+
+        // Set all animations to loop
+        walkDownAnimation.setPlayMode(Animation.PlayMode.LOOP);
+        walkRightAnimation.setPlayMode(Animation.PlayMode.LOOP);
+        walkUpAnimation.setPlayMode(Animation.PlayMode.LOOP);
+        walkLeftAnimation.setPlayMode(Animation.PlayMode.LOOP);
+        idleDownAnimation.setPlayMode(Animation.PlayMode.LOOP);
+    }
     private void loadTextures() {
         // Basic textures
         grassTile = new Texture(Gdx.files.internal("Map/Floor/Grass.png"));
@@ -90,6 +137,9 @@ public class MapManager {
 
         // Load all foraging textures
         loadForagingTextures();
+
+        // Load player animations
+        loadPlayerAnimations();
     }
 
     // Basic texture getters
@@ -159,7 +209,11 @@ public class MapManager {
     public Texture getForagingTreeTexture(String imagePath) {
         return foragingTreeTextures.getOrDefault(imagePath, placeholderTile);
     }
-
+    public Animation<TextureRegion> getWalkDownAnimation() { return walkDownAnimation; }
+    public Animation<TextureRegion> getWalkRightAnimation() { return walkRightAnimation; }
+    public Animation<TextureRegion> getWalkUpAnimation() { return walkUpAnimation; }
+    public Animation<TextureRegion> getWalkLeftAnimation() { return walkLeftAnimation; }
+    public Animation<TextureRegion> getIdleAnimation() { return idleDownAnimation; }
     // NPC and Store texture methods
     public Texture getNpcTexture(String npcName) {
         return npcTextures.get(npcName.toLowerCase());
@@ -252,6 +306,7 @@ public class MapManager {
         disposeTextureMap(foragingMineralTextures);
         disposeTextureMap(foragingCropTextures);
         disposeTextureMap(foragingTreeTextures);
+        if (playerSpriteSheet != null) playerSpriteSheet.dispose();
     }
 
     private void disposeTextureMap(Map<String, Texture> textureMap) {

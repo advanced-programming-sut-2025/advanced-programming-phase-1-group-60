@@ -14,8 +14,10 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.scenes.scene2d.Actor;
@@ -23,9 +25,11 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -75,6 +79,15 @@ public class MapView implements Screen {
     private Label messageLabel;
     private String lastTurnMessage = "";
 
+    // Player animation fields
+    private Animation<TextureRegion> currentPlayerAnimation;
+    private float animationTime = 0f;
+    private int lastDirection = 0; // 0=down, 1=right, 2=up, 3=left
+    private boolean isMoving = false;
+
+    private Pixmap lastFramePixmap;
+    private Texture lastFrameTexture;
+
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
         this.gameView = gameView;
@@ -86,9 +99,7 @@ public class MapView implements Screen {
         this.camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         this.camera.zoom = DEFAULT_ZOOM;
         this.mapManager = MapManager.getInstance();
-
-        // This method was in your colleague's code but is missing from your GamePlayController.
-        // I've commented it out to prevent errors. Discuss with your colleague.
+        currentPlayerAnimation = MapManager.getInstance().getIdleAnimation();
         for (GamePlayController controller : playerControllers.values()) {
             controller.setMapViewControlled(true);
         }
@@ -125,7 +136,7 @@ public class MapView implements Screen {
 
         initializeFarmOwnerMap();
 
-        Vector2 farmCenter = getFarmCenter(currentFarmIndex); // Start at current player's farm center
+        Vector2 farmCenter = getFarmCenter(currentFarmIndex);
         this.playerPos = new Vector2(farmCenter);
         centerCameraOnPlayer();
 
@@ -141,19 +152,43 @@ public class MapView implements Screen {
         float speed = 200 * delta;
         Vector2 velocity = new Vector2();
 
-        if (Gdx.input.isKeyPressed(Input.Keys.A)) velocity.x -= 1;
-        if (Gdx.input.isKeyPressed(Input.Keys.D)) velocity.x += 1;
-        if (Gdx.input.isKeyPressed(Input.Keys.W)) velocity.y += 1;
-        if (Gdx.input.isKeyPressed(Input.Keys.S)) velocity.y -= 1;
+        isMoving = false;
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+            velocity.x -= 1;
+            lastDirection = 3; // Left
+            isMoving = true;
+            currentPlayerAnimation = MapManager.getInstance().getWalkLeftAnimation();
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+            velocity.x += 1;
+            lastDirection = 1; // Right
+            isMoving = true;
+            currentPlayerAnimation = MapManager.getInstance().getWalkRightAnimation();
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+            velocity.y += 1;
+            lastDirection = 2; // Up
+            isMoving = true;
+            currentPlayerAnimation = MapManager.getInstance().getWalkUpAnimation();
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            velocity.y -= 1;
+            lastDirection = 0; // Down
+            isMoving = true;
+            currentPlayerAnimation = MapManager.getInstance().getWalkDownAnimation();
+        }
+        if (!isMoving) {
+            currentPlayerAnimation = MapManager.getInstance().getIdleAnimation();
+        }
         velocity.nor().scl(speed);
 
         if (velocity.len() > 0) {
             Vector2 newPos = new Vector2(playerPos);
 
-            if (isAreaPassable(playerPos.x + velocity.x, playerPos.y)) {
+            if (isAreaPassable(newPos.x + velocity.x, newPos.y)) {
                 newPos.x += velocity.x;
             }
-            if (isAreaPassable(playerPos.x, playerPos.y + velocity.y)) {
+            if (isAreaPassable(newPos.x, newPos.y + velocity.y)) {
                 newPos.y += velocity.y;
             }
 
@@ -201,6 +236,7 @@ public class MapView implements Screen {
                 }
             }
         }
+        animationTime += delta;
         if (messageTimer > 0) {
             messageTimer -= delta;
         }
@@ -509,7 +545,38 @@ public class MapView implements Screen {
     }
 
     private void centerCameraOnPlayer() {
-        camera.position.set(playerPos.x, playerPos.y, 0);
+        if (inVillage) {
+            // Village - normal camera following
+            camera.position.set(playerPos.x, playerPos.y, 0);
+        } else {
+            // Farm - constrain camera but allow viewing water border
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            float farmWidth = FarmTemplate.WIDTH * TILE_SIZE;
+            float farmHeight = FarmTemplate.HEIGHT * TILE_SIZE;
+
+            // Add buffer to show water beyond farm borders (5-10 tiles)
+            float waterBuffer = 8 * TILE_SIZE; // Show 8 tiles of water beyond farm
+
+            // Calculate camera bounds (half viewport size)
+            float halfViewWidth = (Gdx.graphics.getWidth() * camera.zoom) / 2f;
+            float halfViewHeight = (Gdx.graphics.getHeight() * camera.zoom) / 2f;
+
+            // Calculate constrained camera position with water buffer
+            float targetX = playerPos.x;
+            float targetY = playerPos.y;
+
+            // Constrain X within farm bounds + water buffer
+            float minX = farmTopLeft.x - waterBuffer + halfViewWidth;
+            float maxX = farmTopLeft.x + farmWidth + waterBuffer - halfViewWidth;
+            targetX = Math.max(minX, Math.min(maxX, targetX));
+
+            // Constrain Y within farm bounds + water buffer
+            float minY = farmTopLeft.y - waterBuffer + halfViewHeight;
+            float maxY = farmTopLeft.y + farmHeight + waterBuffer - halfViewHeight;
+            targetY = Math.max(minY, Math.min(maxY, targetY));
+
+            camera.position.set(targetX, targetY, 0);
+        }
         camera.update();
     }
 
@@ -522,7 +589,18 @@ public class MapView implements Screen {
             centerCameraOnPlayer();
         }
     }
+    private void renderPlayer() {
+        TextureRegion currentFrame = currentPlayerAnimation.getKeyFrame(animationTime);
 
+        // Make character taller - 1.5x height ratio
+        float playerWidth = TILE_SIZE * 0.8f;
+        float playerHeight = TILE_SIZE * 1.5f;
+
+        // Adjust Y position so character stands on ground properly
+        float adjustedY = playerPos.y - (playerHeight - TILE_SIZE) * 0.5f;
+
+        batch.draw(currentFrame, playerPos.x, adjustedY, playerWidth, playerHeight);
+    }
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
@@ -534,7 +612,7 @@ public class MapView implements Screen {
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
         renderMap();
-        batch.draw(playerTexture, playerPos.x, playerPos.y, TILE_SIZE, TILE_SIZE);
+        renderPlayer();
         renderUI();
         batch.end();
 
@@ -555,13 +633,24 @@ public class MapView implements Screen {
         if (inVillage) {
             width = 20;
             height = 20;
-        } else {
+        }
+        else {
             width = FarmTemplate.WIDTH;
             height = FarmTemplate.HEIGHT;
         }
 
         Vector2 renderOffset = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
+        int waterBorderSize = 100; // How many tiles of water around the area
+        int totalWidth = width + (waterBorderSize * 2);
+        int totalHeight = height + (waterBorderSize * 2);
 
+        for (int y = -waterBorderSize; y < height + waterBorderSize; y++) {
+            for (int x = -waterBorderSize; x < width + waterBorderSize; x++) {
+                float posX = renderOffset.x + (x * TILE_SIZE);
+                float posY = renderOffset.y + (y * TILE_SIZE);
+                batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
+            }
+        }
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 final int finalX = x;
@@ -629,24 +718,29 @@ public class MapView implements Screen {
                         if (treeTexture != null) {
                             treesToRender.add(new TreeRenderData(treeTexture, posX, posY, false));
                         }
-                    } else if (element instanceof ForagingTree) {
+                    }
+                    else if (element instanceof ForagingTree) {
                         ForagingTree foragingTree = (ForagingTree) element;
                         Texture foragingTreeTexture = mapManager.getForagingTreeTexture(foragingTree.getImagePath());
                         if (foragingTreeTexture != null) {
                             treesToRender.add(new TreeRenderData(foragingTreeTexture, posX, posY, true));
                         }
-                    } else if (element instanceof ForagingMineral) {
+                    }
+                    else if (element instanceof ForagingMineral) {
                         ForagingMineral mineral = (ForagingMineral) element;
-                        Texture mineralTexture = mapManager.getForagingMineralTexture(mineral.getImagePath());
-                        if (mineralTexture != null) {
-                            batch.draw(mineralTexture, posX, posY, TILE_SIZE, TILE_SIZE);
-                        }
-                    } else if (element instanceof ForagingCrop) {
+                        Texture texture = mapManager.getForagingMineralTexture(mineral.getImagePath());
+                        float mineralSize = TILE_SIZE * 0.6f;
+                        float offsetX = (TILE_SIZE - mineralSize) / 2f;
+                        float offsetY = (TILE_SIZE - mineralSize) / 2f;
+                        batch.draw(texture, posX + offsetX, posY + offsetY, mineralSize, mineralSize);
+                    }
+                    else if (element instanceof ForagingCrop) {
                         ForagingCrop crop = (ForagingCrop) element;
-                        Texture cropTexture = mapManager.getForagingCropTexture(crop.getImagePath());
-                        if (cropTexture != null) {
-                            batch.draw(cropTexture, posX, posY, TILE_SIZE, TILE_SIZE);
-                        }
+                        Texture texture = mapManager.getForagingCropTexture(crop.getImagePath());
+                        float cropSize = TILE_SIZE * 0.7f;
+                        float offsetX = (TILE_SIZE - cropSize) / 2f;
+                        float offsetY = (TILE_SIZE - cropSize) / 2f;
+                        batch.draw(texture, posX + offsetX, posY + offsetY, cropSize, cropSize);
                     }
                 });
             }
@@ -877,8 +971,11 @@ public class MapView implements Screen {
             messageTimer = MESSAGE_DISPLAY_TIME;
         }
 
-        if(Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            captureCurrentFrame(); // Take screenshot
+            gameView.setLastFrameTexture(lastFrameTexture); // Pass to GameView
             gameView.showInventoryScreen();
+            return;// Use existing method
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.B)){
@@ -1016,40 +1113,67 @@ public class MapView implements Screen {
     }
 
     private boolean isAreaPassable(float worldX, float worldY) {
-        float hitboxInset = TILE_SIZE * 0.1f;
+        // Check all four corners with a smaller hitbox to prevent clipping
+        float hitboxInset = TILE_SIZE * 0.15f; // Increased inset for better boundary detection
         float hitboxX = worldX + hitboxInset;
         float hitboxY = worldY + hitboxInset;
         float hitboxWidth = TILE_SIZE - (2 * hitboxInset);
         float hitboxHeight = TILE_SIZE - (2 * hitboxInset);
+
+        // If ANY corner is not passable, the whole area is not passable
         boolean bottomLeft = isTilePassable(hitboxX, hitboxY);
         boolean bottomRight = isTilePassable(hitboxX + hitboxWidth, hitboxY);
         boolean topLeft = isTilePassable(hitboxX, hitboxY + hitboxHeight);
         boolean topRight = isTilePassable(hitboxX + hitboxWidth, hitboxY + hitboxHeight);
-        return bottomLeft && bottomRight && topLeft && topRight;
+
+        // Additional center point check for small objects
+        boolean center = isTilePassable(worldX + TILE_SIZE/2, worldY + TILE_SIZE/2);
+
+        return bottomLeft && bottomRight && topLeft && topRight && center;
     }
 
     private boolean isTilePassable(float worldX, float worldY) {
+        // First, absolute boundary check without even checking tiles
+        if (inVillage) {
+            // Village boundaries (0,0 to 19,19)
+            if (worldX < 0 || worldX >= 20 * TILE_SIZE ||
+                worldY < 0 || worldY >= 20 * TILE_SIZE) {
+                return false;
+            }
+        } else {
+            // Farm boundaries based on current farm
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            float farmWidth = FarmTemplate.WIDTH * TILE_SIZE;
+            float farmHeight = FarmTemplate.HEIGHT * TILE_SIZE;
+
+            // Adjust hitbox boundaries - extend top/bottom detection further
+            float topBoundaryAdjustment = TILE_SIZE * 0.8f; // Extend top detection
+            float bottomBoundaryAdjustment = TILE_SIZE * 0.00001f; // Extend bottom detection
+
+            if (worldX < farmTopLeft.x || worldX >= farmTopLeft.x + farmWidth ||
+                worldY < farmTopLeft.y - bottomBoundaryAdjustment ||
+                worldY >= farmTopLeft.y + farmHeight + topBoundaryAdjustment) {
+                return false;
+            }
+        }
+
+        // If we pass the hard boundary check, proceed with normal tile check
         Tile tile;
         if (inVillage) {
             int tileX = (int) (worldX / TILE_SIZE);
             int tileY = (int) (worldY / TILE_SIZE);
-            if (tileX < 0 || tileX >= 20 || tileY < 0 || tileY >= 20) {
-                return false;
-            }
             tile = gameMap.getVillage().getTile(tileX, 20 - 1 - tileY);
         } else {
             Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
             int localX = (int) ((worldX - farmTopLeft.x) / TILE_SIZE);
             int localY = (int) ((worldY - farmTopLeft.y) / TILE_SIZE);
-            if (localX < 0 || localX >= FarmTemplate.WIDTH || localY < 0 || localY >= FarmTemplate.HEIGHT) {
-                return false;
-            }
             tile = gameMap.getFarm(currentFarmIndex).getTile(localX, FarmTemplate.HEIGHT - 1 - localY);
         }
+
         if (tile == null) return false;
         if (tile.getStaticElement().isPresent()) {
             Object element = tile.getStaticElement().get();
-            if (element instanceof Cabin) {
+            if (element instanceof Cabin || element instanceof Greenhouse || element instanceof Lake) {
                 return false;
             }
         }
@@ -1128,7 +1252,32 @@ public class MapView implements Screen {
         }
         return new Vector2(x_offset, y_offset);
     }
+    private void captureCurrentFrame() {
+        if (lastFrameTexture != null) {
+            lastFrameTexture.dispose();
+        }
+        if (lastFramePixmap != null) {
+            lastFramePixmap.dispose();
+        }
 
+        Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        renderMap();
+        renderPlayer();
+        renderUI();
+        batch.end();
+        int width = Gdx.graphics.getBackBufferWidth();
+        int height = Gdx.graphics.getBackBufferHeight();
+        lastFramePixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
+        byte[] pixels = ScreenUtils.getFrameBufferPixels(0, 0, width, height, true);
+        ByteBuffer buffer = lastFramePixmap.getPixels();
+        buffer.clear();
+        buffer.put(pixels);
+        buffer.position(0);
+        lastFrameTexture = new Texture(lastFramePixmap);
+    }
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
@@ -1156,7 +1305,8 @@ public class MapView implements Screen {
         if (batch != null) batch.dispose();
         if (font != null) font.dispose();
         if (fallbackTexture != null) fallbackTexture.dispose();
-        if (playerTexture != null) playerTexture.dispose();
         if (stage != null) stage.dispose();
+        if (lastFrameTexture != null) lastFrameTexture.dispose();
+        if (lastFramePixmap != null) lastFramePixmap.dispose();
     }
 }
