@@ -39,6 +39,8 @@ public class GameView implements Screen {
     private BlacksmithView blacksmithView;
     private FishShopView fishShopView;
     private SaloonView saloonView;
+    private MarinsRanchView marinsRanchView;
+    private CarpenterShopView carpenterShopView;
     private KitchenView kitchenView;
 
     private Table mainMenuTable;
@@ -337,8 +339,8 @@ public class GameView implements Screen {
                 Tools.addBeginnerWateringcanToInventory(user.getInventory());
                 //      Tools.addLearningFishingpoleToInventory(user.getInventory());
                 Tools.addBeginnerScytheToInventory(user.getInventory());
-                Tools.addBeginnerMilkPailToInventory(user.getInventory());
-                Tools.addBeginnerShearToInventory(user.getInventory());
+                // Tools.addBeginnerMilkPailToInventory(user.getInventory());
+                //   Tools.addBeginnerShearToInventory(user.getInventory());
                 //     Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
@@ -455,29 +457,50 @@ public class GameView implements Screen {
     }
 
     public void showBlacksmithView(Store blacksmith) {
-        if (blacksmithView == null) { // or some isDisposed check
-            blacksmithView = new BlacksmithView(game, loginController, this, blacksmith);
+        // User-ی که نوبتش هست را از Game instance بگیر
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (blacksmithView == null) {
+            blacksmithView = new BlacksmithView(game, currentPlayer, this, blacksmith); // <-- اینجا تغییر کرد
         }
         game.setScreen(blacksmithView);
     }
 
     public void showFishShopView(Store fishShop) {
-        if (fishShopView == null) { // or some isDisposed check
-            fishShopView = new FishShopView(game, loginController, this, fishShop);
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (fishShopView == null) {
+            fishShopView = new FishShopView(game, currentPlayer, this, fishShop); // <-- اینجا تغییر کرد
         }
         game.setScreen(fishShopView);
     }
 
     public void showSaloonView(Store saloon) {
-        if (saloonView == null) { // or some isDisposed check
-            saloonView = new SaloonView(game, loginController, this, saloon);
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (saloonView == null) {
+            saloonView = new SaloonView(game, currentPlayer, this, saloon); // <-- اینجا تغییر کرد
         }
         game.setScreen(saloonView);
     }
 
+    public void showMarinsRanchView(Store marinsRanch) {
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (marinsRanchView == null) {
+            marinsRanchView = new MarinsRanchView(game, currentPlayer, this, marinsRanch); // <-- اینجا تغییر کرد
+        }
+        game.setScreen(marinsRanchView);
+    }
+
+    public void showCarpenterShopView(Store carpenterShop) {
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (carpenterShopView == null) {
+            carpenterShopView = new CarpenterShopView(game, currentPlayer, this, carpenterShop); // <-- اینجا تغییر کرد
+        }
+        game.setScreen(carpenterShopView);
+    }
+
     public void showKitchenView() {
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
         if (kitchenView == null) {
-            kitchenView = new KitchenView(game, loginController, this);
+            kitchenView = new KitchenView(game, currentPlayer, this); // <-- اینجا تغییر کرد
         }
         game.setScreen(kitchenView);
     }

@@ -49,9 +49,9 @@ public class BlacksmithView implements Screen {
     private Item selectedItem;
     private int itemQuantity = 1;
 
-    public BlacksmithView(Game game, LoginMenuController loginController, GameView gameView, Store blacksmith) {
+    public BlacksmithView(Game game, User player, GameView gameView, Store blacksmith) {
         this.game = game;
-        this.player = loginController.getLoggedInUser();
+        this.player = player;
         this.gameView = gameView;
         this.blacksmith = blacksmith;
         this.batch = new SpriteBatch();

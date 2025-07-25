@@ -29,12 +29,13 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class MapView implements Screen {
     private final GameMap gameMap;
@@ -607,11 +608,13 @@ public class MapView implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         handleInput(delta);
+        updateAnimals(delta); // Add this call to update animal logic
         centerCameraOnPlayer();
 
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
         renderMap();
+        renderAnimals();
         renderPlayer();
         renderUI();
         batch.end();
@@ -683,6 +686,18 @@ public class MapView implements Screen {
                         batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
                     } else if (element instanceof Quarry) {
                         batch.draw(mapManager.getQuarryTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
+                    } else if (element instanceof CoopStaticElement) {
+                        if (isStructureOrigin(finalX, finalY, element, width, height)) {
+                            structuresToRender.add(new StructureRenderData(
+                                mapManager.getCoopTexture(), posX, posY, 6, 3
+                            ));
+                        }
+                    } else if (element instanceof BarnStaticElement) {
+                        if (isStructureOrigin(finalX, finalY, element, width, height)) {
+                            structuresToRender.add(new StructureRenderData(
+                                mapManager.getBarnTexture(), posX, posY, 7, 4
+                            ));
+                        }
                     } else if (element instanceof Npc) {
                         Npc npc = (Npc) element;
                         Texture texture = mapManager.getNpcTexture(npc.getName());
@@ -768,6 +783,11 @@ public class MapView implements Screen {
             return isTopLeftOfStructure(x, y, 4, 4, mapWidth, mapHeight, Cabin.class);
         } else if (element instanceof Greenhouse) {
             return isTopLeftOfStructure(x, y, 5, 6, mapWidth, mapHeight, Greenhouse.class);
+        }
+        else if (element instanceof CoopStaticElement) {
+            return isTopLeftOfStructure(x, y, 6, 3, mapWidth, mapHeight, CoopStaticElement.class);
+        } else if (element instanceof BarnStaticElement) {
+            return isTopLeftOfStructure(x, y, 7, 4, mapWidth, mapHeight, BarnStaticElement.class);
         }
         return false;
     }
@@ -999,6 +1019,38 @@ public class MapView implements Screen {
             }
         }
 
+        if (Gdx.input.isKeyJustPressed(Input.Keys.J)) {
+            if (!currentPlayer.isInVillage) { // Can only place on farm
+                GamePlayController controller = playerControllers.get(currentPlayer);
+
+                if (controller.getAnimalPlaces().isEmpty()) {
+                    lastTurnMessage = "You have no buildings in your inventory to place.";
+                } else {
+                    // 1. Get graphical tile coordinates
+                    Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+                    int graphicalTileX = (int) ((playerPos.x - farmTopLeft.x) / TILE_SIZE);
+                    int graphicalTileY = (int) ((playerPos.y - farmTopLeft.y) / TILE_SIZE);
+
+                    // 2. Convert to model's coordinate system (Y is flipped)
+                    int modelY = FarmTemplate.HEIGHT - 1 - graphicalTileY;
+
+                    // 3. Set the player's logical position correctly in the model
+                    // Note: Farm.getTile uses (x, y) which maps to tiles[y][x]
+                    Tile targetTile = gameMap.getFarm(currentFarmIndex).getTile(graphicalTileX, graphicalTileY);
+                    if (targetTile != null) {
+                        currentPlayer.setPosition(targetTile);
+                        String result = controller.placeFirstAvailableBuilding();
+                        lastTurnMessage = result;
+                    } else {
+                        lastTurnMessage = "Cannot place building outside of farm bounds.";
+                    }
+                }
+            } else {
+                lastTurnMessage = "You can only place buildings on your farm.";
+            }
+            messageTimer = MESSAGE_DISPLAY_TIME;
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.L)) {
             boolean isUnlimited = !currentPlayer.getEnergy().isUnlimited();
             currentPlayer.getEnergy().setUnlimited(isUnlimited);
@@ -1032,6 +1084,15 @@ public class MapView implements Screen {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
             int clickedTileX, playerTileX, clickedTileY, playerTileY;
+
+            if (handleAnimalClick(clickPos)) {
+                return; // اگر روی حیوان کلیک شد، ادامه نده
+            }
+
+            // بررسی کلیک روی ساختمان‌ها
+            if (handleBuildingClick(clickPos)) {
+                return;
+            }
 
             if (inVillage) {
                 clickedTileX = (int) (clickPos.x / TILE_SIZE);
@@ -1077,7 +1138,7 @@ public class MapView implements Screen {
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                         gameView.showInventoryForSelling();
                     }
-                } else if (element instanceof Store) {
+                }  else if (element instanceof Store) {
                     Store store = (Store) element;
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                         if (store.isOpen()) {
@@ -1087,6 +1148,10 @@ public class MapView implements Screen {
                                 gameView.showFishShopView(store);
                             } else if (store.getName().equalsIgnoreCase("The Stardrop Saloon")) {
                                 gameView.showSaloonView(store);
+                            } else if (store.getName().equalsIgnoreCase("Marin'sRanch")) {
+                                gameView.showMarinsRanchView(store);
+                            } else if (store.getName().equalsIgnoreCase("Carpenter'sShop")) {
+                                gameView.showCarpenterShopView(store);
                             }
                         } else {
                             showResultDialog("The " + store.getName() + " is closed.");
@@ -1281,6 +1346,67 @@ public class MapView implements Screen {
         }
     }
 
+    private void updateAnimals(float delta) {
+        if (inVillage) return; // Animals are only on the farm
+
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+
+        float playerFarmX = playerPos.x - farmTopLeft.x;
+        float playerFarmY = playerPos.y - farmTopLeft.y;
+
+        for (Animal animal : currentPlayer.getPutAnimals()) {
+            if (animal.isOutside) {
+                animal.update(delta, gameMap.getFarm(currentFarmIndex), playerFarmX, playerFarmY);
+            }
+        }
+    }
+
+
+
+    // render animals
+    private void renderAnimals() {
+        if (inVillage) return;
+
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+
+        for (Animal animal : currentPlayer.getPutAnimals()) {
+            if (animal.isOutside) {
+                TextureRegion currentFrame;
+                float animalSize = TILE_SIZE * 1.5f;
+
+                if (animal.isBeingFed()) {
+                    batch.draw(mapManager.getHayTexture(), farmTopLeft.x + animal.getPositionX(), farmTopLeft.y + animal.getPositionY(), TILE_SIZE, TILE_SIZE);
+                }
+
+                if (animal.isBeingPetted()) {
+                    currentFrame = mapManager.getPettingFrame(animal.getType());
+                } else {
+                    String direction = "down";
+                    switch(animal.getLastDirection()){
+                        case 1: direction = "right"; break;
+                        case 2: direction = "up"; break;
+                        case 3: direction = "left"; break;
+                    }
+
+                    Animation<TextureRegion> animation = mapManager.getAnimalAnimation(animal.getType(), direction, animal.isMoving());
+                    if (animation != null) {
+                        currentFrame = animation.getKeyFrame(animal.getAnimationStateTime(), true);
+                    } else {
+                        continue; // Skip rendering if no animation is found
+                    }
+                }
+
+                if (currentFrame != null) {
+                    float absoluteX = farmTopLeft.x + animal.getPositionX();
+                    float absoluteY = farmTopLeft.y + animal.getPositionY();
+                    batch.draw(currentFrame, absoluteX, absoluteY, animalSize, animalSize);
+                }
+            }
+        }
+    }
+
     private Vector2 getFarmTopLeft(int farmIndex) {
         int farmW = FarmTemplate.WIDTH;
         int farmH = FarmTemplate.HEIGHT;
@@ -1336,6 +1462,287 @@ public class MapView implements Screen {
         buffer.position(0);
         lastFrameTexture = new Texture(lastFramePixmap);
     }
+
+    private boolean handleAnimalClick(Vector3 clickPos) {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        if (inVillage || currentPlayer.getPutAnimals().isEmpty()) {
+            return false;
+        }
+
+        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+
+        for (Animal animal : currentPlayer.getPutAnimals()) {
+            if (animal.isOutside) {
+                float animalGlobalWorldX = farmTopLeft.x + animal.getPositionX();
+                float animalGlobalWorldY = farmTopLeft.y + animal.getPositionY();
+                float animalClickableSize = TILE_SIZE * 1.5f;
+
+                if (clickPos.x >= animalGlobalWorldX && clickPos.x <= animalGlobalWorldX + animalClickableSize &&
+                    clickPos.y >= animalGlobalWorldY && clickPos.y <= animalGlobalWorldY + animalClickableSize) {
+
+                    showAnimalInteractionMenu(animal);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void showAnimalInteractionMenu(final Animal animal) {
+        Dialog dialog = new Dialog("Interact with " + animal.getName(), skin);
+
+        TextButton petButton = new TextButton("Pet", skin);
+        TextButton feedButton = new TextButton("Feed", skin);
+        TextButton productButton = new TextButton("Product", skin); // New button
+        TextButton profileButton = new TextButton("Profile", skin);
+
+        String followText = animal.isFollowing() ? "Stop Following" : "Follow";
+        TextButton followButton = new TextButton(followText, skin);
+
+        TextButton bringButton = new TextButton("Bring Inside", skin);
+        TextButton sellButton = new TextButton("Sell", skin);
+        TextButton closeButton = new TextButton("Close", skin);
+
+        dialog.getContentTable().add(petButton).pad(5).row();
+        dialog.getContentTable().add(feedButton).pad(5).row();
+        dialog.getContentTable().add(productButton).pad(5).row(); // Add new button to the dialog
+        dialog.getContentTable().add(profileButton).pad(5).row();
+        dialog.getContentTable().add(followButton).pad(5).row();
+        dialog.getContentTable().add(bringButton).pad(5).row();
+        dialog.getContentTable().add(sellButton).pad(5).row();
+        dialog.getButtonTable().add(closeButton).pad(10);
+
+        petButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String result = currentPlayerController.petAnimal(animal.getName());
+                if (animal.isPettedToday()) {
+                    showResultDialog(result);
+                }
+                dialog.hide();
+            }
+        });
+
+        feedButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String result = currentPlayerController.feedAnimal(animal.getName());
+                if (animal.isFed()) {
+                    showResultDialog(result);
+                }
+                dialog.hide();
+            }
+        });
+
+        productButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String result = currentPlayerController.collectProductFromAnimal(animal.getName());
+                showResultDialog(result);
+                dialog.hide();
+            }
+        });
+
+        profileButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                dialog.hide();
+                showAnimalProfile(animal);
+            }
+        });
+
+        followButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                animal.setFollowing(!animal.isFollowing(), gameInstance.getCurrentPlayer());
+                String message = animal.isFollowing() ? "is now following you." : "has stopped following you.";
+                showResultDialog(animal.getName() + " " + message);
+                dialog.hide();
+            }
+        });
+
+        bringButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String result = currentPlayerController.bringAnimal(animal.getName());
+                showResultDialog(result);
+                dialog.hide();
+            }
+        });
+
+        sellButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String result = currentPlayerController.sellAnimal(animal.getName());
+                showResultDialog(result);
+                dialog.hide();
+            }
+        });
+
+        closeButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                dialog.hide();
+            }
+        });
+
+        dialog.show(stage);
+    }
+
+
+    private void showAnimalProfile(Animal animal) {
+        Dialog profileDialog = new Dialog(animal.getName() + "'s Profile", skin);
+        profileDialog.text("Type: " + animal.getType() + "\n" +
+            "Petted Today: " + (animal.isPettedToday()) + "\n" +
+            "Fed Today: " + (animal.isFed()) + "\n" +
+            "Friendship: " + animal.getFriendship());
+        profileDialog.button("OK");
+        profileDialog.show(stage);
+    }
+
+    private boolean handleBuildingClick(Vector3 clickPos) {
+        if (inVillage) return false;
+
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+
+        for (Item building : currentPlayer.getPlacedAnimalPlaces()) {
+            int buildingX, buildingY, width, height;
+
+            if (building instanceof Coop) {
+                Coop coop = (Coop) building;
+                buildingX = coop.getLeftCornerX();
+                buildingY = coop.getLeftCornerY();
+                width = coop.getWidth();
+                height = coop.getHeight();
+            } else if (building instanceof Barn) {
+                Barn barn = (Barn) building;
+                buildingX = barn.getLeftCornerX();
+                buildingY = barn.getLeftCornerY();
+                width = barn.getWidth();
+                height = barn.getHeight();
+            } else {
+                continue;
+            }
+
+            float worldX = farmTopLeft.x + (buildingX * TILE_SIZE);
+            float worldY = farmTopLeft.y + ((FarmTemplate.HEIGHT - 1 - buildingY - height + 1) * TILE_SIZE);
+
+            if (clickPos.x >= worldX && clickPos.x <= worldX + (width * TILE_SIZE) &&
+                clickPos.y >= worldY && clickPos.y <= worldY + (height * TILE_SIZE)) {
+                showBuildingInteractionMenu(building);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void showBuildingInteractionMenu(final Item building) {
+        final Dialog dialog = new Dialog(building.getName(), skin);
+
+        TextButton placeAnimalButton = new TextButton("Place Animal", skin);
+        TextButton removeAnimalButton = new TextButton("Remove Animal", skin);
+
+        dialog.getContentTable().add(placeAnimalButton).pad(5).row();
+        dialog.getContentTable().add(removeAnimalButton).pad(5).row();
+        dialog.button("Close");
+
+        placeAnimalButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                dialog.hide(); // <<-- FIX: Hide the current dialog first
+                showPlaceAnimalDialog(building);
+            }
+        });
+
+        removeAnimalButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                dialog.hide(); // <<-- FIX: Hide the current dialog first
+                showRemoveAnimalDialog(building);
+            }
+        });
+
+        dialog.show(stage);
+    }
+
+    private void showPlaceAnimalDialog(final Item building) {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        int capacity = (building instanceof Coop) ? ((Coop) building).getCapacity() : ((Barn) building).getCapacity();
+        int currentOccupancy = currentPlayerController.getAnimalsInBuilding(building).size();
+
+        if (currentOccupancy >= capacity) {
+            showResultDialog("This building is full.");
+            return;
+        }
+
+        final Dialog placeDialog = new Dialog("Place Animal", skin);
+        Table animalListTable = new Table();
+        ScrollPane scrollPane = new ScrollPane(animalListTable, skin);
+
+        String buildingType = (building instanceof Coop) ? "Coop" : "Barn";
+        List<Animal> placeableAnimals = currentPlayer.getAnimals().stream()
+            .filter(animal -> animal.getBuildingType().equalsIgnoreCase(buildingType))
+            .collect(Collectors.toList());
+
+        if (placeableAnimals.isEmpty()) {
+            placeDialog.text("You have no animals to place in this building.");
+        } else {
+            for (final Animal animal : placeableAnimals) {
+                TextButton animalButton = new TextButton(animal.getName(), skin);
+                animalButton.addListener(new ChangeListener() {
+                    @Override
+                    public void changed(ChangeEvent event, Actor actor) {
+                        String result = currentPlayerController.placeAnimalInBuilding(animal.getName(), building);
+                        showResultDialog(result);
+                        placeDialog.hide();
+                    }
+                });
+                animalListTable.add(animalButton).row();
+            }
+        }
+        placeDialog.getContentTable().add(scrollPane);
+        placeDialog.button("Cancel");
+        placeDialog.show(stage);
+    }
+
+    private void showRemoveAnimalDialog(final Item building) {
+        final Dialog removeDialog = new Dialog("Remove Animal", skin);
+        Table animalListTable = new Table();
+        ScrollPane scrollPane = new ScrollPane(animalListTable, skin);
+
+        List<Animal> animalsInBuilding = currentPlayerController.getAnimalsInBuilding(building);
+
+        if (animalsInBuilding.isEmpty()) {
+            removeDialog.text("There are no animals in this building.");
+        } else {
+            for (final Animal animal : animalsInBuilding) {
+                TextButton animalButton = new TextButton(animal.getName(), skin);
+                animalButton.addListener(new ChangeListener() {
+                    @Override
+                    public void changed(ChangeEvent event, Actor actor) {
+                        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+                        float playerHeight = TILE_SIZE * 1.5f;
+                        float playerRenderOffsetY = (playerHeight - TILE_SIZE) * 0.5f;
+                        float playerGroundY = playerPos.y - playerRenderOffsetY;
+                        float relativeX = (playerPos.x - farmTopLeft.x) + 32f;
+                        float relativeY = playerGroundY - farmTopLeft.y;
+                        animal.bringOutside(relativeX, relativeY);
+
+                        currentPlayerController.removeAnimalFromBuilding(animal.getName(), building);
+                        removeDialog.hide();
+                    }
+                });
+                animalListTable.add(animalButton).row();
+            }
+        }
+
+        removeDialog.getContentTable().add(scrollPane);
+        removeDialog.button("Cancel");
+        removeDialog.show(stage);
+    }
+
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);

@@ -570,6 +570,7 @@ public class User {
     // animals
     private List<Animal> animals = new ArrayList<>();
     private List<Item> animalPlaces = new ArrayList<>();
+    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
     public void addAnimal(Animal animal) {
         animals.add(animal);
@@ -578,8 +579,6 @@ public class User {
     public List<Animal> getAnimals() {
         return animals;
     }
-
-    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
     private List<Animal> putAnimals = new ArrayList<>();
 
@@ -597,6 +596,35 @@ public class User {
 
     public void addPlacedAnimalPlace(Item item) {
         placedAnimalPlaces.add(item);
+    }
+
+    public void placeAnimal(Animal animal) {
+        if (animals.contains(animal)) {
+            animals.remove(animal);
+            putAnimals.add(animal);
+        }
+    }
+
+    public void bringAnimalBack(Animal animal) {
+        if (putAnimals.contains(animal)) {
+            putAnimals.remove(animal);
+            animals.add(animal);
+            animal.bringInside(); // وضعیتش را به "داخل" تغییر می‌دهیم
+        }
+    }
+
+    public void sellAnimal(Animal animal) {
+        animals.remove(animal);
+        putAnimals.remove(animal);
+
+
+        for (Item building : placedAnimalPlaces) {
+            if (building instanceof Coop) {
+                ((Coop) building).removeAnimal(animal);
+            } else if (building instanceof Barn) {
+                ((Barn) building).removeAnimal(animal);
+            }
+        }
     }
 
 

@@ -51,16 +51,18 @@ public class Quest {
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        sb.append("Quest ID: ").append(id).append("\n");
-        sb.append("Giver: ").append(giver.getName()).append("\n");
+        sb.append(giver.getName()).append("'s Request (ID: ").append(id).append(")\n");
+
         if (requiredItem != null) {
-            sb.append("Requires: ").append(requiredItem.getName()).append(" x").append(requiredItem.getQuantity()).append("\n");
+            sb.append("Required: ").append(requiredItem.getQuantity()).append("x ").append(requiredItem.getName()).append("\n");
         }
         if (reward != null) {
             sb.append("Reward: ");
-            if (reward.getMoney() > 0) sb.append(reward.getMoney()).append("g ");
-            if (reward.getItems() != null) sb.append(reward.getItems().getName()).append(" x").append(reward.getItems().getQuantity());
-            if (reward.getFriendshipXp() > 0) sb.append(reward.getFriendshipXp()).append(" XP");
+            List<String> rewards = new ArrayList<>();
+            if (reward.getMoney() > 0) rewards.add(reward.getMoney() + "g");
+            if (reward.getItems() != null) rewards.add(reward.getItems().getQuantity() + "x " + reward.getItems().getName());
+            if (reward.getFriendshipXp() > 0) rewards.add(reward.getFriendshipXp() + " XP");
+            sb.append(String.join(", ", rewards));
         }
         return sb.toString();
     }
