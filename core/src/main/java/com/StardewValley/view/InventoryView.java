@@ -6,9 +6,11 @@ import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.controller.SellingController;
 import com.StardewValley.models.Item;
 import com.StardewValley.models.Npc;
+import com.StardewValley.models.Quest; // Import Quest
 import com.StardewValley.models.Skill;
 import com.StardewValley.models.Tools;
 import com.StardewValley.models.User;
+import com.StardewValley.repository.NpcRepository; // Import NpcRepository
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
@@ -30,7 +32,9 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class InventoryView implements Screen {
@@ -74,6 +78,7 @@ public class InventoryView implements Screen {
     private Texture inventoryTexture;
     private Texture inventoryNothingTexture;
     private Label sectionTitleLabel;
+    private int questsCurrentPage = 1; // برای مدیریت صفحه‌بندی ماموریت‌ها
 
     public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget) {
         this.game = game;
@@ -106,10 +111,11 @@ public class InventoryView implements Screen {
     }
 
     private void addTestItems() {
-        player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
-        player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
+      //  player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
+      //  player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
         player.getInventory().addItem(new Item("Copper_Bar", 100, "assets/Inventory/Copper_Bar.png"));
-        player.getInventory().addItem(new Item("Wood", 200, "assets/Inventory/Wood.png"));
+        player.getInventory().addItem(new Item("Wood", 2000, "assets/Inventory/Wood.png"));
+        player.getInventory().addItem(new Item("Stone", 5000, "assets/Inventory/Stone.png"));
     }
 
     public boolean isDisposed() {
@@ -394,7 +400,13 @@ public class InventoryView implements Screen {
         skillsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSkills(); } });
         socialButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSocial(); } });
         mapButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* map logic */ } });
-        questsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* quests logic */ } });
+        questsButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                questsCurrentPage = 1; // ریست کردن صفحه هنگام کلیک
+                showQuests();
+            }
+        });
         settingsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new MainView(game, loginController)); } });
         exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { gameView.showMapView(); } });
 
@@ -586,6 +598,93 @@ public class InventoryView implements Screen {
         socialTable.add(npcsColumn).top().left();
         contentTable.add(socialTable);
     }
+
+    private void showQuests() {
+        giftControlsTable.setVisible(false);
+        sellControlsTable.setVisible(false);
+        contentTable.clear();
+        sectionTitleLabel.setText("Available Quests");
+        sectionTitleLabel.setFontScale(0.7f);
+        updateBackgroundToEmpty();
+
+        contentTable.pad(20).top().left();
+
+        NpcRepository npcRepository = NpcRepository.getInstance();
+        List<Quest> availableQuests = new ArrayList<>();
+
+        for (Npc npc : npcRepository.getAllNpcs()) {
+            for (Quest quest : npc.getQuests()) {
+                if (quest.getCompletedBy() == null) {
+                    availableQuests.add(quest);
+                }
+            }
+        }
+
+        if (availableQuests.isEmpty()) {
+            contentTable.add(new Label("No available quests at the moment.", menuManager.getPixthulhuSkin())).row();
+            return;
+        }
+
+        final int questsPerPage = 3;
+        int totalPages = (int) Math.ceil((double) availableQuests.size() / questsPerPage);
+
+        // اطمینان از معتبر بودن شماره صفحه
+        if (questsCurrentPage < 1) questsCurrentPage = 1;
+        if (questsCurrentPage > totalPages) questsCurrentPage = totalPages;
+
+        int startIndex = (questsCurrentPage - 1) * questsPerPage;
+        int endIndex = Math.min(startIndex + questsPerPage, availableQuests.size());
+
+        for (int i = startIndex; i < endIndex; i++) {
+            Quest quest = availableQuests.get(i);
+            Label questLabel = new Label(quest.toString(), menuManager.getPixthulhuSkin());
+            questLabel.setWrap(true);
+            questLabel.setFontScale(0.6f);
+            contentTable.add(questLabel).width(400).left().padBottom(15).row();
+        }
+
+        // افزودن دکمه‌های صفحه‌بندی
+        Table paginationTable = new Table();
+        TextButton prevButton = new TextButton("<< Prev", menuManager.getPixthulhuSkin());
+        Label pageLabel = new Label("Page " + questsCurrentPage + " / " + totalPages, menuManager.getPixthulhuSkin());
+        TextButton nextButton = new TextButton("Next >>", menuManager.getPixthulhuSkin());
+
+        if (questsCurrentPage <= 1) {
+            prevButton.setDisabled(true);
+            prevButton.setColor(Color.GRAY);
+        }
+        if (questsCurrentPage >= totalPages) {
+            nextButton.setDisabled(true);
+            nextButton.setColor(Color.GRAY);
+        }
+
+        prevButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (questsCurrentPage > 1) {
+                    questsCurrentPage--;
+                    showQuests();
+                }
+            }
+        });
+
+        nextButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (questsCurrentPage < totalPages) {
+                    questsCurrentPage++;
+                    showQuests();
+                }
+            }
+        });
+
+        paginationTable.add(prevButton).pad(10);
+        paginationTable.add(pageLabel).pad(10);
+        paginationTable.add(nextButton).pad(10);
+
+        contentTable.add(paginationTable).colspan(1).center().padTop(300).row();
+    }
+
     public void setBackgroundTexture(Texture texture) {
         this.gameBackgroundTexture = texture;
         if (stage != null) {

@@ -62,7 +62,7 @@ public class GameController {
         }
         game.newGame(creator, players);
         for (User user : game.getPlayers()) {
-            Tools.addBeginnerHoeToInventory(user.getInventory());
+           /* Tools.addBeginnerHoeToInventory(user.getInventory());
             Tools.addBeginnerPickaxeToInventory(user.getInventory());
             Tools.addBeginnerAxeToInventory(user.getInventory());
             Tools.addBeginnerWateringcanToInventory(user.getInventory());
@@ -70,7 +70,7 @@ public class GameController {
             Tools.addBeginnerScytheToInventory(user.getInventory());
             Tools.addBeginnerMilkPailToInventory(user.getInventory());
             Tools.addBeginnerShearToInventory(user.getInventory());
-           // Tools.addBeginnerTrashbinToInventory(user.getInventory());
+           // Tools.addBeginnerTrashbinToInventory(user.getInventory());*/
         }
         if (game.getState() == Game.GameState.MAP_SELECTION) {
             for (User user : game.getPlayers()) {

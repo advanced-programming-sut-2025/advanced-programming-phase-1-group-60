@@ -131,6 +131,20 @@ public class Store implements StaticElement {
                 }
                 for (Item item : items) {
                     if (item.getName().equals(product)) {
+                        if (product.equals("Wood") || product.equals("Stone")) {
+                            if (player.getMoney() >= item.getStorePrice()) {
+                                Item newItem = new Item(product, 20, item.getPath());
+                                player.getInventory().addItem(newItem);
+                                player.setMoney(player.getMoney() - item.getStorePrice());
+                                result.setSuccess(true);
+                                result.setMessage("Bought 20 " + product);
+                                return result;
+                            } else {
+                                result.setMessage("not enough money");
+                                return result;
+                            }
+                        }
+
                         int sold = soldBuildings.getOrDefault(product, 0);
                         if (sold >= 1) {
                             result.setMessage("sold out");
@@ -189,7 +203,8 @@ public class Store implements StaticElement {
                                     (int) item.getProperties().get("width"),
                                     (int) item.getProperties().get("height")
                                 );
-                                player.addAnimalPlace(barn);
+                                barn.setPath(item.getPath());
+                                player.addAnimalPlace(barn); // <-- تغییر کرده
                             } else if (item.getName().contains("Coop")) {
                                 Coop coop = new Coop(
                                     item.getName(),
@@ -197,7 +212,8 @@ public class Store implements StaticElement {
                                     (int) item.getProperties().get("width"),
                                     (int) item.getProperties().get("height")
                                 );
-                                player.addAnimalPlace(coop);
+                                coop.setPath(item.getPath());
+                                player.addAnimalPlace(coop); // <-- تغییر کرده
                             }
 
                             soldBuildings.put(product, 1);

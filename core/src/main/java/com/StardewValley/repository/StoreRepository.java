@@ -43,33 +43,29 @@ public class StoreRepository {
                 ));
                 store.animals.addAll(List.of(
                     new Animal("Chicken", "Coop", new String[]{"Coop"}, 800,
-                        "assets/Inventory/Animals/Chicken.png"),
+                        "assets/Inventory/Animals/Chicken.png", "assets/Animals/Sprites/Chicken.png"),
                     new Animal("Duck", "Coop", new String[]{"Big Coop", "Deluxe Coop"}, 1200,
-                        "assets/Inventory/Animals/Duck.png"),
+                        "assets/Inventory/Animals/Duck.png", "assets/Animals/Sprites/Duck.png"),
                     new Animal("Rabbit", "Coop", new String[]{"Deluxe Coop"}, 8000,
-                        "assets/Inventory/Animals/Rabbit.png"),
+                        "assets/Inventory/Animals/Rabbit.png", "assets/Animals/Sprites/Rabbit.png"),
                     new Animal("Dinosaur", "Coop", new String[]{"Big Coop"}, 14000,
-                        "assets/Inventory/Animals/Dinosaur.png"),
+                        "assets/Inventory/Animals/Dinosaur.png", "assets/Animals/Sprites/Dinosaur.png"),
                     new Animal("Cow", "Barn", new String[]{"Barn"}, 1500,
-                        "assets/Inventory/Animals/Cow.png"),
+                        "assets/Inventory/Animals/Cow.png", "assets/Animals/Sprites/Cow.png"),
                     new Animal("Goat", "Barn", new String[]{"Big Barn", "Deluxe"}, 4000,
-                        "assets/Inventory/Animals/Goat.png"),
+                        "assets/Inventory/Animals/Goat.png", "assets/Animals/Sprites/Goat.png"),
                     new Animal("Sheep", "Barn", new String[]{"Deluxe Barn"}, 8000,
-                        "assets/Inventory/Animals/Sheep.png"),
+                        "assets/Inventory/Animals/Sheep.png", "assets/Animals/Sprites/Sheep.png"),
                     new Animal("Pig", "Barn", new String[]{"Deluxe Barn"}, 16000,
-                        "assets/Inventory/Animals/Pig.png")
+                        "assets/Inventory/Animals/Pig.png", "assets/Animals/Sprites/Pig.png")
                 ));
                 store.workTime = new Store.WorkTime(9, 16);
             } else if ("Carpenter'sShop".equalsIgnoreCase(store.getName())) {
                 store.getItems().addAll(List.of(
-                    createBuilding("Barn", 6000, 7, 4, Map.of("Wood", 350, "Stone", 150)),
-                    createBuilding("Big Barn", 12000, 7, 4, Map.of("Wood", 450, "Stone", 200)),
-                    createBuilding("Deluxe Barn", 25000, 7, 4, Map.of("Wood", 550, "Stone", 300)),
-                    createBuilding("Coop", 4000, 6, 3, Map.of("Wood", 300, "Stone", 100)),
-                    createBuilding("Big Coop", 10000, 6, 3, Map.of("Wood", 400, "Stone", 150)),
-                    createBuilding("Deluxe Coop", 20000, 6, 3, Map.of("Wood", 500, "Stone", 200)),
-                    createBuilding("Well", 1000, 3, 3, Map.of("Stone", 75)),
-                    createBuilding("Shipping Bin", 250, 1, 1, Map.of("Wood", 150))
+                    createBuilding("Barn", 6000, 7, 4, Map.of("Wood", 350, "Stone", 150), "assets/Inventory/AnimalPlaces/Barn.png"),
+                    createBuilding("Coop", 4000, 6, 3, Map.of("Wood", 300, "Stone", 100), "assets/Inventory/AnimalPlaces/Coop.png"),
+                    createItem(154, "Wood", 10, "assets/Inventory/Wood.png"),
+                    createItem(155, "Stone", 20, "assets/Inventory/Stone.png")
                 ));
                 store.soldBuildings.clear();
                 store.workTime = new Store.WorkTime(9, 20);
@@ -142,10 +138,11 @@ public class StoreRepository {
         return item;
     }
 
-    private Item createBuilding(String name, int cost, int width, int height, Map<String, Integer> materials) {
+    private Item createBuilding(String name, int cost, int width, int height, Map<String, Integer> materials, String path) {
         Item item = new Item();
         item.setName(name);
         item.setStorePrice(cost);
+        item.setPath(path);
 
         HashMap<String, Object> props = new HashMap<>();
         props.put("width", width);

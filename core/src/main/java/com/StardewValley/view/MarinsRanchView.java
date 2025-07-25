@@ -43,9 +43,9 @@ public class MarinsRanchView implements Screen {
 
     private boolean showAll = true;
 
-    public MarinsRanchView(Game game, LoginMenuController loginController, GameView gameView, Store marinsRanch) {
+    public MarinsRanchView(Game game, User player, GameView gameView, Store marinsRanch) {
         this.game = game;
-        this.player = loginController.getLoggedInUser();
+        this.player = player;
         this.gameView = gameView;
         this.marinsRanch = marinsRanch;
         this.batch = new SpriteBatch();

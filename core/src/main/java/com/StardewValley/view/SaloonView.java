@@ -43,9 +43,9 @@ public class SaloonView implements Screen {
 
     private boolean showAll = true;
 
-    public SaloonView(Game game, LoginMenuController loginController, GameView gameView, Store saloon) {
+    public SaloonView(Game game, User player, GameView gameView, Store saloon) {
         this.game = game;
-        this.player = loginController.getLoggedInUser();
+        this.player = player;
         this.gameView = gameView;
         this.saloon = saloon;
         this.batch = new SpriteBatch();

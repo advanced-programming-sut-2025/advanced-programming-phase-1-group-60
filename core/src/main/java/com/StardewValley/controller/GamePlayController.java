@@ -2032,12 +2032,12 @@ public class GamePlayController {
             switch (parts[1].toLowerCase()) {
                 case "put":
                     return handlePlaceAnimalCommand(parts[2]);
-                case "pet":
-                    return processPetCommand(parts);
+                /*case "pet":
+                    return processPetCommand(parts);*/
                 case "shepherd":
                     return processShepherdCommand(parts);
-                case "feed":
-                    return processFeedCommand(parts);
+               /* case "feed":
+                    return processFeedCommand(parts);*/
                 case "produces":
                     return processProducesCommand();
                 case "collect":
@@ -2056,24 +2056,19 @@ public class GamePlayController {
         }
     }
 
-    private String processPetCommand(String[] parts) {
-        String name = parts[3];
-        Animal animal = null;
-        for (Animal a : user.getPutAnimals()) {
-            if (a.getName().equalsIgnoreCase(name)) {
-                animal = a;
-            }
-        }
+    public String petAnimal(String animalName) {
+        Animal animal = user.getPutAnimals().stream()
+            .filter(a -> a.getName().equalsIgnoreCase(animalName))
+            .findFirst().orElse(null);
 
-        if (animal == null) return "Animal not found: " + name;
+        if (animal == null) return "Animal not found.";
 
-        if (Math.abs(user.getPosition().getPositionX() - animal.getPositionX()) > 1 ||
-            Math.abs(user.getPosition().getPositionY() - animal.getPositionY()) > 1) {
-            return "far away";
+        if (animal.isPettedToday()) {
+            return animal.getName() + " has already been petted today.";
         }
 
         animal.pet();
-        return "Petted " + name + " successfully!";
+        return "You petted " + animal.getName() + ".";
     }
 
     private String processShepherdCommand(String[] parts) {
@@ -2113,8 +2108,8 @@ public class GamePlayController {
         }
 
         // بررسی تایل فعلی (مبدا)
-        int currentX = animal.getPositionX();
-        int currentY = animal.getPositionY();
+        int currentX = (int) animal.getPositionX();
+        int currentY = (int) animal.getPositionY();
         Tile currentTile = tiles[currentY][currentX];
         char currentSymbol = currentTile.getStaticElement()
             .map(StaticElement::symbol)
@@ -2137,10 +2132,6 @@ public class GamePlayController {
 
         boolean currentOutside = !((currentSymbol == 'O') || (currentSymbol == 'B'));
 
-        if (newOutside && !currentOutside) {
-            animal.feed(true);
-        }
-
         if (!newOutside && currentOutside) {
             return name + " has returned home at " + coordinates;
         } else if (newOutside && !currentOutside) {
@@ -2150,27 +2141,24 @@ public class GamePlayController {
         }
     }
 
-    private String processFeedCommand(String[] parts) {
-        if (parts.length < 5 || !parts[2].equals("hay") || !parts[3].equals("-n")) {
-            return "Invalid feed command format. Use:animal feed hay -n <name>";
-        }
-        String name = parts[4];
-        Animal animal = null;
-        for (Animal a : user.getPutAnimals()) {
-            if (a.getName().equalsIgnoreCase(name)) {
-                animal = a;
-            }
-        }
-        if (animal == null) return "Animal not found: " + name;
+    public String feedAnimal(String animalName) {
+        Animal animal = user.getPutAnimals().stream()
+            .filter(a -> a.getName().equalsIgnoreCase(animalName))
+            .findFirst().orElse(null);
 
-        if (user.getInventory().getItem("Hay") == null ||
-            user.getInventory().getItem("Hay").getQuantity() < 5) {
-            return "You don't have enough hay in your inventory";
-        }
-        user.getInventory().removeItemByName("Hay", 5);
+        if (animal == null) return "Animal not found.";
 
-        animal.feed(false);
-        return "Fed " + name + " with hay";
+        if (animal.isFed()) {
+            return animal.getName() + " has already been fed today.";
+        }
+
+        if (user.getInventory().hasItem("Hay", 1)) {
+            user.getInventory().removeItemByName("Hay", 1);
+            animal.feed(false, user.getInventory()); // Pass inventory
+            return "You fed " + animal.getName() + " some Hay.";
+        } else {
+            return "You don't have any Hay.";
+        }
     }
 
     private String processProducesCommand() {
@@ -2618,5 +2606,181 @@ public class GamePlayController {
         activeProductions.remove(artisanName);
 
         return task.getItemName() + " has been added to your inventory.";
+    }
+
+
+
+    public String placeFirstAvailableBuilding() {
+        if (user.getAnimalPlaces().isEmpty()) {
+            return "You don't have any buildings to place.";
+        }
+
+        Item buildingToPlace = user.getAnimalPlaces().get(0);
+        int x = user.getPosition().getPositionX();
+        int y = 49 - user.getPosition().getPositionY();
+
+        int width, height;
+        if (buildingToPlace instanceof Coop) {
+            Coop coop = (Coop) buildingToPlace;
+            width = coop.getWidth();
+            height = coop.getHeight();
+        } else if (buildingToPlace instanceof Barn) {
+            Barn barn = (Barn) buildingToPlace;
+            width = barn.getWidth();
+            height = barn.getHeight();
+        } else {
+            return "Selected item is not a placeable building.";
+        }
+
+        if (x < 0 || y < 0 || x + width > FarmTemplate.WIDTH || y + height > FarmTemplate.HEIGHT) {
+            return "Cannot place building: Position is out of farm bounds.";
+        }
+
+        for (int i = x; i < x + width; i++) {
+            for (int j = y; j < y + height; j++) {
+                Tile tile = tiles[j][i];
+                if (tile.isOccupied() || tile.getStaticElement().isPresent() || tile.getRandomElement().isPresent()) {
+                    return "Cannot place building: Area is not empty.";
+                }
+            }
+        }
+
+        StaticElement element = (buildingToPlace instanceof Coop) ? new CoopStaticElement() : new BarnStaticElement();
+
+        for (int i = x; i < x + width; i++) {
+            for (int j = y; j < y + height; j++) {
+                tiles[j][i].setStaticElement(element);
+                tiles[j][i].setOccupied(true);
+            }
+        }
+
+        if (buildingToPlace instanceof Coop) {
+            ((Coop) buildingToPlace).setPosition(x, y);
+        } else {
+            ((Barn) buildingToPlace).setPosition(x, y);
+        }
+
+        user.removeAnimalPlace(buildingToPlace);
+        user.addPlacedAnimalPlace(buildingToPlace);
+        return "Successfully placed " + buildingToPlace.getName();
+    }
+
+    // این متد را برای دسترسی از MapView اضافه کنید
+    public List<Item> getAnimalPlaces() {
+        return user.getAnimalPlaces();
+    }
+
+    public String sellAnimal(String animalName) {
+        Animal animalToSell = null;
+        for (Animal animal : user.getPutAnimals()) {
+            if (animal.getName().equalsIgnoreCase(animalName)) {
+                animalToSell = animal;
+                break;
+            }
+        }
+
+        if (animalToSell == null) {
+            return "Animal not found.";
+        }
+
+        int sellPrice = animalToSell.sell();
+        user.setMoney(user.getMoney() + sellPrice);
+        user.getPutAnimals().remove(animalToSell);
+
+        // Remove the animal from the building it was in
+        for (Item building : user.getPlacedAnimalPlaces()) {
+            if (building instanceof Coop) {
+                ((Coop) building).getAnimals().remove(animalToSell);
+            } else if (building instanceof Barn) {
+                ((Barn) building).getAnimals().remove(animalToSell);
+            }
+        }
+
+        return "You sold " + animalName + " for " + sellPrice + "g.";
+    }
+
+    public String bringAnimal(String animalName) {
+        Animal animalToBring = null;
+        for (Animal animal : user.getPutAnimals()) {
+            if (animal.getName().equalsIgnoreCase(animalName)) {
+                animalToBring = animal;
+                break;
+            }
+        }
+
+        if (animalToBring == null) {
+            return "Animal not found.";
+        }
+
+        user.bringAnimalBack(animalToBring);
+        return animalName + " has been brought back.";
+    }
+
+    public List<Animal> getAnimalsInBuilding(Item building) {
+        if (building instanceof Coop) {
+            return ((Coop) building).getAnimals();
+        } else if (building instanceof Barn) {
+            return ((Barn) building).getAnimals();
+        }
+        return new ArrayList<>();
+    }
+
+    public String placeAnimalInBuilding(String animalName, Item building) {
+        User user = this.user;
+        Animal targetAnimal = user.getAnimals().stream()
+            .filter(a -> a.getName().equalsIgnoreCase(animalName))
+            .findFirst()
+            .orElse(null);
+
+        if (targetAnimal == null) {
+            return "Animal not found in your inventory.";
+        }
+
+        String requiredBuildingType = targetAnimal.getBuildingType(); // "Coop" or "Barn"
+        int capacity = 0;
+        int currentOccupancy = 0;
+        List<Animal> animalsInBuilding = new ArrayList<>();
+
+        if (building instanceof Coop && "Coop".equalsIgnoreCase(requiredBuildingType)) {
+            Coop coop = (Coop) building;
+            capacity = coop.getCapacity();
+            animalsInBuilding = coop.getAnimals();
+        } else if (building instanceof Barn && "Barn".equalsIgnoreCase(requiredBuildingType)) {
+            Barn barn = (Barn) building;
+            capacity = barn.getCapacity();
+            animalsInBuilding = barn.getAnimals();
+        } else {
+            return "This animal cannot live in this type of building.";
+        }
+
+        currentOccupancy = animalsInBuilding.size();
+        if (currentOccupancy >= capacity) {
+            return "This building is full!";
+        }
+
+        // انتقال حیوان
+        user.getAnimals().remove(targetAnimal);
+        user.addPutAnimal(targetAnimal);
+        animalsInBuilding.add(targetAnimal);
+        targetAnimal.setOutside(false);
+
+        return animalName + " was successfully placed in the " + building.getName() + ".";
+    }
+
+    public String removeAnimalFromBuilding(String animalName, Item building) {
+        List<Animal> animalsInBuilding = getAnimalsInBuilding(building);
+        Animal animalToRemove = animalsInBuilding.stream()
+            .filter(a -> a.getName().equalsIgnoreCase(animalName))
+            .findFirst()
+            .orElse(null);
+
+        if (animalToRemove == null) {
+            return "Animal not found in this building.";
+        }
+
+        // خارج کردن حیوان
+        animalsInBuilding.remove(animalToRemove);
+       // animalToRemove.bringOutside(user.getPosition().getPositionX(), user.getPosition().getPositionY());
+        return animalToRemove.getName() + " has been brought outside.";
     }
 }
