@@ -277,9 +277,13 @@ public class Animal {
         }
 
         currentProduct = new Item();
-        currentProduct.setName(determineProductType());
+        String productName = determineProductType();
+        currentProduct.setName(productName);
         currentProduct.setType("AnimalProduct");
         currentProduct.setBasePrice(calculateProductPrice());
+        currentProduct.setQuantity(1);
+        currentProduct.setPath("assets/Animals/Products/" + productName.replace(" ", "_") + ".png");
+
 
         HashMap<String, Object> properties = new HashMap<>();
         properties.put("quality", determineQuality());
@@ -325,9 +329,13 @@ public class Animal {
     }
 
     public Item collectProduct() {
-        Item product = currentProduct;
-        currentProduct = null;
-        return product;
+        if (currentProduct != null) {
+            Item productToCollect = currentProduct;
+            currentProduct = null;
+            hasProducedToday = true; // Mark as collected for the day
+            return productToCollect;
+        }
+        return null;
     }
 
     public int calculateSellPrice() {

@@ -1433,6 +1433,7 @@ public class MapView implements Screen {
 
         TextButton petButton = new TextButton("Pet", skin);
         TextButton feedButton = new TextButton("Feed", skin);
+        TextButton productButton = new TextButton("Product", skin); // New button
         TextButton profileButton = new TextButton("Profile", skin);
 
         String followText = animal.isFollowing() ? "Stop Following" : "Follow";
@@ -1444,6 +1445,7 @@ public class MapView implements Screen {
 
         dialog.getContentTable().add(petButton).pad(5).row();
         dialog.getContentTable().add(feedButton).pad(5).row();
+        dialog.getContentTable().add(productButton).pad(5).row(); // Add new button to the dialog
         dialog.getContentTable().add(profileButton).pad(5).row();
         dialog.getContentTable().add(followButton).pad(5).row();
         dialog.getContentTable().add(bringButton).pad(5).row();
@@ -1468,6 +1470,15 @@ public class MapView implements Screen {
                 if (animal.isFed()) {
                     showResultDialog(result);
                 }
+                dialog.hide();
+            }
+        });
+
+        productButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String result = currentPlayerController.collectProductFromAnimal(animal.getName());
+                showResultDialog(result);
                 dialog.hide();
             }
         });

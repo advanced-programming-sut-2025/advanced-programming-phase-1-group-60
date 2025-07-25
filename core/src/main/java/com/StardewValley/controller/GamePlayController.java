@@ -2783,4 +2783,23 @@ public class GamePlayController {
        // animalToRemove.bringOutside(user.getPosition().getPositionX(), user.getPosition().getPositionY());
         return animalToRemove.getName() + " has been brought outside.";
     }
+
+    public String collectProductFromAnimal(String animalName) {
+        Animal animal = user.getPutAnimals().stream()
+            .filter(a -> a.getName().equalsIgnoreCase(animalName))
+            .findFirst().orElse(null);
+
+        if (animal == null) {
+            return "Animal not found.";
+        }
+
+        Item product = animal.collectProduct();
+
+        if (product != null) {
+            user.getInventory().addItem(product);
+            return "Collected " + product.getName() + " from " + animal.getName() + ".";
+        } else {
+            return animal.getName() + " has no product to collect.";
+        }
+    }
 }
