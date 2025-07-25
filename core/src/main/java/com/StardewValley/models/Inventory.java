@@ -13,6 +13,7 @@ public class Inventory {
     private InventoryType type;
     private User owner;
     private Tools.TrashbinStage trashCanStage = Tools.TrashbinStage.BEGINNER;
+    private Item[] quickAccessSlots = new Item[6];
 
     public Inventory(InventoryType type, User owner) {
         this.type = type;
@@ -30,6 +31,26 @@ public class Inventory {
 
     public enum InventoryType {
         NORMAL, BIG, DELUXE
+    }
+
+    public Item[] getQuickAccessSlots() {
+        return quickAccessSlots;
+    }
+    public void setQuickAccessSlot(int index, Item item) {
+        if (index >= 0 && index < 6) {
+            quickAccessSlots[index] = item;
+        }
+    }
+    public Item getQuickAccessSlot(int index) {
+        if (index >= 0 && index < 6) {
+            return quickAccessSlots[index];
+        }
+        return null;
+    }
+    public void clearQuickAccessSlot(int index) {
+        if (index >= 0 && index < 6) {
+            quickAccessSlots[index] = null;
+        }
     }
 
     public void setTrashCanStage(Tools.TrashbinStage stage) {

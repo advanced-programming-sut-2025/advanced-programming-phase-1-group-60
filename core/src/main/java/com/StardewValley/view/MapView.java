@@ -70,7 +70,7 @@ public class MapView implements Screen {
     private boolean speechIsShowing = false;
     private Skin skin;
     private final Runnable onBackToMenu;
-
+    private Texture panelTexture;
     private Dialog npcContextMenu;
     private Dialog friendshipDialog;
     private Dialog questDialog;
@@ -117,7 +117,7 @@ public class MapView implements Screen {
             player.isInVillage = false;
             player.setPosition(new Tile(25, 25));
         }
-
+        panelTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Panel.png"));
         User currentPlayer = gameInstance.getCurrentPlayer();
         currentFarmIndex = gameInstance.getSelectedMaps().get(currentPlayer) - 1;
         playerPos = new Vector2(playerPositions.get(currentPlayer));
@@ -868,8 +868,48 @@ public class MapView implements Screen {
         if (messageTimer > 0) {
             font.draw(batch, lastTurnMessage, textX, textY - 100);
         }
-    }
 
+        renderQuickAccessToolbar();
+    }
+    private void renderQuickAccessToolbar() {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
+
+        // Position toolbar at bottom center of screen
+        float toolbarWidth = 6 * 60f; // 6 slots * 60px width
+        float toolbarHeight = 60f;
+        float startX = camera.position.x - toolbarWidth / 2f;
+        float startY = camera.position.y - Gdx.graphics.getHeight() / 2f * camera.zoom + 30;
+
+        // Remove black background completely - only draw slots
+
+        // Draw each quick access slot using Panel.png
+        for (int i = 0; i < 6; i++) {
+            float slotX = startX + (i * 60f);
+            float slotY = startY;
+
+            // Draw Panel.png as slot background
+            if (panelTexture != null) {
+                batch.setColor(Color.LIGHT_GRAY); // Same color as InventoryView
+                batch.draw(panelTexture, slotX, slotY, 55f, 55f);
+                batch.setColor(Color.WHITE);
+            }
+
+            // Draw item if present
+            Item item = quickSlots[i];
+            if (item != null) {
+                font.setColor(Color.GREEN);
+                font.draw(batch, item.getName().substring(0, Math.min(item.getName().length(), 8)),
+                    slotX + 2, slotY + 45);
+                font.setColor(Color.WHITE);
+            }
+
+            // Draw slot number
+            font.setColor(Color.CYAN);
+            font.draw(batch, String.valueOf(i + 1), slotX + 2, slotY + 52);
+            font.setColor(Color.WHITE);
+        }
+    }
     private void handleInput(float delta) {
         if (speechIsShowing) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
@@ -1102,14 +1142,34 @@ public class MapView implements Screen {
             camera.zoom -= 0.02f;
         if (Gdx.input.isKeyPressed(Input.Keys.MINUS)) camera.zoom += 0.02f;
         camera.zoom = Math.max(0.3f, Math.min(2f, camera.zoom));
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) setCurrentFarmIndex(0);
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) setCurrentFarmIndex(1);
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) setCurrentFarmIndex(2);
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) setCurrentFarmIndex(3);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F1)) setCurrentFarmIndex(0);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F2)) setCurrentFarmIndex(1);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F3)) setCurrentFarmIndex(2);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F4)) setCurrentFarmIndex(3);
 
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) selectQuickAccessSlot(0);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) selectQuickAccessSlot(1);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) selectQuickAccessSlot(2);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) selectQuickAccessSlot(3);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) selectQuickAccessSlot(4);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) selectQuickAccessSlot(5);
         checkTravel();
     }
+    private void selectQuickAccessSlot(int slotIndex) {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        Item item = currentPlayer.getInventory().getQuickAccessSlot(slotIndex);
 
+        if (item != null) {
+            lastTurnMessage = "Selected: " + item.getName() + " (Slot " + (slotIndex + 1) + ")";
+            messageTimer = MESSAGE_DISPLAY_TIME;
+
+            // Here you can add tool equipping logic later
+            System.out.println("Quick access selected: " + item.getName());
+        } else {
+            lastTurnMessage = "Quick slot " + (slotIndex + 1) + " is empty";
+            messageTimer = MESSAGE_DISPLAY_TIME;
+        }
+    }
     private boolean isAreaPassable(float worldX, float worldY) {
         // Check all four corners with a smaller hitbox to prevent clipping
         float hitboxInset = TILE_SIZE * 0.15f; // Increased inset for better boundary detection
@@ -1304,6 +1364,7 @@ public class MapView implements Screen {
         if (font != null) font.dispose();
         if (fallbackTexture != null) fallbackTexture.dispose();
         if (stage != null) stage.dispose();
+        if (panelTexture != null) panelTexture.dispose();
         if (lastFrameTexture != null) lastFrameTexture.dispose();
         if (lastFramePixmap != null) lastFramePixmap.dispose();
     }
