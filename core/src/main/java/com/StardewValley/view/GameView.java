@@ -418,39 +418,37 @@ public class GameView implements Screen {
     }
 
     public void showInventoryScreen() {
-        if (inventoryView == null || inventoryView.isDisposed()) {
-            inventoryView = new InventoryView(game, loginController, this, null);
-            if (lastFrameTexture != null) {
-                inventoryView.setBackgroundTexture(lastFrameTexture);
-            }
-        } else {
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (inventoryView != null) {
+            inventoryView.dispose();
+        }
+        inventoryView = new InventoryView(game, loginController, this, null, currentPlayer);
+        if (lastFrameTexture != null) {
             inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
 
     public void showInventoryForGifting(Npc targetNpc) {
-        if (inventoryView == null || inventoryView.isDisposed()) {
-            inventoryView = new InventoryView(game, loginController, this, targetNpc);
-            if (lastFrameTexture != null) {
-                inventoryView.setBackgroundTexture(lastFrameTexture);
-            }
-        } else {
-            inventoryView.setGiftingTarget(targetNpc);
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (inventoryView != null) {
+            inventoryView.dispose();
+        }
+        inventoryView = new InventoryView(game, loginController, this, targetNpc, currentPlayer);
+        if (lastFrameTexture != null) {
             inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
 
     public void showInventoryForSelling() {
-        if (inventoryView == null || inventoryView.isDisposed()) {
-            inventoryView = new InventoryView(game, loginController, this, null);
-            inventoryView.setSellingMode(true);
-            if (lastFrameTexture != null) {
-                inventoryView.setBackgroundTexture(lastFrameTexture);
-            }
-        } else {
-            inventoryView.setSellingMode(true);
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (inventoryView != null) {
+            inventoryView.dispose();
+        }
+        inventoryView = new InventoryView(game, loginController, this, null, currentPlayer);
+        inventoryView.setSellingMode(true);
+        if (lastFrameTexture != null) {
             inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);

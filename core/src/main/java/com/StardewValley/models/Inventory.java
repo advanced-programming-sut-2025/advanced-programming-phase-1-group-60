@@ -87,6 +87,14 @@ public class Inventory {
     }
 
     public boolean addItem(Item item) {
+        if (item instanceof Tools) {
+            if (items.size() < capacity) {
+                items.add(item);
+                return true;
+            } else {
+                return false;
+            }
+        }
         for (Item i : items) {
             if (i.getName().equalsIgnoreCase(item.getName())) {
                 i.setQuantity(i.getQuantity() + item.getQuantity());
@@ -102,6 +110,15 @@ public class Inventory {
     }
 
     public boolean tryAddItem(Item item) {
+        if (item instanceof Tools) {
+            if (items.size() < capacity) {
+                items.add(item);
+                return true;
+            } else {
+                System.out.println("Inventory is full!");
+                return false;
+            }
+        }
         for (Item i : items) {
             if (i.getName().equalsIgnoreCase(item.getName())) {
                 i.setQuantity(i.getQuantity() + item.getQuantity());

@@ -2,6 +2,7 @@ package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.AssetsManager.ToolManager;
 import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
@@ -60,6 +61,8 @@ public class MapView implements Screen {
     private static final int ENERGY_LIMIT_PER_TURN = 50;
     private float energyUsedThisTurn = 0;
     private Vector2 lastEnergyTile = new Vector2(-1, -1);
+    private ToolManager toolManager;
+    private int selectedQuickSlot = 0;
 
     private static final float TILE_SIZE = 32f;
     private int currentFarmIndex = 0;
@@ -100,6 +103,7 @@ public class MapView implements Screen {
         this.camera = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         this.camera.zoom = DEFAULT_ZOOM;
         this.mapManager = MapManager.getInstance();
+        this.toolManager = ToolManager.getInstance();
         currentPlayerAnimation = MapManager.getInstance().getIdleAnimation();
         for (GamePlayController controller : playerControllers.values()) {
             controller.setMapViewControlled(true);
@@ -124,7 +128,7 @@ public class MapView implements Screen {
         playerPos = new Vector2(playerPositions.get(currentPlayer));
         inVillage = playerInVillageState.get(currentPlayer);
         currentPlayerController = playerControllers.get(gameInstance.getCurrentPlayer());
-
+        currentPlayerController = playerControllers.get(currentPlayer);
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.GREEN);
         pixmap.fill();
@@ -203,33 +207,23 @@ public class MapView implements Screen {
                     boolean enteredNewTile = (currentTileX != lastTileX || currentTileY != lastTileY);
 
                     if (enteredNewTile && energyUsedThisTurn < ENERGY_LIMIT_PER_TURN &&
-                        currentPlayer.getEnergy().getCurrentEnergy() > 0) {
-                        int energyToConsume = 1;
-                        if (currentPlayer.getEnergy().getCurrentEnergy() >= energyToConsume &&
-                            energyUsedThisTurn + energyToConsume <= ENERGY_LIMIT_PER_TURN) {
-                            currentPlayer.getEnergy().setCurrentEnergy(
-                                currentPlayer.getEnergy().getCurrentEnergy() - energyToConsume
-                            );
-                            energyUsedThisTurn += energyToConsume;
-                            lastEnergyTile.set(currentTileX, currentTileY);
-                            if (energyUsedThisTurn >= ENERGY_LIMIT_PER_TURN * 0.8f) {
-                                lastTurnMessage = "Energy getting low! " + (int)(ENERGY_LIMIT_PER_TURN - energyUsedThisTurn) + " left this turn";
-                                messageTimer = MESSAGE_DISPLAY_TIME;
-                            }
-                        } else {
+                        currentPlayer.getEnergy().getCurrentEnergy() >= WALK_ENERGY_COST) {
+
+                        // Check if this movement would exceed the per-turn limit
+                        if (energyUsedThisTurn + WALK_ENERGY_COST > ENERGY_LIMIT_PER_TURN) {
+                            showMessage("Energy limit reached for this turn (50/50)", 2);
                             canMove = false;
-                            if (energyUsedThisTurn >= ENERGY_LIMIT_PER_TURN) {
-                                lastTurnMessage = "Turn energy limit reached! Press K to end turn.";
-                            } else {
-                                lastTurnMessage = "Not enough energy to move!";
-                            }
-                            messageTimer = MESSAGE_DISPLAY_TIME;
+                        } else {
+                            currentPlayer.getEnergy().decreaseEnergy((int)WALK_ENERGY_COST);
+                            energyUsedThisTurn += WALK_ENERGY_COST;
+                            lastEnergyTile.set(currentTileX, currentTileY);
                         }
-                    } else if (enteredNewTile && (energyUsedThisTurn >= ENERGY_LIMIT_PER_TURN ||
-                        currentPlayer.getEnergy().getCurrentEnergy() <= 0)) {
+                    } else if (enteredNewTile && energyUsedThisTurn >= ENERGY_LIMIT_PER_TURN) {
+                        showMessage("Energy limit reached for this turn", 2);
                         canMove = false;
-                        lastTurnMessage = "Not enough energy to move!";
-                        messageTimer = MESSAGE_DISPLAY_TIME;
+                    } else if (enteredNewTile && currentPlayer.getEnergy().getCurrentEnergy() < WALK_ENERGY_COST) {
+                        showMessage("Not enough energy to move", 2);
+                        canMove = false;
                     }
                 }
                 if (canMove) {
@@ -242,7 +236,42 @@ public class MapView implements Screen {
             messageTimer -= delta;
         }
     }
+    private boolean handleToolUsage(Vector3 clickPos) {
+        User currentPlayer = gameInstance.getCurrentPlayer();
 
+        // Get the currently selected tool from quick access
+        Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
+        Item selectedItem = quickSlots[selectedQuickSlot];
+
+        System.out.println("Selected quick slot: " + selectedQuickSlot);
+        System.out.println("Selected item: " + (selectedItem != null ? selectedItem.getName() : "null"));
+
+        if (selectedItem instanceof Tools) {
+            Tools tool = (Tools) selectedItem;
+            System.out.println("Tool found: " + tool.getName());
+
+            // Check if tool is already swinging (prevent spam clicking)
+            if (toolManager.isSwinging()) {
+                return true;
+            }
+
+            // Start tool swing animation
+            toolManager.startToolSwing(tool);
+            System.out.println("Started tool swing animation");
+
+            // Handle different tool types
+            if ("Hoe".equals(tool.getName())) {
+                return handleHoeUsage(tool, clickPos);
+            }
+            // TODO: Add other tools here (Pickaxe, Axe, etc.)
+
+            return true; // Tool usage handled
+        } else {
+            System.out.println("Selected item is not a tool or is null");
+        }
+
+        return false; // No tool selected or not a tool
+    }
     private void createUI() {
         createTravelDialog();
         createBackButton();
@@ -608,7 +637,8 @@ public class MapView implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         handleInput(delta);
-        updateAnimals(delta); // Add this call to update animal logic
+        updateAnimals(delta);
+        toolManager.updateSwing(delta);
         centerCameraOnPlayer();
 
         batch.setProjectionMatrix(camera.combined);
@@ -616,6 +646,7 @@ public class MapView implements Screen {
         renderMap();
         renderAnimals();
         renderPlayer();
+        renderToolSwing();
         renderUI();
         batch.end();
 
@@ -643,7 +674,7 @@ public class MapView implements Screen {
         }
 
         Vector2 renderOffset = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
-        int waterBorderSize = 100; // How many tiles of water around the area
+        int waterBorderSize = 100;
         int totalWidth = width + (waterBorderSize * 2);
         int totalHeight = height + (waterBorderSize * 2);
 
@@ -658,6 +689,8 @@ public class MapView implements Screen {
             for (int x = 0; x < width; x++) {
                 final int finalX = x;
                 final int finalY = y;
+                float tileX = renderOffset.x + (x * TILE_SIZE);
+                float tileY = renderOffset.y + ((height - 1 - y) * TILE_SIZE);
                 float posX = renderOffset.x + (x * TILE_SIZE);
                 float posY = renderOffset.y + (y * TILE_SIZE);
                 batch.draw(mapManager.getGrassTile(), posX, posY, TILE_SIZE, TILE_SIZE);
@@ -668,6 +701,10 @@ public class MapView implements Screen {
                     tile = gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - y);
                 }
                 if (tile == null) continue;
+                if (tile.isPlowed()) {
+                    float plowedTileY = renderOffset.y + (y * TILE_SIZE);
+                    batch.draw(mapManager.getPlowedGroundTexture(), posX, plowedTileY, TILE_SIZE, TILE_SIZE);
+                }
 
                 tile.getStaticElement().ifPresent(element -> {
                     if (element instanceof Cabin) {
@@ -895,22 +932,21 @@ public class MapView implements Screen {
         User currentPlayer = gameInstance.getCurrentPlayer();
         Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
 
-        // Position toolbar at bottom center of screen
-        float toolbarWidth = 6 * 60f; // 6 slots * 60px width
-        float toolbarHeight = 60f;
+        float toolbarWidth = 6 * 60f;
         float startX = camera.position.x - toolbarWidth / 2f;
         float startY = camera.position.y - Gdx.graphics.getHeight() / 2f * camera.zoom + 30;
 
-        // Remove black background completely - only draw slots
-
-        // Draw each quick access slot using Panel.png
         for (int i = 0; i < 6; i++) {
             float slotX = startX + (i * 60f);
             float slotY = startY;
 
             // Draw Panel.png as slot background
             if (panelTexture != null) {
-                batch.setColor(Color.LIGHT_GRAY); // Same color as InventoryView
+                if (i == selectedQuickSlot) {
+                    batch.setColor(Color.YELLOW);
+                } else {
+                    batch.setColor(Color.LIGHT_GRAY);
+                }
                 batch.draw(panelTexture, slotX, slotY, 55f, 55f);
                 batch.setColor(Color.WHITE);
             }
@@ -918,10 +954,26 @@ public class MapView implements Screen {
             // Draw item if present
             Item item = quickSlots[i];
             if (item != null) {
-                font.setColor(Color.GREEN);
-                font.draw(batch, item.getName().substring(0, Math.min(item.getName().length(), 8)),
-                    slotX + 2, slotY + 45);
-                font.setColor(Color.WHITE);
+                if (item instanceof Tools) {
+                    Tools tool = (Tools) item;
+                    // Use the tool's existing path from Tools.java
+                    Texture toolTexture = toolManager.getToolTexture(tool);
+                    if (toolTexture != null) {
+                        batch.draw(toolTexture, slotX + 5, slotY + 5, 45f, 45f);
+                    } else {
+                        // Fallback to text if texture fails to load
+                        font.setColor(Color.GREEN);
+                        font.draw(batch, tool.getName().substring(0, Math.min(3, tool.getName().length())),
+                            slotX + 10, slotY + 35);
+                        font.setColor(Color.WHITE);
+                    }
+                } else {
+                    // Regular item
+                    font.setColor(Color.GREEN);
+                    font.draw(batch, item.getName().substring(0, Math.min(8, item.getName().length())),
+                        slotX + 5, slotY + 35);
+                    font.setColor(Color.WHITE);
+                }
             }
 
             // Draw slot number
@@ -1083,6 +1135,10 @@ public class MapView implements Screen {
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
+            if (handleToolUsage(clickPos)){
+                return;
+            }
+
             int clickedTileX, playerTileX, clickedTileY, playerTileY;
 
             if (handleAnimalClick(clickPos)) {
@@ -1221,18 +1277,21 @@ public class MapView implements Screen {
         checkTravel();
     }
     private void selectQuickAccessSlot(int slotIndex) {
-        User currentPlayer = gameInstance.getCurrentPlayer();
-        Item item = currentPlayer.getInventory().getQuickAccessSlot(slotIndex);
+        if (slotIndex >= 0 && slotIndex < 6) {
+            selectedQuickSlot = slotIndex;
+            System.out.println("Selected quick access slot: " + slotIndex);
 
-        if (item != null) {
-            lastTurnMessage = "Selected: " + item.getName() + " (Slot " + (slotIndex + 1) + ")";
-            messageTimer = MESSAGE_DISPLAY_TIME;
+            // Debug: show what's in the selected slot
+            User currentPlayer = gameInstance.getCurrentPlayer();
+            Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
+            Item selectedItem = quickSlots[selectedQuickSlot];
+            System.out.println("Item in slot " + slotIndex + ": " +
+                (selectedItem != null ? selectedItem.getName() : "empty"));
 
-            // Here you can add tool equipping logic later
-            System.out.println("Quick access selected: " + item.getName());
-        } else {
-            lastTurnMessage = "Quick slot " + (slotIndex + 1) + " is empty";
-            messageTimer = MESSAGE_DISPLAY_TIME;
+            if (selectedItem instanceof Tools) {
+                Tools tool = (Tools) selectedItem;
+                System.out.println("Tool selected: " + tool.getName() + " with path: " + tool.getPath());
+            }
         }
     }
     private boolean isAreaPassable(float worldX, float worldY) {
@@ -1254,7 +1313,68 @@ public class MapView implements Screen {
 
         return bottomLeft && bottomRight && topLeft && topRight && center;
     }
+    private boolean handleHoeUsage(Tools hoe, Vector3 clickPos) {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+        int energyCost = hoe.getEnergyCost();
 
+        if (!currentPlayer.getEnergy().isUnlimited() && energyUsedThisTurn + energyCost > ENERGY_LIMIT_PER_TURN) {
+            showMessage("Energy limit reached for this turn", 2);
+            return false;
+        }
+        if (!currentPlayer.getEnergy().isUnlimited() && currentPlayer.getEnergy().getCurrentEnergy() < energyCost) {
+            showMessage("Not enough energy to use the hoe", 2);
+            return false;
+        }
+
+        int clickedTileX, clickedTileY;
+        if (inVillage) {
+            showMessage("You can't plow in the village", 2);
+            return false;
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            clickedTileX = (int) ((clickPos.x - farmTopLeft.x) / TILE_SIZE);
+            clickedTileY = (int) ((clickPos.y - farmTopLeft.y) / TILE_SIZE);
+        }
+
+        if (clickedTileX < 0 || clickedTileX >= FarmTemplate.WIDTH ||
+            clickedTileY < 0 || clickedTileY >= FarmTemplate.HEIGHT) {
+            showMessage("Invalid tile", 2);
+            return false;
+        }
+
+        // Mirror Y for all tile access to match rendering and object checks
+        int mirroredY = FarmTemplate.HEIGHT - 1 - clickedTileY;
+        Tile clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, mirroredY);
+
+        if (clickedTile == null) {
+            showMessage("No tile found", 2);
+            return false;
+        }
+
+        if (clickedTile.getStaticElement().isPresent() || clickedTile.getRandomElement().isPresent()) {
+            showMessage("Can't plow this tile - remove objects first", 2);
+            return false;
+        }
+        if (clickedTile.isPlowed()) {
+            showMessage("This tile is already plowed", 2);
+            return false;
+        }
+
+        clickedTile.setPlowed(true);
+        toolManager.startToolSwing(hoe);
+
+        if (!currentPlayer.getEnergy().isUnlimited()) {
+            currentPlayer.getEnergy().decreaseEnergy(energyCost);
+            energyUsedThisTurn += energyCost;
+        }
+
+        showMessage("Tile plowed successfully at (" + clickedTileX + ", " + clickedTileY + ")", 1);
+        return true;
+    }
+    private void showMessage(String message, float duration) {
+        lastTurnMessage = message;
+        messageTimer = duration;
+    }
     private boolean isTilePassable(float worldX, float worldY) {
         // First, absolute boundary check without even checking tiles
         if (inVillage) {
@@ -1406,7 +1526,59 @@ public class MapView implements Screen {
             }
         }
     }
+    private void renderToolSwing() {
+        if (toolManager.isSwinging()) {
+            // Get the current tool texture from ToolManager
+            Texture toolTexture = toolManager.getCurrentToolTexture();
 
+            if (toolTexture != null) {
+                // Get swing angle from ToolManager
+                float swingAngle = toolManager.getSwingAngle();
+
+                // Calculate position to render the tool - centered on player
+                float toolX = playerPos.x + TILE_SIZE * 0.6f; // Push 1 tile to the right
+                float toolY = playerPos.y;
+
+                // Adjust tool position based on player direction
+                float offsetDistance = TILE_SIZE * 0.6f;
+
+                switch (lastDirection) {
+                    case 0: // Down
+                        toolX -= offsetDistance;
+                        swingAngle += 270; // Adjust for left direction
+                        break;
+                    case 1: // Right
+                        toolX -= offsetDistance;
+                        swingAngle += 270; // Adjust for left direction
+                        break;
+                    case 2: // Up
+                        toolX -= offsetDistance;
+                        swingAngle += 270; // Adjust for left direction
+                        break;
+                    case 3: // Left
+                        toolX -= offsetDistance;
+                        swingAngle += 270; // Adjust for left direction
+                        break;
+                }
+
+                // Render the tool with rotation and proper positioning
+                batch.draw(
+                    toolTexture,
+                    toolX - (TILE_SIZE / 2), // Center horizontally
+                    toolY - (TILE_SIZE / 2), // Center vertically
+                    TILE_SIZE / 2, // Origin X (center of texture)
+                    TILE_SIZE / 2, // Origin Y (center of texture)
+                    TILE_SIZE, // Width
+                    TILE_SIZE, // Height
+                    1, 1, // Scale X, Y
+                    swingAngle, // Rotation from ToolManager
+                    0, 0, // Source X, Y
+                    toolTexture.getWidth(), toolTexture.getHeight(), // Source width, height
+                    false, false // Flip X, Y
+                );
+            }
+        }
+    }
     private Vector2 getFarmTopLeft(int farmIndex) {
         int farmW = FarmTemplate.WIDTH;
         int farmH = FarmTemplate.HEIGHT;

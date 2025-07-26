@@ -84,11 +84,12 @@ public class InventoryView implements Screen {
     private Texture inventoryNothingTexture;
     private Label sectionTitleLabel;
     private int questsCurrentPage = 1; // برای مدیریت صفحه‌بندی ماموریت‌ها
+    private com.StardewValley.models.Game gameInstance;
 
-    public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget) {
+    public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget, User currentPlayer) {
         this.game = game;
         this.loginController = loginController;
-        this.player = loginController.getLoggedInUser();
+        this.player = currentPlayer;
         this.gameView = gameView;
         this.batch = new SpriteBatch();
         this.stage = new Stage(new ScreenViewport());
@@ -96,6 +97,7 @@ public class InventoryView implements Screen {
         this.dragAndDrop = new DragAndDrop();
         this.textureCache = new HashMap<>();
         this.giftingTarget = giftingTarget;
+
         inventoryTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Inventory.png"));
         inventoryNothingTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Inventory_nothing.png"));
 
@@ -126,7 +128,6 @@ public class InventoryView implements Screen {
     public boolean isDisposed() {
         return isDisposed;
     }
-
     public void setGiftingTarget(Npc npc) {
         this.giftingTarget = npc;
         this.sellingMode = false;
@@ -358,7 +359,7 @@ public class InventoryView implements Screen {
             // Add to table with proper size
             quickAccessTable.add(slotStack).size(60, 60).pad(2);
 
-            // Re-add drop target functionality
+            // Re-add drop target functionality - FIX: Don't create new Item, use the actual object
             dragAndDrop.addTarget(new DragAndDrop.Target(slotStack) {
                 @Override
                 public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
@@ -368,8 +369,8 @@ public class InventoryView implements Screen {
                 @Override
                 public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                     Item draggedItem = (Item) payload.getObject();
-                    Item quickAccessItem = new Item(draggedItem.getName(), 1, draggedItem.getPath());
-                    player.getInventory().setQuickAccessSlot(slotIndex, quickAccessItem);
+                    // FIX: Use the actual dragged item, don't create a new one
+                    player.getInventory().setQuickAccessSlot(slotIndex, draggedItem);
                     refreshQuickAccessSlots();
                 }
             });
