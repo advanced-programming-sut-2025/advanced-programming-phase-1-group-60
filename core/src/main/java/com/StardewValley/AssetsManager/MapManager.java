@@ -22,7 +22,7 @@ public class MapManager {
     private Texture grassTile;
     private Texture placeholderTile;
     private Texture chatIconTexture;
-
+    private Texture plowedGroundTexture;
     // Stone textures
     private Texture[] stoneTiles;
 
@@ -204,6 +204,7 @@ public class MapManager {
         quarryTexture = new Texture(Gdx.files.internal("Map/Floor/Quarry.png"));
         sellingBinTexture = new Texture(Gdx.files.internal("assets/Inventory/Bin.png"));
         hayTexture = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Hay.png"));
+        plowedGroundTexture = new Texture(Gdx.files.internal("assets/Map/Floor/Plowed.png"));
         stoneTiles = new Texture[8];
         for (int i = 0; i < 8; i++) {
             stoneTiles[i] = new Texture(Gdx.files.internal("Map/Stone/Stone_" + (i + 1) + ".png"));
@@ -302,7 +303,9 @@ public class MapManager {
     public Texture getStoreTexture() {
         return storeTexture;
     }
-
+    public Texture getPlowedGroundTexture() {
+        return plowedGroundTexture;
+    }
     private void loadTreeTextures() {
         for (Tree tree : TreeRepository.trees) {
             try {
@@ -373,6 +376,7 @@ public class MapManager {
                 }
             }
         }
+        if (plowedGroundTexture != null) plowedGroundTexture.dispose();
     }
 
     private void disposeTextureMap(Map<String, Texture> textureMap) {
