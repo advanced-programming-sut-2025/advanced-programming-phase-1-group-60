@@ -6,6 +6,7 @@ import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
 import com.StardewValley.models.Tree;
+import com.StardewValley.repository.UserRepository;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
@@ -89,6 +90,11 @@ public class MapView implements Screen {
     private Pixmap lastFramePixmap;
     private Texture lastFrameTexture;
 
+
+    //Gift players
+    private Label notificationLabel;
+    private float notificationTimer = 0f;
+
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
         this.gameView = gameView;
@@ -144,6 +150,12 @@ public class MapView implements Screen {
         stage = new Stage(new ScreenViewport());
         Gdx.input.setInputProcessor(stage);
         skin = MenuManager.getInstance().getPixthulhuSkin();
+
+        User user1 = UserRepository.getInstance().getUserByUsername("kamran");
+        User user2 = UserRepository.getInstance().getUserByUsername("kam");
+        user1.increaseFriendshipXpsWithUsers(user2, 120);
+        user2.increaseFriendshipXpsWithUsers(user1, 120);
+
         createUI();
     }
 
@@ -523,6 +535,25 @@ public class MapView implements Screen {
             inVillage = true;
         }
         centerCameraOnPlayer();
+    }
+
+    private void createNotificationLabel() {
+        notificationLabel = new Label("", skin);
+        notificationLabel.setWrap(true);
+        notificationLabel.setAlignment(Align.center);
+        notificationLabel.setVisible(false);
+        // Position it at the top-center of the screen
+        Table notificationTable = new Table();
+        notificationTable.top();
+        notificationTable.setFillParent(true);
+        notificationTable.add(notificationLabel).padTop(50);
+        stage.addActor(notificationTable);
+    }
+
+    public void showNotification(String message) {
+        notificationLabel.setText(message);
+        notificationLabel.setVisible(true);
+        notificationTimer = 5f; // Show for 5 seconds
     }
 
     private void initializeFarmOwnerMap() {
@@ -920,6 +951,11 @@ public class MapView implements Screen {
                 if (players.indexOf(newCurrentPlayer) == 0 && !previousPlayer.equals(newCurrentPlayer)) {
                     completedRound = true;
                 }
+
+                if (notificationLabel != null) {
+                    showNotification(notificationLabel.toString());
+                }
+
                 if (completedRound) {
                     TimeSystem.getInstance().advanceTime(1);
                     if (TimeSystem.getInstance().getCurrentHour() >= 12) {
@@ -1028,6 +1064,10 @@ public class MapView implements Screen {
             gameView.setLastFrameTexture(lastFrameTexture); // Pass to GameView
             gameView.showInventoryScreen();
             return;// Use existing method
+        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.G)) {
+            gameView.showGiftToPlayerView();
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.B)){

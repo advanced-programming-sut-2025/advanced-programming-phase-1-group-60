@@ -284,7 +284,6 @@ public class Animal {
         currentProduct.setQuantity(1);
         currentProduct.setPath("assets/Animals/Products/" + productName.replace(" ", "_") + ".png");
 
-
         HashMap<String, Object> properties = new HashMap<>();
         properties.put("quality", determineQuality());
         properties.put("animal", this.type);

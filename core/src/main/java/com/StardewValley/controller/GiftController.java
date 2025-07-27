@@ -86,16 +86,13 @@ public class GiftController {
             GiftEvent ev = it.next().getValue();
             if (ev.getReceiver().equals(receiver.getUsername())) {
                 it.remove();
-                int xpDelta = 15 + 30 * (3 - rating);
+                // FIX: 1. فرمول محاسبه xpDelta اصلاح شد
+                int xpDelta = (rating - 3) * 30 + 15;
                 User sender = UserRepository.getInstance().getUserByUsername(ev.getSender());
                 if (sender != null) {
-                    if (rating > 2) {
-                        sender.increaseFriendshipXpsWithUsers(receiver, xpDelta);
-                        receiver.increaseFriendshipXpsWithUsers(sender, xpDelta);
-                    } else {
-                        sender.increaseFriendshipXpsWithUsers(receiver, -xpDelta);
-                        receiver.increaseFriendshipXpsWithUsers(sender, -xpDelta);
-                    }
+                    // FIX: 2. منطق شرطی حذف شد و تغییرات مستقیما اعمال می‌شود
+                    sender.increaseFriendshipXpsWithUsers(receiver, xpDelta);
+                    receiver.increaseFriendshipXpsWithUsers(sender, xpDelta);
                 }
                 return "You've rated " + ev.getItemName() + " x" + ev.getQuantity()
                     + " with " + rating + ". Friendship XP change: " + xpDelta;

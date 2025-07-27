@@ -26,6 +26,7 @@ public class Game {
     }
     public static Game resetInstance() {
         instance = new Game();
+        User.resetChatHistories();
         return instance;
     }
     public void setCurrentMap(GameMap map) {

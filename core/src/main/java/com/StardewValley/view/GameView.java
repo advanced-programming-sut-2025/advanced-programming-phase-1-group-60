@@ -42,6 +42,7 @@ public class GameView implements Screen {
     private MarinsRanchView marinsRanchView;
     private CarpenterShopView carpenterShopView;
     private KitchenView kitchenView;
+    private GiftToPlayerView giftToPlayerView;
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -418,99 +419,109 @@ public class GameView implements Screen {
     }
 
     public void showInventoryScreen() {
-        if (inventoryView == null || inventoryView.isDisposed()) {
-            inventoryView = new InventoryView(game, loginController, this, null);
-            if (lastFrameTexture != null) {
-                inventoryView.setBackgroundTexture(lastFrameTexture);
-            }
-        } else {
+        if (inventoryView != null && !inventoryView.isDisposed()) {
+            inventoryView.dispose();
+        }
+        inventoryView = new InventoryView(game, loginController, this, null);
+        if (lastFrameTexture != null) {
             inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
 
     public void showInventoryForGifting(Npc targetNpc) {
-        if (inventoryView == null || inventoryView.isDisposed()) {
-            inventoryView = new InventoryView(game, loginController, this, targetNpc);
-            if (lastFrameTexture != null) {
-                inventoryView.setBackgroundTexture(lastFrameTexture);
-            }
-        } else {
-            inventoryView.setGiftingTarget(targetNpc);
+        if (inventoryView != null && !inventoryView.isDisposed()) {
+            inventoryView.dispose();
+        }
+        inventoryView = new InventoryView(game, loginController, this, targetNpc);
+        if (lastFrameTexture != null) {
             inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
 
     public void showInventoryForSelling() {
-        if (inventoryView == null || inventoryView.isDisposed()) {
-            inventoryView = new InventoryView(game, loginController, this, null);
-            inventoryView.setSellingMode(true);
-            if (lastFrameTexture != null) {
-                inventoryView.setBackgroundTexture(lastFrameTexture);
-            }
-        } else {
-            inventoryView.setSellingMode(true);
+        if (inventoryView != null && !inventoryView.isDisposed()) {
+            inventoryView.dispose();
+        }
+        inventoryView = new InventoryView(game, loginController, this, null);
+        inventoryView.setSellingMode(true);
+        if (lastFrameTexture != null) {
             inventoryView.setBackgroundTexture(lastFrameTexture);
         }
         game.setScreen(inventoryView);
     }
 
     public void showBlacksmithView(Store blacksmith) {
-        // User-ی که نوبتش هست را از Game instance بگیر
         User currentPlayer = Game.getInstance().getCurrentPlayer();
-        if (blacksmithView == null) {
-            blacksmithView = new BlacksmithView(game, currentPlayer, this, blacksmith); // <-- اینجا تغییر کرد
+        if (blacksmithView != null) {
+            blacksmithView.dispose();
         }
+        blacksmithView = new BlacksmithView(game, currentPlayer, this, blacksmith);
         game.setScreen(blacksmithView);
     }
 
     public void showFishShopView(Store fishShop) {
         User currentPlayer = Game.getInstance().getCurrentPlayer();
-        if (fishShopView == null) {
-            fishShopView = new FishShopView(game, currentPlayer, this, fishShop); // <-- اینجا تغییر کرد
+        if (fishShopView != null) {
+            fishShopView.dispose();
         }
+        fishShopView = new FishShopView(game, currentPlayer, this, fishShop);
         game.setScreen(fishShopView);
     }
 
     public void showSaloonView(Store saloon) {
         User currentPlayer = Game.getInstance().getCurrentPlayer();
-        if (saloonView == null) {
-            saloonView = new SaloonView(game, currentPlayer, this, saloon); // <-- اینجا تغییر کرد
+        if (saloonView != null) {
+            saloonView.dispose();
         }
+        saloonView = new SaloonView(game, currentPlayer, this, saloon);
         game.setScreen(saloonView);
     }
 
     public void showMarinsRanchView(Store marinsRanch) {
         User currentPlayer = Game.getInstance().getCurrentPlayer();
-        if (marinsRanchView == null) {
-            marinsRanchView = new MarinsRanchView(game, currentPlayer, this, marinsRanch); // <-- اینجا تغییر کرد
+        if (marinsRanchView != null) {
+            marinsRanchView.dispose();
         }
+        marinsRanchView = new MarinsRanchView(game, currentPlayer, this, marinsRanch);
         game.setScreen(marinsRanchView);
     }
 
     public void showCarpenterShopView(Store carpenterShop) {
         User currentPlayer = Game.getInstance().getCurrentPlayer();
-        if (carpenterShopView == null) {
-            carpenterShopView = new CarpenterShopView(game, currentPlayer, this, carpenterShop); // <-- اینجا تغییر کرد
+        if (carpenterShopView != null) {
+            carpenterShopView.dispose();
         }
+        carpenterShopView = new CarpenterShopView(game, currentPlayer, this, carpenterShop);
         game.setScreen(carpenterShopView);
     }
 
     public void showKitchenView() {
         User currentPlayer = Game.getInstance().getCurrentPlayer();
-        if (kitchenView == null) {
-            kitchenView = new KitchenView(game, currentPlayer, this); // <-- اینجا تغییر کرد
+        if (kitchenView != null) {
+            kitchenView.dispose();
         }
+        kitchenView = new KitchenView(game, currentPlayer, this);
         game.setScreen(kitchenView);
+    }
+
+    public void showGiftToPlayerView() {
+        User currentPlayer = com.StardewValley.models.Game.getInstance().getCurrentPlayer();
+        if (giftToPlayerView != null) {
+            giftToPlayerView.dispose();
+        }
+        giftToPlayerView = new GiftToPlayerView(game, currentPlayer, this);
+        game.setScreen(giftToPlayerView);
     }
 
 
     // You will need to create this class yourself based on your colleague's code
     public void showCraftingMenu(User player) {
-        if (craftingMenuScreenView == null) {
-            craftingMenuScreenView = new CraftingMenuScreenView(player, this);
+        if (craftingMenuScreenView != null) {
+            craftingMenuScreenView.dispose();
         }
+        craftingMenuScreenView = new CraftingMenuScreenView(player, this);
         game.setScreen(craftingMenuScreenView);
     }
 
