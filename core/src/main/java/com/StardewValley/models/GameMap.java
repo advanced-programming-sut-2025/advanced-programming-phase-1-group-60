@@ -155,7 +155,32 @@ public class GameMap {
             System.out.println();
         }
     }
+    // Add this new method:
+    public boolean placeBuilding(StaticElement building, int x, int y) {
+        Tile targetTile = getTile(x, y);
 
+        // Ensure the tile exists and is available for building
+        // (using the new method from Tile class)
+        if (targetTile != null && targetTile.isAvailableForBuilding()) {
+            // Set the static element (which will be a Building) on the tile
+            targetTile.setStaticElement(building);
+
+            // Assuming building has setX/setY methods if it's a direct StaticElement
+            // If your Buildings have position, ensure they are set here.
+            // Example: If 'building' is a 'Building' instance (subclass of StaticElement)
+            // ((Building)building).setX(x);
+            // ((Building)building).setY(y);
+
+            // Also update the tile's occupied status explicitly.
+            // setStaticElement might internally change passable, but isOccupied is separate.
+            targetTile.setOccupied(true);
+
+            System.out.println("Placed " + building.getClass().getSimpleName() + " at (" + x + "," + y + ")");
+            return true;
+        }
+        System.out.println("Failed to place building at (" + x + "," + y + "). Tile might not be available.");
+        return false;
+    }
     public int getVilX() { return vilX; }
     public int getVilY() { return vilY; }
     public int getVilW() { return vilW; }

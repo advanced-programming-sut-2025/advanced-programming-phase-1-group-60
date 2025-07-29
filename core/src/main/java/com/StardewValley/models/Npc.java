@@ -42,6 +42,16 @@ public class Npc implements StaticElement {
         return name;
     }
 
+    @Override
+    public int getWidth() {
+        return 0;
+    }
+
+    @Override
+    public int getHeight() {
+        return 0;
+    }
+
     public String getPersonality() {
         return personality;
     }

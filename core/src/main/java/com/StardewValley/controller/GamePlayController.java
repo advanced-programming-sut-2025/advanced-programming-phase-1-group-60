@@ -24,7 +24,10 @@ public class GamePlayController {
     private final Farm farm;
     public boolean hasFaintedLastDay = false;
     private boolean mapViewControlled = false;
-
+    private GameState currentGameState = GameState.NORMAL; // Initialize to normal gameplay
+    public StaticElement selectedBuildingBlueprint;
+    private boolean inBuildMode = false; // Add this field to track build mode state
+    private String selectedBuildingType = "Bee_House";
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.farm = f;
         this.tiles = f.getTiles();
@@ -36,8 +39,126 @@ public class GamePlayController {
         homeY = f.getHomeY();
         user.setPosition(tiles[homeX][homeY]);
     }
+    public enum GameState {
+        NORMAL,       // Regular gameplay
+        BUILD_MODE,   // Player is in building placement mode
+        MENU_OPEN,    // A menu is open (e.g., inventory, shop)
+        DIALOG_OPEN   // A dialogue is active
+        // Add other states as needed
+    }
+    public User getUser() {
+        return user;
+    }
+    public void enterBuildMode(StaticElement buildingBlueprint) {
+        this.currentGameState = GameState.BUILD_MODE;
+        this.selectedBuildingBlueprint = buildingBlueprint;
+        System.out.println("Game entered BUILD_MODE for: " + (buildingBlueprint != null ? buildingBlueprint.getClass().getSimpleName() : "null"));
+        // No explicit repaint() call needed here, MapView's render loop will pick up the state change.
+    }
+
+    public void exitBuildMode() {
+        this.currentGameState = GameState.NORMAL;
+        this.selectedBuildingBlueprint = null;
+        System.out.println("Game exited BUILD_MODE.");
+        // No explicit repaint() call needed here, MapView's render loop will pick up the state change.
+    }
+
+    public GameState getCurrentGameState() {
+        return currentGameState;
+    }
+
+    public StaticElement getSelectedBuildingBlueprint() {
+        return selectedBuildingBlueprint;
+    }
+
+    // New helper method to create an instance of the building from its blueprint.
+    private StaticElement createBuildingInstance(StaticElement blueprint) {
+        if (blueprint == null) {
+            return null;
+        }
+        try {
+            // Assuming your Building subclasses have a public no-arg constructor
+            return blueprint.getClass().getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            System.err.println("Error creating building instance: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public boolean attemptToPlaceBuilding(int x, int y) {
+        if (!isInBuildMode() || selectedBuildingBlueprint == null) {
+            System.out.println("Not in build mode or no blueprint selected.");
+            return false;
+        }
+
+        // Basic validation: check if the tile is available and within bounds
+        if (x < 0 || x >= tiles[0].length || y < 0 || y >= tiles.length) {
+            System.out.println("Cannot place building out of bounds.");
+            return false;
+        }
+
+        Tile targetTile = tiles[y][x];
+        // You will need to ensure your Tile class has an isBuildable() method.
+        // This example assumes a method to check if a tile is suitable for building.
+        if (!targetTile.isEmpty() || targetTile.getStaticElement().isPresent() || targetTile.getRandomElement().isPresent()) {
+            System.out.println("Cannot place building here. Tile is not buildable or already occupied.");
+            return false;
+        }
+
+        // For simplicity, just place the blueprint. In a real game, you'd
+        // consume resources, check for collisions with other buildings, etc.
+        targetTile.setStaticElement(selectedBuildingBlueprint);
+        user.getInventory().removeItemByName(selectedBuildingType,1);
+        System.out.println("Placed " + selectedBuildingBlueprint.getClass().getSimpleName() + " at (" + x + ", " + y + ")");
+        return true;
+    }
+
+    public StaticElement getBuildingDefinition(String buildingName) {
+        // This is where you define your building blueprints.
+        // In a real game, you might load these from a configuration file or database.
+        if ("Bee_House".equalsIgnoreCase(buildingName)) {
+            // Constructor parameters: name, symbol, width, height, constructionCost, maintenanceCost
+            return new PlaceableGameBuilding("Bee_House", "B", 2, 2, 100, 10);
+        } else if ("Cheese_Press".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Cheese_Press", "C", 1, 1, 50, 5);
+        } else if ("Keg".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Keg", "K", 1, 1, 75, 7);
+        } else if ("Dehydrator".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Dehydrator", "D", 2, 1, 60, 6);
+        } else if ("Charcoal_Kiln".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Charcoal_Kiln", "R", 2, 2, 80, 8);
+        } else if ("Loom".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Loom", "L", 1, 1, 55, 5);
+        } else if ("Mayonnaise_Machine".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Mayonnaise_Machine", "M", 1, 1, 65, 6);
+        } else if ("Oil_Maker".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Oil_Maker", "O", 1, 1, 70, 7);
+        } else if ("Preserves_Jar".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Preserves_Jar", "P", 1, 1, 45, 4);
+        } else if ("Fish_Smoker".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Fish_Smoker", "F", 2, 1, 90, 9);
+        } else if ("Furnace".equalsIgnoreCase(buildingName)) {
+            return new PlaceableGameBuilding("Furnace", "U", 2, 2, 120, 12);
+        }
+        // Return null if no definition found for the given name
+        return null;
+    }
     public void setMapViewControlled(boolean controlled) {
         this.mapViewControlled = controlled;
+    }
+    public void setBuildMode(boolean inBuildMode) {
+        this.inBuildMode = inBuildMode;
+        // Optionally, reset selected building or provide feedback here
+    }
+
+    // Add getter and setter for selected building type
+    public String getSelectedBuildingType() {
+        return selectedBuildingType;
+    }
+
+    public void setSelectedBuildingType(String selectedBuildingType) {
+        this.selectedBuildingType = selectedBuildingType;
     }
     public void initializeNextDay() {
         processCrowAttack();
@@ -2619,4 +2740,8 @@ public class GamePlayController {
 
         return task.getItemName() + " has been added to your inventory.";
     }
+    public boolean isInBuildMode() {
+        return this.currentGameState == GameState.BUILD_MODE;
+    }
+
 }

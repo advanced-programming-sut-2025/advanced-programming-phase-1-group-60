@@ -845,6 +845,16 @@ public class Store implements StaticElement {
         return name;
     }
 
+    @Override
+    public int getWidth() {
+        return 0;
+    }
+
+    @Override
+    public int getHeight() {
+        return 0;
+    }
+
     public int getLeftCornerX() {
         return leftCornerX;
     }

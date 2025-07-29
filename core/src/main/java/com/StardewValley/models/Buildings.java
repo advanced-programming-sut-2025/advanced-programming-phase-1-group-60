@@ -106,4 +106,11 @@ public abstract class Buildings {
         return false;
     }
 
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
+    }
 }

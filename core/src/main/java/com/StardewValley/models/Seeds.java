@@ -1,3 +1,4 @@
+// StardewValley/models/Seeds.java
 package com.StardewValley.models;
 
 import java.util.ArrayList;
@@ -10,7 +11,7 @@ public class Seeds extends Item implements RandomElement {
     private int totalHarvestTime;
     private boolean oneTime;
     private Integer regrowthTime;
-    private FruitsAndVegetables crop;
+    private FruitsAndVegetables crop; // Existing field
 
     public Seeds(){
         this.growsInto = "";
@@ -22,7 +23,7 @@ public class Seeds extends Item implements RandomElement {
         this.growsInto = fv.getName();
         this.suitableSeasons = fv.getSuitableSeasons();
         this.totalHarvestTime = fv.getTotalHarvestTime();
-        this.crop = crop;
+        this.crop = fv; // Corrected assignment for existing field
     }
     public String getGrowsInto() { return growsInto; }
     public void setGrowsInto(String growsInto) { this.growsInto = growsInto; }
@@ -49,4 +50,9 @@ public class Seeds extends Item implements RandomElement {
     }
     public void setOneTime(boolean oneTime) { this.oneTime = oneTime; }
     public void setRegrowthTime(int regrowthTime) { this.regrowthTime = regrowthTime; }
+
+    // Added Function: Allows direct access to the associated FruitsAndVegetables object
+    public FruitsAndVegetables getAssociatedProduceInfo() {
+        return this.crop;
+    }
 }

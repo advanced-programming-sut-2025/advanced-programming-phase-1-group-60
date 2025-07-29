@@ -21,4 +21,19 @@ public class ItemStaticElement implements StaticElement {
     public boolean isPassable() {
         return this.passable;
     }
+
+    @Override
+    public String getName() {
+        return "";
+    }
+
+    @Override
+    public int getWidth() {
+        return 0;
+    }
+
+    @Override
+    public int getHeight() {
+        return 0;
+    }
 }
