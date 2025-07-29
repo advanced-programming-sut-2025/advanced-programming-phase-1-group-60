@@ -19,6 +19,18 @@ public class Coop extends Item {
         this.height = height;
     }
 
+    public boolean addAnimal(Animal animal) {
+        if (animals.size() < capacity) {
+            animals.add(animal);
+            return true;
+        }
+        return false;
+    }
+
+    public void removeAnimal(Animal animal) {
+        animals.remove(animal);
+    }
+
     // Getters
     public int getWidth() { return width; }
     public int getHeight() { return height; }

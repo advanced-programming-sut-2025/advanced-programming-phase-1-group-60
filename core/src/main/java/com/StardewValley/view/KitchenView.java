@@ -2,7 +2,6 @@ package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.controller.CookController;
-import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.models.Item;
 import com.StardewValley.models.Recipe;
 import com.StardewValley.models.User;
@@ -44,9 +43,9 @@ public class KitchenView implements Screen {
     private enum KitchenState {COOKING, REFRIGERATOR, INVENTORY}
     private KitchenState currentState = KitchenState.COOKING;
 
-    public KitchenView(Game game, LoginMenuController loginController, GameView gameView) {
+    public KitchenView(Game game, User player, GameView gameView) {
         this.game = game;
-        this.player = loginController.getLoggedInUser();
+        this.player = player;
         this.gameView = gameView;
         this.batch = new SpriteBatch();
         this.stage = new Stage(new ScreenViewport());

@@ -27,7 +27,9 @@ public class Store implements StaticElement {
     public Map<Integer, Integer> soldBinsUpgrades = new HashMap<>(); // for blacksmith
 
     // marin'sRanch
-    boolean isHaySoldToday;
+    public boolean isHaySoldToday;
+    public boolean isMilkPailSold;
+    public boolean isShearsSold;
     public List<Animal> animals = new ArrayList<>();
 
     // for Carpenter'sShop
@@ -129,6 +131,20 @@ public class Store implements StaticElement {
                 }
                 for (Item item : items) {
                     if (item.getName().equals(product)) {
+                        if (product.equals("Wood") || product.equals("Stone")) {
+                            if (player.getMoney() >= item.getStorePrice()) {
+                                Item newItem = new Item(product, 20, item.getPath());
+                                player.getInventory().addItem(newItem);
+                                player.setMoney(player.getMoney() - item.getStorePrice());
+                                result.setSuccess(true);
+                                result.setMessage("Bought 20 " + product);
+                                return result;
+                            } else {
+                                result.setMessage("not enough money");
+                                return result;
+                            }
+                        }
+
                         int sold = soldBuildings.getOrDefault(product, 0);
                         if (sold >= 1) {
                             result.setMessage("sold out");
@@ -187,7 +203,8 @@ public class Store implements StaticElement {
                                     (int) item.getProperties().get("width"),
                                     (int) item.getProperties().get("height")
                                 );
-                                player.addAnimalPlace(barn);
+                                barn.setPath(item.getPath());
+                                player.addAnimalPlace(barn); // <-- تغییر کرده
                             } else if (item.getName().contains("Coop")) {
                                 Coop coop = new Coop(
                                     item.getName(),
@@ -195,7 +212,8 @@ public class Store implements StaticElement {
                                     (int) item.getProperties().get("width"),
                                     (int) item.getProperties().get("height")
                                 );
-                                player.addAnimalPlace(coop);
+                                coop.setPath(item.getPath());
+                                player.addAnimalPlace(coop); // <-- تغییر کرده
                             }
 
                             soldBuildings.put(product, 1);
@@ -210,62 +228,106 @@ public class Store implements StaticElement {
             }
             case "Marin'sRanch" -> {
                 String[] parts = input.split(" ");
-                String product = parts[2];
-                switch (product) {
-                    case "Hay", "Milk Pail", "Shears" -> {
-                        int quantity = Integer.parseInt(parts[4]);
-                        Item itemTOsell = null;
-                        for (Item item : items) {
-                            if (item.getName().equals(product)) {
-                                itemTOsell = item;
-                            }
-                        }
-                        if (itemTOsell == null) {
-                            result.setMessage(product + " not available");
-                            result.setSuccess(false);
-                            return result;
-                        }
+                String productName = "";
+                String animalName = "";
+                int quantity = 1;
 
-                        if (player.getMoney() < quantity * itemTOsell.getStorePrice()) {
-                            result.setMessage("not enough money");
-                            result.setSuccess(false);
-                            return result;
+                int pIndex = -1, nIndex = -1;
+                for(int i=0; i<parts.length; i++) {
+                    if("-p".equals(parts[i])) pIndex = i;
+                    if("-n".equals(parts[i])) nIndex = i;
+                }
+
+                if (pIndex != -1 && nIndex != -1 && pIndex < nIndex) {
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = pIndex + 1; i < nIndex; i++) {
+                        sb.append(parts[i]).append(" ");
+                    }
+                    productName = sb.toString().trim();
+                } else {
+                    result.setMessage("Invalid command format.");
+                    return result;
+                }
+
+                boolean productIsAnimalType = false;
+                for (Animal a : animals) {
+                    if (a.getType().equalsIgnoreCase(productName)) {
+                        productIsAnimalType = true;
+                        break;
+                    }
+                }
+
+                if (productIsAnimalType) {
+                    animalName = parts[nIndex + 1];
+                    Animal animalToSell = null;
+                    for (Animal a : animals) {
+                        if (a.getType().equalsIgnoreCase(productName)) {
+                            animalToSell = new Animal(a.getType(), a.getBuildingType(), a.getBuildings(), a.getPrice(), a.getPath());
+                            break;
                         }
-                        itemTOsell.setQuantity(quantity);
-                        player.getInventory().addItem(itemTOsell);
-                        player.setMoney(player.getMoney() - quantity * itemTOsell.getStorePrice());
-                        result.setSuccess(true);
-                        result.setMessage("bought " + product);
+                    }
+                    if (animalToSell == null) {
+                        result.setMessage(productName + " not available");
                         return result;
                     }
-                    default -> {
-                        String name = parts[4];
-                        Animal animalToSell = null;
-                        for (Animal a : animals) {
-                            if (a.getType().equals(product)) {
-                                animalToSell = a;
-                                break;
-                            }
-                        }
-                        if (animalToSell == null) {
-                            result.setMessage(product + " not available");
-                            result.setSuccess(false);
-                            return result;
-                        }
-
-                        if (player.getMoney() < animalToSell.getPrice()) {
-                            result.setMessage("not enough money");
-                            result.setSuccess(false);
-                            return result;
-                        }
-                        animalToSell.setOwner(player);
-                        animalToSell.setName(name);
-                        player.getAnimals().add(animalToSell);
-                        result.setSuccess(true);
-                        result.setMessage("bought " + product);
+                    if (player.getMoney() < animalToSell.getPrice()) {
+                        result.setMessage("not enough money");
+                        return result;
+                    }
+                    animalToSell.setOwner(player);
+                    animalToSell.setName(animalName);
+                    player.addAnimal(animalToSell);
+                    player.setMoney(player.getMoney() - animalToSell.getPrice());
+                    result.setSuccess(true);
+                    result.setMessage("Bought " + productName);
+                    return result;
+                } else {
+                    try {
+                        quantity = Integer.parseInt(parts[nIndex + 1]);
+                    } catch (NumberFormatException e) {
+                        result.setMessage("Invalid quantity.");
                         return result;
                     }
 
+                    Item itemToSell = null;
+                    for (Item item : items) {
+                        if (item.getName().equalsIgnoreCase(productName)) {
+                            itemToSell = item;
+                            break;
+                        }
+                    }
+                    if (itemToSell == null) {
+                        result.setMessage(productName + " not available");
+                        return result;
+                    }
+
+                    if (itemToSell.getName().equals("Milk Pail") && isMilkPailSold) {
+                        result.setMessage("Milk Pail is sold out for today.");
+                        return result;
+                    }
+                    if (itemToSell.getName().equals("Shears") && isShearsSold) {
+                        result.setMessage("Shears are sold out for today.");
+                        return result;
+                    }
+                    if (player.getMoney() < quantity * itemToSell.getStorePrice()) {
+                        result.setMessage("not enough money");
+                        return result;
+                    }
+
+                    player.setMoney(player.getMoney() - quantity * itemToSell.getStorePrice());
+                    if (itemToSell.getName().equals("Milk Pail")) {
+                        Tools.addBeginnerMilkPailToInventory(player.getInventory());
+                        isMilkPailSold = true;
+                    } else if (itemToSell.getName().equals("Shears")) {
+                        Tools.addBeginnerShearToInventory(player.getInventory());
+                        isShearsSold = true;
+                    } else {
+                        Item boughtItem = new Item(itemToSell.getName(), quantity, itemToSell.getPath());
+                        player.getInventory().addItem(boughtItem);
+                    }
+                    result.setSuccess(true);
+                    result.setMessage("bought " + productName);
+                    return result;
                 }
             }
             case "The Stardrop Saloon" -> {
@@ -341,6 +403,7 @@ public class Store implements StaticElement {
             }
         }
         result.setSuccess(false);
+        result.setMessage("Product not found.");
         return result;
     }
 

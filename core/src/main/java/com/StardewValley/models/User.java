@@ -30,7 +30,6 @@ public class User {
     private Map<User, Integer> friendshipXpsWithUsers;
     private Map<Npc, Integer> friendshipXpsWithNPCs;
     private HashMap<User,String> unreadMessages;
-    private HashMap<User,StringBuilder> allMessages;
     private List<Item> refrigeratorItems = new ArrayList<>();
     private int money = 3000000;
     private List<Question> securityQuestions;
@@ -57,7 +56,6 @@ public class User {
         this.securityQuestions = new ArrayList<>();
         this.friendshipXpsWithUsers = new HashMap<>();
         this.unreadMessages = new HashMap<>();
-        this.allMessages = new HashMap<>();
         this.friendshipXpsWithNPCs = new HashMap<>();
         this.friendshipXpsWithUsers = new HashMap<>();
         this.friendshipLevelWithUsers = new HashMap<>();
@@ -80,11 +78,6 @@ public class User {
 
         for (Npc existingNpc : NpcRepository.getInstance().getAllNpcs()) {
             this.friendshipXpsWithNPCs.put(existingNpc, 0);
-        }
-
-        for (User user : UserRepository.getInstance().getAllUsers()) {
-            this.allMessages.put(user, new StringBuilder());
-            this.unreadMessages.put(user, "");
         }
     }
     public String getPlainPassword() {
@@ -293,7 +286,7 @@ public class User {
     }
 
     public int getFriendshipLevelWithUsers (User user) {
-        if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
+     //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
         int xp = friendshipXpsWithUsers.getOrDefault(user, 0);
         if (xp < 100) return 0;
         if (xp > 100 && xp < 300) return 1;
@@ -380,6 +373,10 @@ public class User {
         return sb.toString();
     }
 
+
+    // talk
+    private static Map<String, StringBuilder> allChatHistories = new HashMap<>();
+
     public Result talk(User receiver, String message) {
         Result result = new Result();
 
@@ -400,15 +397,37 @@ public class User {
         return result;
     }
 
+    public static void resetChatHistories() {
+        allChatHistories.clear();
+    }
+
+    private static String getChatHistoryKey(User user1, User user2) {
+        // نام‌های کاربری را مقایسه می‌کند تا ترتیب آن‌ها در کلید همیشه یکسان باشد
+        if (user1.getUsername().compareTo(user2.getUsername()) > 0) {
+            return user2.getUsername() + "::" + user1.getUsername();
+        }
+        // کد اصلاح‌شده: از user2.getUsername() استفاده می‌کند
+        return user1.getUsername() + "::" + user2.getUsername();
+    }
+
     public void requestToTalk(User sender, String message) {
-        unreadMessages.put(sender, message);
-        StringBuilder history = allMessages.getOrDefault(sender, new StringBuilder());
+        this.unreadMessages.put(sender, message); // `this` همان گیرنده پیام است
+
+        String key = getChatHistoryKey(this, sender);
+        // تاریخچه را از منبع مرکزی دریافت کرده یا در صورت عدم وجود، ایجاد می‌کند
+        StringBuilder history = allChatHistories.computeIfAbsent(key, k -> new StringBuilder());
+
         if (history.length() > 0) {
             history.append("\n");
         }
         history.append(sender.getNickname()).append(": ").append(message);
-        allMessages.put(sender, history);
-        sender.allMessages.put(this, history);
+    }
+
+
+    public StringBuilder getAllMessages(User target) {
+        String key = getChatHistoryKey(this, target);
+        // همیشه تاریخچه را از منبع معتبر (نقشه استاتیک) باز می‌گرداند
+        return allChatHistories.getOrDefault(key, new StringBuilder());
     }
 
     public String getUnreadMessage() {
@@ -427,9 +446,6 @@ public class User {
         return sb.toString();
     }
 
-    public StringBuilder getAllMessages(User target) {
-        return allMessages.getOrDefault(target, new StringBuilder());
-    }
 
     public Item getEquippedTool() {
         return equippedTool;
@@ -437,10 +453,6 @@ public class User {
 
     public void setEquippedTool(Item tool) {
         this.equippedTool = tool;
-    }
-
-    public String showTalkHistory(User user) {
-        return allMessages.get(user).toString();
     }
 
     public Game getCurrentGame() {
@@ -570,6 +582,7 @@ public class User {
     // animals
     private List<Animal> animals = new ArrayList<>();
     private List<Item> animalPlaces = new ArrayList<>();
+    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
     public void addAnimal(Animal animal) {
         animals.add(animal);
@@ -578,8 +591,6 @@ public class User {
     public List<Animal> getAnimals() {
         return animals;
     }
-
-    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
     private List<Animal> putAnimals = new ArrayList<>();
 
@@ -597,6 +608,35 @@ public class User {
 
     public void addPlacedAnimalPlace(Item item) {
         placedAnimalPlaces.add(item);
+    }
+
+    public void placeAnimal(Animal animal) {
+        if (animals.contains(animal)) {
+            animals.remove(animal);
+            putAnimals.add(animal);
+        }
+    }
+
+    public void bringAnimalBack(Animal animal) {
+        if (putAnimals.contains(animal)) {
+            putAnimals.remove(animal);
+            animals.add(animal);
+            animal.bringInside(); // وضعیتش را به "داخل" تغییر می‌دهیم
+        }
+    }
+
+    public void sellAnimal(Animal animal) {
+        animals.remove(animal);
+        putAnimals.remove(animal);
+
+
+        for (Item building : placedAnimalPlaces) {
+            if (building instanceof Coop) {
+                ((Coop) building).removeAnimal(animal);
+            } else if (building instanceof Barn) {
+                ((Barn) building).removeAnimal(animal);
+            }
+        }
     }
 
 

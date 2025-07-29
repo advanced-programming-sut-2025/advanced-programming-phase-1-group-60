@@ -1,6 +1,9 @@
 package com.StardewValley.models;
 
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Random;
 
 public class Animal {
@@ -8,10 +11,11 @@ public class Animal {
 
     private User owner;
     private String name;
-    private int positionX;
-    private int positionY;
-    private String type; // مانند Chicken, Cow, Sheep
-    private String buildingType; // Barn یا Coop
+    // Position is now float for smooth movement
+    private float positionX;
+    private float positionY;
+    private String type; // e.g., Chicken, Cow, Sheep
+    private String buildingType; // Barn or Coop
     private String[] buildings;
     private int friendship;
     private boolean isFed;
@@ -23,15 +27,49 @@ public class Animal {
     private String secondaryProduct;
     private boolean hasProducedToday;
     private Item currentProduct;
+    private String path; // Path for static icon in shop
 
-    public Animal(String type, String buildingType,String buildings[], int basePrice) {
+    // New Fields for Follow & Animation
+    private String spriteSheetPath; // Path for animated sprite sheet
+    private boolean isFollowing = false;
+    private transient User targetToFollow = null;
+    private transient List<Tile> currentPath = null;
+    private float animationStateTime = 0f;
+    private int lastDirection = 0; // 0:down, 1:right, 2:up, 3:left
+    private boolean isMoving = false;
+    private static final float MOVE_SPEED = 75f; // Speed in pixels per second
+
+    // New Fields for Petting Animation
+    private boolean isBeingPetted = false;
+    private float petAnimationTimer = 0f;
+
+    // New Fields for Feeding Animation
+    private boolean isBeingFed = false;
+    private float feedAnimationTimer = 0f;
+
+
+    public Animal(String type, String buildingType, String[] buildings, int basePrice, String path) {
         this.type = type;
         this.buildings = buildings;
         this.buildingType = buildingType;
         this.friendship = 0;
         this.baseProductPrice = basePrice;
+        this.path = path;
         initializeProducts();
     }
+
+    // New overloaded constructor to include spriteSheetPath
+    public Animal(String type, String buildingType, String[] buildings, int basePrice, String path, String spriteSheetPath) {
+        this.type = type;
+        this.buildings = buildings;
+        this.buildingType = buildingType;
+        this.friendship = 0;
+        this.baseProductPrice = basePrice;
+        this.path = path;
+        this.spriteSheetPath = spriteSheetPath; // Set the new field
+        initializeProducts();
+    }
+
 
     private void initializeProducts() {
         switch (this.type) {
@@ -74,29 +112,123 @@ public class Animal {
         }
     }
 
-    // افزایش رابطه دوستی
+    public void update(float delta, Farm farm, float playerFarmX, float playerFarmY) {
+        // Handle petting animation timer
+        if (isBeingPetted) {
+            petAnimationTimer -= delta;
+            if (petAnimationTimer <= 0) {
+                isBeingPetted = false;
+            }
+            // While being petted, the animal should not move
+            isMoving = false;
+            return;
+        }
+
+        if (isBeingFed) {
+            feedAnimationTimer -= delta;
+            if (feedAnimationTimer <= 0) {
+                isBeingFed = false;
+            }
+        }
+
+        if (!isFollowing || !isOutside) {
+            isMoving = false;
+            return;
+        }
+
+        float TILE_SIZE = 32f;
+        float targetX = playerFarmX;
+        float targetY = playerFarmY;
+
+        float dx = targetX - this.positionX;
+        float dy = targetY - this.positionY;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+
+        // Stop following if too far (5 tiles * 32 pixels/tile)
+        if (distance > 5 * TILE_SIZE) {
+            isFollowing = false;
+            targetToFollow = null;
+            isMoving = false;
+            return;
+        }
+
+        // Move if not close enough (1.5 tiles buffer)
+        if (distance > 1.5 * TILE_SIZE) {
+            isMoving = true;
+            animationStateTime += delta;
+
+            float angle = (float) Math.atan2(dy, dx);
+            float moveX = (float) Math.cos(angle) * MOVE_SPEED * delta;
+            float moveY = (float) Math.sin(angle) * MOVE_SPEED * delta;
+
+            this.positionX += moveX;
+            this.positionY += moveY;
+
+            // Update direction for animation
+            if (Math.abs(dx) > Math.abs(dy)) {
+                this.lastDirection = dx > 0 ? 1 : 3; // Right or Left
+            } else {
+                this.lastDirection = dy > 0 ? 2 : 0; // Up or Down
+            }
+        } else {
+            isMoving = false;
+        }
+    }
+
+
+    // Getters and setters for new fields
+    public String getSpriteSheetPath() { return spriteSheetPath; }
+    public void setSpriteSheetPath(String spriteSheetPath) { this.spriteSheetPath = spriteSheetPath; }
+    public boolean isFollowing() { return isFollowing; }
+    public void setFollowing(boolean following, User target) {
+        this.isFollowing = following;
+        this.targetToFollow = following ? target : null;
+    }
+    public float getAnimationStateTime() { return animationStateTime; }
+    public int getLastDirection() { return lastDirection; }
+    public boolean isMoving() { return isMoving; }
+    public boolean isBeingPetted() { return isBeingPetted; }
+    public boolean isBeingFed() { return isBeingFed; }
+
+
+    // Other existing methods...
     public void increaseFriendship(int amount) {
         friendship = Math.min(1000, friendship + amount);
     }
 
-    // کاهش رابطه دوستی
     public void decreaseFriendship(int amount) {
         friendship = Math.max(0, friendship - amount);
     }
 
-    // نوازش حیوان
     public void pet() {
         if (!isPettedToday) {
             increaseFriendship(15);
             isPettedToday = true;
+            isBeingPetted = true;
+            petAnimationTimer = 1.0f; // 1 second animation
         }
     }
-
-    // تغذیه حیوان
-    public void feed(boolean ateOutside) {
-        isFed = true;
+    public Result feed(boolean ateOutside, Inventory playerInventory) {
+        if (isFed) {
+            return new Result(false, this.name + " has already eaten today.");
+        }
         if (ateOutside) {
+            isFed = true;
             increaseFriendship(8);
+            isBeingFed = true;
+            feedAnimationTimer = 1.0f; // 1 second animation
+            return new Result(true, this.name + " ate fresh grass outside.");
+        } else {
+            if (playerInventory.hasItem("Hay", 1)) {
+                playerInventory.removeItemByName("Hay", 1);
+                isFed = true;
+                increaseFriendship(4);
+                isBeingFed = true;
+                feedAnimationTimer = 1.0f; // 1 second animation
+                return new Result(true, "You fed " + this.name + " some Hay.");
+            } else {
+                return new Result(false, "You don't have any Hay to feed " + this.name + ".");
+            }
         }
     }
 
@@ -145,9 +277,12 @@ public class Animal {
         }
 
         currentProduct = new Item();
-        currentProduct.setName(determineProductType());
+        String productName = determineProductType();
+        currentProduct.setName(productName);
         currentProduct.setType("AnimalProduct");
         currentProduct.setBasePrice(calculateProductPrice());
+        currentProduct.setQuantity(1);
+        currentProduct.setPath("assets/Animals/Products/" + productName.replace(" ", "_") + ".png");
 
         HashMap<String, Object> properties = new HashMap<>();
         properties.put("quality", determineQuality());
@@ -193,10 +328,13 @@ public class Animal {
     }
 
     public Item collectProduct() {
-        // افزودن شرط های برداشت
-        Item product = currentProduct;
-        currentProduct = null;
-        return product;
+        if (currentProduct != null) {
+            Item productToCollect = currentProduct;
+            currentProduct = null;
+            hasProducedToday = true; // Mark as collected for the day
+            return productToCollect;
+        }
+        return null;
     }
 
     public int calculateSellPrice() {
@@ -209,18 +347,18 @@ public class Animal {
         if (!isPettedToday) decreaseFriendship(10);
         if (isFed) decreaseFriendship(5);
 
-        isFed = false;
         isPettedToday = false;
+        isFed = false;
         hasProducedToday = false;
         daysSinceLastProduct++;
     }
 
     public String getName() { return name; }
     public String getType() { return type; }
-    public int getPositionX () { return positionX;}
-    public int getPositionY () { return positionY;}
-    public void setPositionX (int newPositionX) { positionX = newPositionX; produce(); }
-    public void setPositionY (int newPositionY) { positionY = newPositionY; }
+    public float getPositionX () { return positionX;}
+    public float getPositionY () { return positionY;}
+    public void setPositionX (float newPositionX) { positionX = newPositionX; }
+    public void setPositionY (float newPositionY) { positionY = newPositionY; }
     public int getFriendship() { return friendship; }
     public boolean isFed() { return isFed; }
     public void setOutside(boolean outside) { isOutside = outside; }
@@ -242,11 +380,31 @@ public class Animal {
         name = newName;
     }
 
+    public void setPath (String newPath) { path = newPath; }
 
+    public String getPath() { return path; }
+
+    public void bringInside() {
+        this.isOutside = false;
+    }
+
+    public void bringOutside(float relativeToFarmX, float relativeToFarmY) {
+        this.isOutside = true;
+        this.positionX = relativeToFarmX;
+        this.positionY = relativeToFarmY;
+    }
+
+    public int sell() {
+        return this.baseProductPrice / 2;
+    }
 
     @Override
     public String toString() {
         return String.format("%s (%s) - Friendship: %d - Fed: %b - Petted: %b",
-                name, type, friendship, isFed, isPettedToday);
+            name, type, friendship, isFed, isPettedToday);
+    }
+
+    public boolean isPettedToday() {
+        return isPettedToday;
     }
 }

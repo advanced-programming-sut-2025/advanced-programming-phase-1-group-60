@@ -41,9 +41,9 @@ public class FishShopView implements Screen {
 
     private boolean showAll = true;
 
-    public FishShopView(Game game, LoginMenuController loginController, GameView gameView, Store fishShop) {
+    public FishShopView(Game game, User player, GameView gameView, Store fishShop) {
         this.game = game;
-        this.player = loginController.getLoggedInUser();
+        this.player = player;
         this.gameView = gameView;
         this.fishShop = fishShop;
         this.batch = new SpriteBatch();

@@ -6,11 +6,14 @@ import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.controller.SellingController;
 import com.StardewValley.models.Item;
 import com.StardewValley.models.Npc;
+import com.StardewValley.models.Quest; // Import Quest
 import com.StardewValley.models.Skill;
 import com.StardewValley.models.Tools;
 import com.StardewValley.models.User;
+import com.StardewValley.repository.NpcRepository; // Import NpcRepository
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -30,7 +33,9 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class InventoryView implements Screen {
@@ -41,6 +46,10 @@ public class InventoryView implements Screen {
     private final LoginMenuController loginController;
     private final User player;
     private final GameView gameView;
+    private Table quickAccessTable;
+    private static final int QUICK_ACCESS_SLOTS = 6;
+    private Texture panelTexture;
+    private Item selectedItem = null;
 
     private Table contentTable;
     private DragAndDrop dragAndDrop;
@@ -74,11 +83,13 @@ public class InventoryView implements Screen {
     private Texture inventoryTexture;
     private Texture inventoryNothingTexture;
     private Label sectionTitleLabel;
+    private int questsCurrentPage = 1; // برای مدیریت صفحه‌بندی ماموریت‌ها
+    private com.StardewValley.models.Game gameInstance;
 
-    public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget) {
+    public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget, User currentPlayer) {
         this.game = game;
         this.loginController = loginController;
-        this.player = loginController.getLoggedInUser();
+        this.player = currentPlayer;
         this.gameView = gameView;
         this.batch = new SpriteBatch();
         this.stage = new Stage(new ScreenViewport());
@@ -86,6 +97,7 @@ public class InventoryView implements Screen {
         this.dragAndDrop = new DragAndDrop();
         this.textureCache = new HashMap<>();
         this.giftingTarget = giftingTarget;
+
         inventoryTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Inventory.png"));
         inventoryNothingTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Inventory_nothing.png"));
 
@@ -106,16 +118,16 @@ public class InventoryView implements Screen {
     }
 
     private void addTestItems() {
-        player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
-        player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
+      //  player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
+      //  player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
         player.getInventory().addItem(new Item("Copper_Bar", 100, "assets/Inventory/Copper_Bar.png"));
-        player.getInventory().addItem(new Item("Wood", 200, "assets/Inventory/Wood.png"));
+        player.getInventory().addItem(new Item("Wood", 2000, "assets/Inventory/Wood.png"));
+        player.getInventory().addItem(new Item("Stone", 5000, "assets/Inventory/Stone.png"));
     }
 
     public boolean isDisposed() {
         return isDisposed;
     }
-
     public void setGiftingTarget(Npc npc) {
         this.giftingTarget = npc;
         this.sellingMode = false;
@@ -134,7 +146,7 @@ public class InventoryView implements Screen {
             texture.dispose();
         }
         textureCache.clear();
-
+        panelTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Panel.png"));
         for (Item item : player.getInventory().getItems()) {
             String path = item.getPath();
             if (path != null && !path.isEmpty() && !textureCache.containsKey(path)) {
@@ -193,9 +205,11 @@ public class InventoryView implements Screen {
         Table sidebarContent = createSidebarContent();
         Table sidebarTable = new Table();
         sidebarTable.setFillParent(true);
-        sidebarTable.top().left().pad(0, 100, 0, 0);
+        sidebarTable.top().left().pad(200, 100, 0, 0);
         sidebarTable.add(sidebarContent).width(200).top().left();
         stage.addActor(sidebarTable);
+
+        createQuickAccessToolbar();
 
         contentTable = new Table();
         contentTable.top().left();
@@ -231,6 +245,149 @@ public class InventoryView implements Screen {
         setupDragAndDrop();
 
         showItems();
+    }
+    private void createQuickAccessToolbar() {
+        quickAccessTable = new Table();
+        quickAccessTable.top().left();
+
+        // Position to match MapView exactly
+        quickAccessTable.setPosition(550, 180);
+        quickAccessTable.setSize(420, 70); // Smaller to match MapView
+
+        // Add title
+        Label quickAccessLabel = new Label("Quick Access (1-6)", menuManager.getPixthulhuSkin());
+        quickAccessLabel.setFontScale(0.6f);
+        quickAccessLabel.setAlignment(Align.center);
+        quickAccessTable.add(quickAccessLabel).colspan(QUICK_ACCESS_SLOTS).padBottom(8).row();
+
+        // Create the 6 quick access slots - NO BUTTONS, just direct drag/drop
+        for (int i = 0; i < QUICK_ACCESS_SLOTS; i++) {
+            final int slotIndex = i;
+
+            // Create slot using Panel.png - NO BUTTON WRAPPER
+            Stack slotStack = createQuickAccessSlot(slotIndex);
+
+            // Add to table with smaller size to match MapView
+            quickAccessTable.add(slotStack).size(60, 60).pad(2);
+
+            // Make slot a drop target directly on the stack
+            dragAndDrop.addTarget(new DragAndDrop.Target(slotStack) {
+                @Override
+                public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
+                    return payload.getObject() instanceof Item;
+                }
+
+                @Override
+                public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
+                    Item draggedItem = (Item) payload.getObject();
+                    Item quickAccessItem = new Item(draggedItem.getName(), 1, draggedItem.getPath());
+                    player.getInventory().setQuickAccessSlot(slotIndex, quickAccessItem);
+                    refreshQuickAccessSlots();
+                }
+            });
+
+            // Add right-click to clear slot directly on the stack
+            slotStack.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+                @Override
+                public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                    if (button == Input.Buttons.RIGHT) {
+                        player.getInventory().clearQuickAccessSlot(slotIndex);
+                        refreshQuickAccessSlots();
+                        return true;
+                    }
+                    return false;
+                }
+            });
+        }
+
+        stage.addActor(quickAccessTable);
+    }
+
+    private Stack createQuickAccessSlot(int slotIndex) {
+        Stack stack = new Stack();
+
+        // Use Panel.png background
+        Image bgImage = new Image(panelTexture);
+        bgImage.setColor(Color.LIGHT_GRAY);
+        stack.add(bgImage);
+
+        // Get item from quick access slot
+        Item item = player.getInventory().getQuickAccessSlot(slotIndex);
+
+        if (item != null) {
+            Texture itemTexture = textureCache.get(item.getPath());
+            if (itemTexture != null) {
+                Image itemImage = new Image(itemTexture);
+                itemImage.setColor(Color.WHITE);
+                stack.add(itemImage);
+            } else {
+                Label nameLabel = new Label(item.getName(), menuManager.getPixthulhuSkin());
+                nameLabel.setWrap(true);
+                nameLabel.setAlignment(Align.center);
+                nameLabel.setFontScale(0.5f);
+                stack.add(nameLabel);
+            }
+        }
+
+        // Add slot number indicator
+        Label slotNumberLabel = new Label(String.valueOf(slotIndex + 1), menuManager.getPixthulhuSkin());
+        slotNumberLabel.setAlignment(Align.topLeft);
+        slotNumberLabel.setColor(Color.CYAN);
+        slotNumberLabel.setFontScale(0.6f);
+        stack.add(slotNumberLabel);
+
+        return stack;
+    }
+
+    private void refreshQuickAccessSlots() {
+        // Clear and rebuild the quick access slots
+        quickAccessTable.clearChildren();
+
+        // Re-add title
+        Label quickAccessLabel = new Label("Quick Access (1-6)", menuManager.getPixthulhuSkin());
+        quickAccessLabel.setFontScale(0.6f);
+        quickAccessLabel.setAlignment(Align.center);
+        quickAccessTable.add(quickAccessLabel).colspan(QUICK_ACCESS_SLOTS).padBottom(5).row();
+
+        // Rebuild slots - USING STACKS DIRECTLY, not buttons
+        for (int i = 0; i < QUICK_ACCESS_SLOTS; i++) {
+            final int slotIndex = i;
+
+            // Create slot using direct stack, not button
+            Stack slotStack = createQuickAccessSlot(slotIndex);
+
+            // Add to table with proper size
+            quickAccessTable.add(slotStack).size(60, 60).pad(2);
+
+            // Re-add drop target functionality - FIX: Don't create new Item, use the actual object
+            dragAndDrop.addTarget(new DragAndDrop.Target(slotStack) {
+                @Override
+                public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
+                    return payload.getObject() instanceof Item;
+                }
+
+                @Override
+                public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
+                    Item draggedItem = (Item) payload.getObject();
+                    // FIX: Use the actual dragged item, don't create a new one
+                    player.getInventory().setQuickAccessSlot(slotIndex, draggedItem);
+                    refreshQuickAccessSlots();
+                }
+            });
+
+            // Add right-click to clear slot directly on the stack
+            slotStack.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
+                @Override
+                public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
+                    if (button == Input.Buttons.RIGHT) {
+                        player.getInventory().clearQuickAccessSlot(slotIndex);
+                        refreshQuickAccessSlots();
+                        return true;
+                    }
+                    return false;
+                }
+            });
+        }
     }
     private void setupDragAndDrop() {
         dragAndDrop = new DragAndDrop();
@@ -394,7 +551,13 @@ public class InventoryView implements Screen {
         skillsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSkills(); } });
         socialButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSocial(); } });
         mapButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* map logic */ } });
-        questsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* quests logic */ } });
+        questsButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                questsCurrentPage = 1; // ریست کردن صفحه هنگام کلیک
+                showQuests();
+            }
+        });
         settingsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new MainView(game, loginController)); } });
         exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { gameView.showMapView(); } });
 
@@ -432,8 +595,17 @@ public class InventoryView implements Screen {
                     public DragAndDrop.Payload dragStart(InputEvent event, float x, float y, int pointer) {
                         DragAndDrop.Payload payload = new DragAndDrop.Payload();
                         payload.setObject(item);
-                        payload.setDragActor(createItemSlot(item));
-                        getActor().setColor(Color.GRAY);
+                        Stack dragStack = new Stack();
+                        Image dragBg = new Image(panelTexture);
+                        dragBg.setColor(Color.LIGHT_GRAY);
+                        dragStack.add(dragBg);
+                        Texture itemTexture = textureCache.get(item.getPath());
+                        if (itemTexture != null) {
+                            Image dragItemImage = new Image(itemTexture);
+                            dragStack.add(dragItemImage);
+                        }
+                        dragStack.setSize(50, 50);
+                        payload.setDragActor(dragStack);
                         return payload;
                     }
 
@@ -470,6 +642,7 @@ public class InventoryView implements Screen {
             col++;
             if (col % ITEMS_PER_ROW == 0) contentTable.row();
         }
+        refreshQuickAccessSlots();
     }
 
     private Stack createItemSlot(Item item) {
@@ -541,6 +714,7 @@ public class InventoryView implements Screen {
             skillLabel.setFontScale(0.7f); // Make skills text smaller
             contentTable.add(skillLabel).left().pad(10).row();
         }
+        refreshQuickAccessSlots();
     }
 
     private void showSocial() {
@@ -585,13 +759,102 @@ public class InventoryView implements Screen {
         socialTable.add(playersColumn).top().left().padRight(100);
         socialTable.add(npcsColumn).top().left();
         contentTable.add(socialTable);
+        refreshQuickAccessSlots();
     }
+
+    private void showQuests() {
+        giftControlsTable.setVisible(false);
+        sellControlsTable.setVisible(false);
+        contentTable.clear();
+        sectionTitleLabel.setText("Available Quests");
+        sectionTitleLabel.setFontScale(0.7f);
+        updateBackgroundToEmpty();
+
+        contentTable.pad(20).top().left();
+
+        NpcRepository npcRepository = NpcRepository.getInstance();
+        List<Quest> availableQuests = new ArrayList<>();
+
+        for (Npc npc : npcRepository.getAllNpcs()) {
+            for (Quest quest : npc.getQuests()) {
+                if (quest.getCompletedBy() == null) {
+                    availableQuests.add(quest);
+                }
+            }
+        }
+
+        if (availableQuests.isEmpty()) {
+            contentTable.add(new Label("No available quests at the moment.", menuManager.getPixthulhuSkin())).row();
+            return;
+        }
+
+        final int questsPerPage = 3;
+        int totalPages = (int) Math.ceil((double) availableQuests.size() / questsPerPage);
+
+        // اطمینان از معتبر بودن شماره صفحه
+        if (questsCurrentPage < 1) questsCurrentPage = 1;
+        if (questsCurrentPage > totalPages) questsCurrentPage = totalPages;
+
+        int startIndex = (questsCurrentPage - 1) * questsPerPage;
+        int endIndex = Math.min(startIndex + questsPerPage, availableQuests.size());
+
+        for (int i = startIndex; i < endIndex; i++) {
+            Quest quest = availableQuests.get(i);
+            Label questLabel = new Label(quest.toString(), menuManager.getPixthulhuSkin());
+            questLabel.setWrap(true);
+            questLabel.setFontScale(0.6f);
+            contentTable.add(questLabel).width(400).left().padBottom(15).row();
+        }
+
+        // افزودن دکمه‌های صفحه‌بندی
+        Table paginationTable = new Table();
+        TextButton prevButton = new TextButton("<< Prev", menuManager.getPixthulhuSkin());
+        Label pageLabel = new Label("Page " + questsCurrentPage + " / " + totalPages, menuManager.getPixthulhuSkin());
+        TextButton nextButton = new TextButton("Next >>", menuManager.getPixthulhuSkin());
+
+        if (questsCurrentPage <= 1) {
+            prevButton.setDisabled(true);
+            prevButton.setColor(Color.GRAY);
+        }
+        if (questsCurrentPage >= totalPages) {
+            nextButton.setDisabled(true);
+            nextButton.setColor(Color.GRAY);
+        }
+
+        prevButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (questsCurrentPage > 1) {
+                    questsCurrentPage--;
+                    showQuests();
+                }
+            }
+        });
+
+        nextButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                if (questsCurrentPage < totalPages) {
+                    questsCurrentPage++;
+                    showQuests();
+                }
+            }
+        });
+
+        paginationTable.add(prevButton).pad(10);
+        paginationTable.add(pageLabel).pad(10);
+        paginationTable.add(nextButton).pad(10);
+
+        contentTable.add(paginationTable).colspan(1).center().padTop(300).row();
+    }
+
     public void setBackgroundTexture(Texture texture) {
         this.gameBackgroundTexture = texture;
         if (stage != null) {
             stage.clear();
             createUI();
         }
+        refreshQuickAccessSlots();
     }
     private void updateBackgroundToEmpty() {
         for (Actor actor : stage.getActors()) {
@@ -641,6 +904,7 @@ public class InventoryView implements Screen {
         preloadAllTextures();
         showItems();
         updateTrashCanTexture();
+        refreshQuickAccessSlots();
     }
 
     @Override
