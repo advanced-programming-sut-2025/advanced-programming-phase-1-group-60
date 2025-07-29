@@ -154,4 +154,73 @@ public class CraftingData {
 //        prices.put("Smoked Fish", "2 × Fish Price"); // Needs calculation
 //        prices.put("Any Metal Bar", "10 × Ore Price"); // Needs calculation
     }
+    // --- NEW: Helper method to get output product name ---
+    /**
+     * Determines the output product name for a given artisan building and input material.
+     * This is a simplified mapping; in a full game, this might be more robust.
+     * @param buildingName The name of the artisan building (e.g., "Furnace").
+     * @param inputMaterialName The name of the input material (e.g., "Wood").
+     * @return The name of the output product (e.g., "Coal"), or null if no match.
+     */
+    public static String getOutputProductForInputAndBuilding(String buildingName, String inputMaterialName) {
+        // This mapping should ideally be defined centrally, perhaps in CraftingData or GamePlayController.
+        // For demonstration, hardcode a few examples.
+        // This needs to be comprehensive for all your artisan buildings and their crafts.
+
+        // Furnace example
+        if (buildingName.equals("Furnace")) {
+            if (inputMaterialName.equals("Wood") && CraftingData.requiredMaterials.containsKey("Coal") &&
+                CraftingData.requiredMaterials.get("Coal").containsKey("Wood")) {
+                return "Coal";
+            }
+            // Add other furnace outputs if applicable (e.g., metal bars from ore)
+            // if (inputMaterialName.equals("Copper Ore") && ...) return "Copper Bar";
+        } else if (buildingName.equals("Bee House")) {
+            if (inputMaterialName.equals("Wood") && CraftingData.requiredMaterials.containsKey("Honey") &&
+                CraftingData.requiredMaterials.get("Honey").containsKey("Wood")) {
+                return "Honey";
+            }
+        } else if (buildingName.equals("Cheese Press")) {
+            if (inputMaterialName.equals("Milk") && CraftingData.requiredMaterials.containsKey("Cheese") &&
+                CraftingData.requiredMaterials.get("Cheese").containsKey("Milk")) {
+                return "Cheese";
+            } else if (inputMaterialName.equals("Goat Milk") && CraftingData.requiredMaterials.containsKey("Goat Cheese") &&
+                CraftingData.requiredMaterials.get("Goat Cheese").containsKey("Goat Milk")) {
+                return "Goat Cheese";
+            }
+        } else if (buildingName.equals("Mayonnaise Machine")) {
+            if (inputMaterialName.equals("Egg") && CraftingData.requiredMaterials.containsKey("Mayonnaise") &&
+                CraftingData.requiredMaterials.get("Mayonnaise").containsKey("Egg")) {
+                return "Mayonnaise";
+            } else if (inputMaterialName.equals("Duck Egg") && CraftingData.requiredMaterials.containsKey("Duck Mayonnaise") &&
+                CraftingData.requiredMaterials.get("Duck Mayonnaise").containsKey("Duck Egg")) {
+                return "Duck Mayonnaise";
+            } else if (inputMaterialName.equals("Dinosaur Egg") && CraftingData.requiredMaterials.containsKey("Dinosaur Mayonnaise") &&
+                CraftingData.requiredMaterials.get("Dinosaur Mayonnaise").containsKey("Dinosaur Egg")) {
+                return "Dinosaur Mayonnaise";
+            }
+        } else if (buildingName.equals("Loom")) {
+            if (inputMaterialName.equals("Wool") && CraftingData.requiredMaterials.containsKey("Cloth") &&
+                CraftingData.requiredMaterials.get("Cloth").containsKey("Wool")) {
+                return "Cloth";
+            }
+        } else if (buildingName.equals("Keg")) {
+            if (inputMaterialName.equals("Wheat") && CraftingData.requiredMaterials.containsKey("Beer") && CraftingData.requiredMaterials.get("Beer").containsKey("Wheat")) {
+                return "Beer";
+            } else if (inputMaterialName.equals("Hops") && CraftingData.requiredMaterials.containsKey("Pale Ale") && CraftingData.requiredMaterials.get("Pale Ale").containsKey("Hops")) {
+                return "Pale Ale";
+            } else if (inputMaterialName.equals("Honey") && CraftingData.requiredMaterials.containsKey("Mead") && CraftingData.requiredMaterials.get("Mead").containsKey("Honey")) {
+                return "Mead";
+            } else if (inputMaterialName.equals("Coffee Bean") && CraftingData.requiredMaterials.containsKey("Coffee") && CraftingData.requiredMaterials.get("Coffee").containsKey("Coffee Bean")) {
+                return "Coffee";
+            } else if (inputMaterialName.equals("Rice") && CraftingData.requiredMaterials.containsKey("Vinegar") && CraftingData.requiredMaterials.get("Vinegar").containsKey("Rice")) {
+                return "Vinegar";
+            }
+            // You'll need to add logic for "Wine" and "Juice" if they consume "Any Fruit" or "Any Vegetable"
+        }
+        // ... add more conditions for other artisan buildings and their inputs/outputs
+
+        return null; // No matching output product found for this input material and building
+    }
+    // --- END NEW ---
 }

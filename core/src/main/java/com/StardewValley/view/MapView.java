@@ -64,11 +64,18 @@ public class MapView implements Screen {
     private Vector2 lastEnergyTile = new Vector2(-1, -1);
     private ToolManager toolManager;
     private int selectedQuickSlot = 0;
-
+    private Vector2 renderOffset;
+    // --- NEW: Inventory selection and quantity fields ---
+    private SelectBox<String> inventorySelectBox;
+    private TextField useItemQuantityField;
+    private Label currentSelectedItemQuantityLabel;
+    private Item selectedInventoryItem; // To store the actual selected Item object
+    // --- END NEW ---
     private static final float TILE_SIZE = 32f;
     private int currentFarmIndex = 0;
     private boolean inVillage = false;
-
+    private TextButton startProductionButton;
+    private TextButton getProductionButton;
     private Stage stage;
     private Dialog travelDialog;
     private Label npcSpeechLabel;
@@ -98,7 +105,7 @@ public class MapView implements Screen {
         "Loom", "Mayonnaise_Machine", "Oil_Maker", "Preserves_Jar",
         "Fish_Smoker", "Furnace"
     };
-    private Dialog buildingContextMenu;
+    private BuildingDetailsDialog buildingContextMenu;
     private PlaceableGameBuilding selectedBuilding;
 
 
@@ -144,7 +151,7 @@ public class MapView implements Screen {
         playerPos = new Vector2(playerPositions.get(currentPlayer));
         inVillage = playerInVillageState.get(currentPlayer);
         currentPlayerController = playerControllers.get(gameInstance.getCurrentPlayer());
-        this.gamePlayController =playerControllers.get(gameInstance.getCurrentPlayer());
+        this.gamePlayController = playerControllers.get(gameInstance.getCurrentPlayer());
         currentPlayerController = playerControllers.get(currentPlayer);
         Pixmap pixmap = new Pixmap(32, 32, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.GREEN);
@@ -223,10 +230,10 @@ public class MapView implements Screen {
             if (!oldPos.equals(newPos)) {
                 boolean canMove = true;
                 if (!currentPlayer.getEnergy().isUnlimited()) {
-                    int currentTileX = (int)(newPos.x / TILE_SIZE);
-                    int currentTileY = (int)(newPos.y / TILE_SIZE);
-                    int lastTileX = (int)(lastEnergyTile.x);
-                    int lastTileY = (int)(lastEnergyTile.y);
+                    int currentTileX = (int) (newPos.x / TILE_SIZE);
+                    int currentTileY = (int) (newPos.y / TILE_SIZE);
+                    int lastTileX = (int) (lastEnergyTile.x);
+                    int lastTileY = (int) (lastEnergyTile.y);
                     boolean enteredNewTile = (currentTileX != lastTileX || currentTileY != lastTileY);
 
                     if (enteredNewTile && energyUsedThisTurn < ENERGY_LIMIT_PER_TURN &&
@@ -237,7 +244,7 @@ public class MapView implements Screen {
                             showMessage("Energy limit reached for this turn (50/50)", 2);
                             canMove = false;
                         } else {
-                            currentPlayer.getEnergy().decreaseEnergy((int)WALK_ENERGY_COST);
+                            currentPlayer.getEnergy().decreaseEnergy((int) WALK_ENERGY_COST);
                             energyUsedThisTurn += WALK_ENERGY_COST;
                             lastEnergyTile.set(currentTileX, currentTileY);
                         }
@@ -261,6 +268,7 @@ public class MapView implements Screen {
             messageTimer -= delta;
         }
     }
+
     private boolean handleToolUsage(Vector3 clickPos) {
         User currentPlayer = gameInstance.getCurrentPlayer();
 
@@ -297,6 +305,7 @@ public class MapView implements Screen {
 
         return false; // No tool selected or not a tool
     }
+
     private void createUI() {
         createTravelDialog();
         createBackButton();
@@ -496,6 +505,7 @@ public class MapView implements Screen {
             friendshipDialog.show(stage);
         }
     }
+
     private void updateBuildingSelectBoxItems() {
         List<String> availableBuildingNames = new ArrayList<>();
         Set<String> inventoryItemNames = new HashSet<>();
@@ -534,6 +544,7 @@ public class MapView implements Screen {
             gamePlayController.setSelectedBuildingType(null);
         }
     }
+
     private void showNpcSpeech(Npc npc, User user, float npcWorldX, float npcWorldY) {
         if (speechIsShowing) return;
         speechIsShowing = true;
@@ -728,6 +739,7 @@ public class MapView implements Screen {
             centerCameraOnPlayer();
         }
     }
+
     private void renderPlayer() {
         TextureRegion currentFrame = currentPlayerAnimation.getKeyFrame(animationTime);
 
@@ -740,6 +752,7 @@ public class MapView implements Screen {
 
         batch.draw(currentFrame, playerPos.x, adjustedY, playerWidth, playerHeight);
     }
+
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
@@ -749,24 +762,45 @@ public class MapView implements Screen {
         updateAnimals(delta);
         toolManager.updateSwing(delta);
         centerCameraOnPlayer();
+        updateBuildingSelectBoxItems(); // This is UI logic, can be here
 
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        camera.update(); // Always update camera before using its combined matrix
+
+        // --- PHASE 1: Draw all sprites/textures with SpriteBatch ---
+        batch.setProjectionMatrix(camera.combined); // Set camera for world rendering
+        batch.begin(); // BEGIN MAIN BATCH
+
         renderMap();
         renderAnimals();
         renderPlayer();
         renderToolSwing();
-        renderBuildModeHighlight();
+        // Draw all text for progress bars while batch is active
+        // If renderUI draws with the main batch (world-space UI), keep it here.
+        // If it draws screen-space UI or uses its own batch/stage, it should be moved.
         renderUI();
-        updateBuildingSelectBoxItems();
-        batch.end();
 
+        batch.end(); // END MAIN BATCH
+
+        // --- PHASE 2: Draw all shapes/primitives with ShapeRenderer ---
+        shapeRenderer.setProjectionMatrix(camera.combined); // Set camera for world rendering
+        // Enable blending once for all transparent shape drawing
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled); // BEGIN MAIN SHAPE RENDERER
+        // Draw the building placement highlight shape
+        renderBuildingPlacementHighlightShapesOnly(); // This method now only draws shapes
+        shapeRenderer.end(); // END MAIN SHAPE RENDERER
+
+        Gdx.gl.glDisable(GL20.GL_BLEND); // Disable blending after all shapes are drawn
+
+        // --- PHASE 3: Draw UI Stage last ---
         stage.act(delta);
         stage.draw();
 
-        if (stage.getBatch() != null) {
-            stage.getBatch().setColor(Color.WHITE);
-        }
+        // This line is usually not needed or problematic if stage.draw() handles its batch correctly.
+        // if (stage.getBatch() != null) {
+        //     stage.getBatch().setColor(Color.WHITE);
+        // }
     }
 
     private void renderMap() {
@@ -778,13 +812,12 @@ public class MapView implements Screen {
         if (inVillage) {
             width = 20;
             height = 20;
-        }
-        else {
+        } else {
             width = FarmTemplate.WIDTH;
             height = FarmTemplate.HEIGHT;
         }
 
-        Vector2 renderOffset = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
+        renderOffset = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
         int waterBorderSize = 100;
         int totalWidth = width + (waterBorderSize * 2);
         int totalHeight = height + (waterBorderSize * 2);
@@ -860,8 +893,7 @@ public class MapView implements Screen {
                         if (texture != null) {
                             batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
                         }
-                    }
-                    else if (element instanceof PlaceableGameBuilding) {
+                    } else if (element instanceof PlaceableGameBuilding) {
                         PlaceableGameBuilding building = (PlaceableGameBuilding) element;
                         // Assuming MapManager has a method like getBuildingTexture that takes the building's name
                         Texture buildingTexture = mapManager.getBuildingTexture(building.getName());
@@ -876,8 +908,7 @@ public class MapView implements Screen {
                             batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
                             batch.setColor(Color.WHITE); // Reset color
                         }
-                    }
-                    else if (element instanceof SellingBin) {
+                    } else if (element instanceof SellingBin) {
                         Texture texture = mapManager.getSellingBinTexture();
                         if (texture != null) {
                             batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
@@ -898,23 +929,20 @@ public class MapView implements Screen {
                         if (treeTexture != null) {
                             treesToRender.add(new TreeRenderData(treeTexture, posX, posY, false));
                         }
-                    }
-                    else if (element instanceof ForagingTree) {
+                    } else if (element instanceof ForagingTree) {
                         ForagingTree foragingTree = (ForagingTree) element;
                         Texture foragingTreeTexture = mapManager.getForagingTreeTexture(foragingTree.getImagePath());
                         if (foragingTreeTexture != null) {
                             treesToRender.add(new TreeRenderData(foragingTreeTexture, posX, posY, true));
                         }
-                    }
-                    else if (element instanceof ForagingMineral) {
+                    } else if (element instanceof ForagingMineral) {
                         ForagingMineral mineral = (ForagingMineral) element;
                         Texture texture = mapManager.getForagingMineralTexture(mineral.getImagePath());
                         float mineralSize = TILE_SIZE * 0.6f;
                         float offsetX = (TILE_SIZE - mineralSize) / 2f;
                         float offsetY = (TILE_SIZE - mineralSize) / 2f;
                         batch.draw(texture, posX + offsetX, posY + offsetY, mineralSize, mineralSize);
-                    }
-                    else if (element instanceof ForagingCrop) {
+                    } else if (element instanceof ForagingCrop) {
                         ForagingCrop crop = (ForagingCrop) element;
                         Texture texture = mapManager.getForagingCropTexture(crop.getImagePath());
                         float cropSize = TILE_SIZE * 0.7f;
@@ -1015,8 +1043,7 @@ public class MapView implements Screen {
             return isTopLeftOfStructure(x, y, 4, 4, mapWidth, mapHeight, Cabin.class);
         } else if (element instanceof Greenhouse) {
             return isTopLeftOfStructure(x, y, 5, 6, mapWidth, mapHeight, Greenhouse.class);
-        }
-        else if (element instanceof CoopStaticElement) {
+        } else if (element instanceof CoopStaticElement) {
             return isTopLeftOfStructure(x, y, 6, 3, mapWidth, mapHeight, CoopStaticElement.class);
         } else if (element instanceof BarnStaticElement) {
             return isTopLeftOfStructure(x, y, 7, 4, mapWidth, mapHeight, BarnStaticElement.class);
@@ -1104,7 +1131,7 @@ public class MapView implements Screen {
             currentPlayer.getEnergy().getCurrentEnergy(),
             currentPlayer.getEnergy().getMaxEnergy(),
             energyUsedThisTurn,
-            (float)ENERGY_LIMIT_PER_TURN,
+            (float) ENERGY_LIMIT_PER_TURN,
             currentPlayer.getMoney()
         );
         font.draw(batch, turnInfo, textX, textY - 60);
@@ -1123,6 +1150,7 @@ public class MapView implements Screen {
 
         renderQuickAccessToolbar();
     }
+
     private void renderQuickAccessToolbar() {
         User currentPlayer = gameInstance.getCurrentPlayer();
         Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
@@ -1177,6 +1205,7 @@ public class MapView implements Screen {
             font.setColor(Color.WHITE);
         }
     }
+
     private void handleInput(float delta) {
         if (speechIsShowing) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
@@ -1191,11 +1220,11 @@ public class MapView implements Screen {
                 playerPositions.put(currentPlayer, new Vector2(playerPos));
                 playerInVillageState.put(currentPlayer, inVillage);
                 if (inVillage) {
-                    currentPlayer.setPosition(new Tile((int)(playerPos.x / TILE_SIZE), (int)(playerPos.y / TILE_SIZE)));
+                    currentPlayer.setPosition(new Tile((int) (playerPos.x / TILE_SIZE), (int) (playerPos.y / TILE_SIZE)));
                 } else {
                     Vector2 farmOffset = getFarmTopLeft(currentFarmIndex);
-                    int localX = (int)((playerPos.x - farmOffset.x) / TILE_SIZE);
-                    int localY = (int)((playerPos.y - farmOffset.y) / TILE_SIZE);
+                    int localX = (int) ((playerPos.x - farmOffset.x) / TILE_SIZE);
+                    int localY = (int) ((playerPos.y - farmOffset.y) / TILE_SIZE);
                     currentPlayer.setPosition(new Tile(localX, localY));
                 }
                 currentPlayer.isInVillage = inVillage;
@@ -1252,7 +1281,7 @@ public class MapView implements Screen {
                     int checkY = playerTileY + dy;
 
                     Tile adjacentTile;
-                    if(inVillage){
+                    if (inVillage) {
                         adjacentTile = gameMap.getVillage().getTile(checkX, 20 - 1 - checkY);
                     } else {
                         adjacentTile = gameMap.getFarm(currentFarmIndex).getTile(checkX, FarmTemplate.HEIGHT - 1 - checkY);
@@ -1322,24 +1351,23 @@ public class MapView implements Screen {
             return;// Use existing method
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.B)){
-            Item coal = new Item("Coal",5);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
+            Item coal = new Item("Coal", 5);
             currentPlayer.getInventory().addItem(coal);
-            currentPlayer.getInventory().addItem(new Item("Copper_Ore",10));
-            HomeController.unlockRecipesByLevel("mining",1);
-            HomeController.unlockRecipesByLevel("farming",1);
-            HomeController.unlockRecipesByLevel("foraging",1);
+            currentPlayer.getInventory().addItem(new Item("Rice",5));
+            HomeController.unlockRecipesByLevel("mining", 1);
+            HomeController.unlockRecipesByLevel("farming", 1);
+            HomeController.unlockRecipesByLevel("foraging", 1);
             gameView.showCraftingMenu(currentPlayer);
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
-            currentPlayer.getInventory().addItem(new Item("Keg",10));
+            currentPlayer.getInventory().addItem(new Item("Keg", 10));
             if (gamePlayController.isInBuildMode()) {
                 gamePlayController.exitBuildMode();
             } else {
-                if(selectedBuildingType == null){
+                if (selectedBuildingType == null) {
                     gamePlayController.exitBuildMode();
-                }
-                else{
+                } else {
                     gamePlayController.enterBuildMode(gamePlayController.getBuildingDefinition(selectedBuildingType)); // Example blueprint
                 }
             }
@@ -1375,68 +1403,10 @@ public class MapView implements Screen {
 
             return; // Consume the right-click event
         }
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
-            System.out.println("DEBUG: Left mouse button clicked.");
-            // Corrected UI hit detection: Check if any UI element on the stage was clicked
-            Actor hitActor = stage.hit(Gdx.input.getX(), Gdx.graphics.getHeight() - Gdx.input.getY(), true);
-
-            if (hitActor == null) { // If no UI element was hit, proceed with map click
-                System.out.println("DEBUG: Click was on the map (no UI element hit).");
-                Vector3 worldCoordinates = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
-                System.out.println("DEBUG: World coordinates of click: " + worldCoordinates.x + ", " + worldCoordinates.y);
-
-                // Get the farm associated with the current player
-                Farm currentPlayerFarm = gamePlayController.getUser().getFarm();
-                if (currentPlayerFarm != null) {
-                    // Adjust world coordinates based on the current farm's top-left offset
-                    Vector2 farmOffset = getFarmTopLeft(currentFarmIndex);
-                    System.out.println("DEBUG: Current farm offset: " + farmOffset.x + ", " + farmOffset.y);
-
-                    float adjustedMouseX = worldCoordinates.x - farmOffset.x;
-                    float adjustedMouseY = worldCoordinates.y - farmOffset.y;
-                    System.out.println("DEBUG: Adjusted mouse coordinates (relative to farm): " + adjustedMouseX + ", " + adjustedMouseY);
-
-                    int tileX = (int) (adjustedMouseX / TILE_SIZE);
-                    int tileY = (int) (adjustedMouseY / TILE_SIZE);
-                    System.out.println("DEBUG: Clicked tile (relative to farm): " + tileX + ", " + tileY);
-
-                    // Ensure tile coordinates are within the current farm's bounds
-                    if (tileX >= 0 && tileX < FarmTemplate.WIDTH &&
-                        tileY >= 0 && tileY < FarmTemplate.HEIGHT) {
-
-                        // Get the Tile object from the current player's farm
-                        // Assuming [row][col] or [y][x] for getTiles()
-                        Tile clickedTile = currentPlayerFarm.getTiles()[tileY][tileX];
-                        System.out.println("DEBUG: Tile at (" + tileX + ", " + tileY + ") type: " + clickedTile.getType());
-
-                        // Check if the tile contains a PlaceableGameBuilding
-                        Optional<StaticElement> staticElement = clickedTile.getStaticElement();
-                        if (staticElement.isPresent()) {
-                            System.out.println("DEBUG: Static element present on tile: " + staticElement.get().getName() + " (Type: " + staticElement.get().getClass().getSimpleName() + ")");
-                            if (staticElement.get() instanceof PlaceableGameBuilding) {
-                                PlaceableGameBuilding clickedBuilding = (PlaceableGameBuilding) staticElement.get();
-                                System.out.println("DEBUG: PlaceableGameBuilding clicked: " + clickedBuilding.getName());
-                                showBuildingContextMenu(clickedBuilding); // Open the building menu
-                            } else {
-                                System.out.println("DEBUG: Static element is not a PlaceableGameBuilding.");
-                            }
-                        } else {
-                            System.out.println("DEBUG: No static element on clicked tile.");
-                        }
-                    } else {
-                        System.out.println("DEBUG: Clicked tile coordinates are outside farm bounds.");
-                    }
-                } else {
-                    System.out.println("DEBUG: Current player's farm is null. Cannot detect building clicks.");
-                }
-            } else {
-                System.out.println("DEBUG: Click was on a UI element: " + hitActor.getName() + " (Type: " + hitActor.getClass().getSimpleName() + ")");
-            }
-        }
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
-            if (handleToolUsage(clickPos)){
+            if (handleToolUsage(clickPos)) {
                 return;
             }
 
@@ -1495,7 +1465,7 @@ public class MapView implements Screen {
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                         gameView.showInventoryForSelling();
                     }
-                }  else if (element instanceof Store) {
+                } else if (element instanceof Store) {
                     Store store = (Store) element;
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
                         if (store.isOpen()) {
@@ -1557,6 +1527,9 @@ public class MapView implements Screen {
                     selectedNpc = npc;
                     npcContextMenu.show(stage);
                 }
+            } else if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof PlaceableGameBuilding) {
+                PlaceableGameBuilding clickedBuilding = (PlaceableGameBuilding) clickedTile.getStaticElement().get();
+                showBuildingContextMenu(clickedBuilding);
             }
         }
 
@@ -1577,6 +1550,7 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) selectQuickAccessSlot(5);
         checkTravel();
     }
+
     private void selectQuickAccessSlot(int slotIndex) {
         if (slotIndex >= 0 && slotIndex < 6) {
             selectedQuickSlot = slotIndex;
@@ -1595,6 +1569,7 @@ public class MapView implements Screen {
             }
         }
     }
+
     private boolean isAreaPassable(float worldX, float worldY) {
         // Check all four corners with a smaller hitbox to prevent clipping
         float hitboxInset = TILE_SIZE * 0.15f; // Increased inset for better boundary detection
@@ -1610,10 +1585,11 @@ public class MapView implements Screen {
         boolean topRight = isTilePassable(hitboxX + hitboxWidth, hitboxY + hitboxHeight);
 
         // Additional center point check for small objects
-        boolean center = isTilePassable(worldX + TILE_SIZE/2, worldY + TILE_SIZE/2);
+        boolean center = isTilePassable(worldX + TILE_SIZE / 2, worldY + TILE_SIZE / 2);
 
         return bottomLeft && bottomRight && topLeft && topRight && center;
     }
+
     private boolean handleHoeUsage(Tools hoe, Vector3 clickPos) {
         User currentPlayer = gameInstance.getCurrentPlayer();
         int energyCost = hoe.getEnergyCost();
@@ -1672,10 +1648,12 @@ public class MapView implements Screen {
         showMessage("Tile plowed successfully at (" + clickedTileX + ", " + clickedTileY + ")", 1);
         return true;
     }
+
     private void showMessage(String message, float duration) {
         lastTurnMessage = message;
         messageTimer = duration;
     }
+
     private boolean isTilePassable(float worldX, float worldY) {
         // First, absolute boundary check without even checking tiles
         if (inVillage) {
@@ -1767,107 +1745,15 @@ public class MapView implements Screen {
         }
     }
 
-    // --- NEW: Create Building Context Menu ---
-    // --- NEW: Create Building Context Menu ---
+    // In MapView.java
+
     private void createBuildingContextMenu() {
-        buildingContextMenu = new Dialog("Building Actions", skin);
-        buildingContextMenu.setModal(true); // Blocks input to other UI elements
-        buildingContextMenu.pad(10); // Add some padding
-
-        // Add a label to display the building name
-        Label buildingNameLabel = new Label("Building: ", skin);
-        buildingNameLabel.setName("buildingNameLabel"); // Set a name to retrieve it later
-        buildingContextMenu.getContentTable().add(buildingNameLabel).padBottom(10).row();
-
-        // Add action buttons
-        TextButton useButton = new TextButton("Use", skin);
-        useButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (selectedBuilding != null) {
-                    // Handle 'Use' action based on building type
-                    System.out.println("Using building: " + selectedBuilding.getName());
-                    // You'll need to implement logic in GamePlayController
-                    // E.g., gamePlayController.useBuilding(selectedBuilding);
-                    showResultDialog("You used the " + selectedBuilding.getName() + "!");
-                }
-                buildingContextMenu.hide();
-            }
-        });
-        buildingContextMenu.getContentTable().add(useButton).width(150).height(40).pad(5).row();
-
-        TextButton demolishButton = new TextButton("Demolish", skin);
-        demolishButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (selectedBuilding != null) {
-                    System.out.println("Demolishing building: " + selectedBuilding.getName());
-                    // You'll need to implement logic in GamePlayController to remove it from the map
-                    // and possibly refund resources.
-                    // E.g., gamePlayController.demolishBuilding(selectedBuilding);
-
-                    // --- Placeholder for demolish logic in MapView ---
-                    // To remove the building from the map visually and logically:
-                    Farm currentFarm = gamePlayController.getUser().getFarm();
-                    if (currentFarm != null) {
-                        // Assuming building stores its top-left tile coordinates (x, y)
-                        // If not, you'll need to find it on the map.
-                        // For a 1x1 building, just clear that tile.
-                        // For multi-tile buildings, you need to clear all tiles it occupies.
-                        int buildingX = selectedBuilding.getX(); // Assuming getX() method exists on PlaceableGameBuilding
-                        int buildingY = selectedBuilding.getY(); // Assuming getY() method exists on PlaceableGameBuilding
-                        int buildingWidth = selectedBuilding.getWidth(); // Assuming getWidth() method exists
-                        int buildingHeight = selectedBuilding.getHeight(); // Assuming getHeight() method exists
-
-                        for (int dy = 0; dy < buildingHeight; dy++) {
-                            for (int dx = 0; dx < buildingWidth; dx++) {
-                                int tileToClearX = buildingX + dx;
-                                int tileToClearY = buildingY + dy;
-                                if (tileToClearX >= 0 && tileToClearX < currentFarm.getTiles()[0].length &&
-                                    tileToClearY >= 0 && tileToClearY < currentFarm.getTiles().length) {
-                                    currentFarm.getTiles()[tileToClearY][tileToClearX].setStaticElement(null); // Clear the tile
-                                }
-                            }
-                        }
-                    }
-                    // --- End placeholder ---
-
-                    showResultDialog("You demolished the " + selectedBuilding.getName() + "!");
-                }
-                buildingContextMenu.hide();
-            }
-        });
-        buildingContextMenu.getContentTable().add(demolishButton).width(150).height(40).pad(5).row();
-
-        // Close button
-        TextButton closeButton = new TextButton("Close", skin);
-        closeButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                buildingContextMenu.hide();
-            }
-        });
-        buildingContextMenu.getContentTable().add(closeButton).width(150).height(40).pad(5).row();
-
-        // Add to stage later when shown
-        // stage.addActor(buildingContextMenu); // Don't add here, show() will add/handle it
+        buildingContextMenu = new BuildingDetailsDialog("Building Actions", skin, gamePlayController);
     }
 
     private void showBuildingContextMenu(PlaceableGameBuilding building) {
-        this.selectedBuilding = building; // Store the clicked building
-
-        // Update the building name label in the dialog
-        Label buildingNameLabel = buildingContextMenu.findActor("buildingNameLabel");
-        if (buildingNameLabel != null) {
-            buildingNameLabel.setText("Building: " + building.getName());
-        }
-
-        // Position the dialog in the center of the screen
-        buildingContextMenu.show(stage);
-        buildingContextMenu.setPosition(Gdx.graphics.getWidth() / 2f - buildingContextMenu.getWidth() / 2f,
-            Gdx.graphics.getHeight() / 2f - buildingContextMenu.getHeight() / 2f);
+        buildingContextMenu.showForBuilding(building, stage);
     }
-    // --- END NEW ---
     private void updateAnimals(float delta) {
         if (inVillage) return; // Animals are only on the farm
 
@@ -2402,6 +2288,207 @@ public class MapView implements Screen {
             }
         }
     }
+//    private void drawArtisanProductionProgress() {
+//        Farm farm = gamePlayController.getUser().getFarm();
+//        if (farm == null) return;
+//
+//        // Set projection matrix for ShapeRenderer to match camera view
+//        shapeRenderer.setProjectionMatrix(camera.combined);
+//
+//        // Enable blending for transparent bars
+//        Gdx.gl.glEnable(GL20.GL_BLEND);
+//        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+//
+//        int currentDay = TimeSystem.getInstance().getCurrentDay();
+//        int currentHour = TimeSystem.getInstance().getCurrentHour();
+//        float currentAbsHours = (float)currentDay * 24 + currentHour;
+//
+//        for (int y = 0; y < farm.getHeight(); y++) {
+//            for (int x = 0; x < farm.getWidth(); x++) {
+//                Tile tile = farm.getTiles()[y][x];
+//                // Check if the tile has a static element and if it's a PlaceableGameBuilding
+//                if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof PlaceableGameBuilding) {
+//                    PlaceableGameBuilding building = (PlaceableGameBuilding) tile.getStaticElement().get();
+//
+//                    // Check if it's an artisan building and currently producing
+//                    if (gamePlayController.isArtisanBuilding(building.getName())) {
+//                        if (gamePlayController.isArtisanProducing(building.getName())) {
+//                            ProductionTask task = gamePlayController.getProductionTask(building.getName());
+//                            if (task != null) {
+//                                // Calculate total duration and elapsed time in absolute hours
+//                                float startAbsHours = (float)task.getStartDayInitial() * 24 + task.getStartHourActual();
+//                                float totalTaskHours = task.getTotalCraftingDurationHours();
+//
+//                                float elapsedHours = currentAbsHours - startAbsHours;
+//
+//                                // Cap progress at 1.0 (100%) and prevent negative progress
+//                                float progress = 0.0f;
+//                                if (totalTaskHours > 0) {
+//                                    progress = Math.min(1.0f, Math.max(0.0f, elapsedHours / totalTaskHours));
+//                                }
+//
+//                                // Get building's screen position relative to camera and renderOffset
+//                                // TILE_SIZE and renderOffset must be accessible instance fields in MapView
+//                                float buildingScreenX = (building.getX() * TILE_SIZE) + renderOffset.x;
+//                                float buildingScreenY = (building.getY() * TILE_SIZE) + renderOffset.y;
+//
+//                                // Position and size for the progress bar
+//                                float barWidth = TILE_SIZE * 0.9f; // Slightly less than tile width
+//                                float barHeight = TILE_SIZE * 0.15f; // A bit thicker bar
+//                                float barX = buildingScreenX + (TILE_SIZE - barWidth) / 2f; // Centered horizontally above building
+//                                float barY = buildingScreenY + TILE_SIZE + 5; // 5 pixels above the top of the building's tile
+//
+//                                // Draw background bar (dark grey)
+//                                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+//                                shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 0.7f); // Dark grey, semi-transparent
+//                                shapeRenderer.rect(barX, barY, barWidth, barHeight);
+//
+//                                // Draw foreground bar (green)
+//                                shapeRenderer.setColor(0.1f, 0.8f, 0.1f, 0.9f); // Bright green, more opaque
+//                                shapeRenderer.rect(barX, barY, barWidth * progress, barHeight);
+//                                shapeRenderer.end();
+//
+//                                // Optional: Draw percentage text (requires 'font' and 'batch' fields to be initialized)
+//                                if (font != null && batch != null) {
+//                                    batch.setProjectionMatrix(camera.combined); // Ensure batch uses the same camera matrix
+//                                    font.draw(batch, (int)(progress * 100) + "%",
+//                                        barX + barWidth / 2f, barY + barHeight + font.getCapHeight() + 2, // Position text above the bar, centered
+//                                        0, Align.center, false); // Align.center for horizontal centering
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        Gdx.gl.glDisable(GL20.GL_BLEND); // Disable blending after drawing all bars
+//    }
+// This method should be called between batch.begin() and batch.end()
+private void drawArtisanProductionProgressTextOnly() {
+    Farm farm = gamePlayController.getUser().getFarm();
+    if (farm == null || font == null || batch == null) return;
+
+    int currentDay = TimeSystem.getInstance().getCurrentDay();
+    int currentHour = TimeSystem.getInstance().getCurrentHour();
+    float currentAbsHours = (float)currentDay * 24 + currentHour;
+
+    for (int y = 0; y < farm.getHeight(); y++) {
+        for (int x = 0; x < farm.getWidth(); x++) {
+            Tile tile = farm.getTiles()[y][x];
+            if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof PlaceableGameBuilding) {
+                PlaceableGameBuilding building = (PlaceableGameBuilding) tile.getStaticElement().get();
+
+                if (gamePlayController.isArtisanBuilding(building.getName())) {
+                    if (gamePlayController.isArtisanProducing(building.getName())) {
+                        ProductionTask task = gamePlayController.getProductionTask(building.getName());
+                        if (task != null) {
+                            float startAbsHours = (float)task.getStartDayInitial() * 24 + task.getStartHourActual();
+                            float totalTaskHours = task.getTotalCraftingDurationHours();
+                            float elapsedHours = currentAbsHours - startAbsHours;
+                            float progress = 0.0f;
+                            if (totalTaskHours > 0) {
+                                progress = Math.min(1.0f, Math.max(0.0f, elapsedHours / totalTaskHours));
+                            }
+
+                            float buildingScreenX = (building.getX() * TILE_SIZE) + renderOffset.x;
+                            float buildingScreenY = (building.getY() * TILE_SIZE) + renderOffset.y;
+
+                            float barWidth = TILE_SIZE * 0.9f;
+                            float barHeight = TILE_SIZE * 0.15f;
+                            float barX = buildingScreenX + (TILE_SIZE - barWidth) / 2f;
+                            float barY = buildingScreenY + TILE_SIZE + 5;
+
+                            font.draw(batch, (int)(progress * 100) + "%",
+                                barX + barWidth / 2f, barY + barHeight + font.getCapHeight() + 2,
+                                0, Align.center, false);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+    private void renderBuildingPlacementHighlightShapesOnly() {
+        if (gamePlayController.isInBuildMode() && buildingSelectBox != null) {
+            float mouseX = Gdx.input.getX();
+            float mouseY = Gdx.input.getY();
+            Vector3 worldCoordinates = camera.unproject(new Vector3(mouseX, mouseY, 0));
+
+            // Apply renderOffset to the mouse coordinates to get map-relative coordinates
+            float adjustedMouseX = worldCoordinates.x - renderOffset.x;
+            float adjustedMouseY = worldCoordinates.y - renderOffset.y;
+
+            int highlightX = (int) (adjustedMouseX / TILE_SIZE);
+            int highlightY = (int) (adjustedMouseY / TILE_SIZE);
+
+            Farm farm = gamePlayController.getUser().getFarm();
+
+            if (farm != null && farm.getTiles() != null) {
+                if (highlightX >= 0 && highlightX < farm.getWidth() &&
+                    highlightY >= 0 && highlightY < farm.getHeight()) {
+
+                    Tile tile = farm.getTiles()[highlightY][highlightX];
+                    Color highlightColor;
+
+                    if (tile.isEmpty() && tile.getStaticElement().isEmpty() && tile.getRandomElement().isEmpty()) {
+                        highlightColor = Color.GREEN;
+                    } else {
+                        highlightColor = Color.RED;
+                    }
+
+                    shapeRenderer.setColor(highlightColor.r, highlightColor.g, highlightColor.b, 0.5f);
+                    // Apply renderOffset to the drawing position
+                    shapeRenderer.rect(highlightX * TILE_SIZE + renderOffset.x, highlightY * TILE_SIZE + renderOffset.y, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+    }
+    private void drawArtisanProductionProgressShapesOnly() {
+        Farm farm = gamePlayController.getUser().getFarm();
+        if (farm == null) return;
+
+        int currentDay = TimeSystem.getInstance().getCurrentDay();
+        int currentHour = TimeSystem.getInstance().getCurrentHour();
+        float currentAbsHours = (float)currentDay * 24 + currentHour;
+
+        for (int y = 0; y < farm.getHeight(); y++) {
+            for (int x = 0; x < farm.getWidth(); x++) {
+                Tile tile = farm.getTiles()[y][x];
+                if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof PlaceableGameBuilding) {
+                    PlaceableGameBuilding building = (PlaceableGameBuilding) tile.getStaticElement().get();
+
+                    if (gamePlayController.isArtisanBuilding(building.getName())) {
+                        if (gamePlayController.isArtisanProducing(building.getName())) {
+                            ProductionTask task = gamePlayController.getProductionTask(building.getName());
+                            if (task != null) {
+                                float startAbsHours = (float)task.getStartDayInitial() * 24 + task.getStartHourActual();
+                                float totalTaskHours = task.getTotalCraftingDurationHours();
+                                float elapsedHours = currentAbsHours - startAbsHours;
+                                float progress = 0.0f;
+                                if (totalTaskHours > 0) {
+                                    progress = Math.min(1.0f, Math.max(0.0f, elapsedHours / totalTaskHours));
+                                }
+
+                                float buildingScreenX = (building.getX() * TILE_SIZE) + renderOffset.x;
+                                float buildingScreenY = (building.getY() * TILE_SIZE) + renderOffset.y;
+
+                                float barWidth = TILE_SIZE * 0.9f;
+                                float barHeight = TILE_SIZE * 0.15f;
+                                float barX = buildingScreenX + (TILE_SIZE - barWidth) / 2f;
+                                float barY = buildingScreenY + TILE_SIZE + 5;
+
+                                shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 0.7f);
+                                shapeRenderer.rect(barX, barY, barWidth, barHeight);
+
+                                shapeRenderer.setColor(0.1f, 0.8f, 0.1f, 0.9f);
+                                shapeRenderer.rect(barX, barY, barWidth * progress, barHeight);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
     @Override
     public void hide() {}
 
@@ -2420,6 +2507,6 @@ public class MapView implements Screen {
         if (panelTexture != null) panelTexture.dispose();
         if (lastFrameTexture != null) lastFrameTexture.dispose();
         if (lastFramePixmap != null) lastFramePixmap.dispose();
-        if (shapeRenderer != null) shapeRenderer.dispose();
-    }
+        if (shapeRenderer != null) shapeRenderer.dispose();}
+
 }

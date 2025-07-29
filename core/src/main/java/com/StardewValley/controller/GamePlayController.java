@@ -28,6 +28,7 @@ public class GamePlayController {
     public StaticElement selectedBuildingBlueprint;
     private boolean inBuildMode = false; // Add this field to track build mode state
     private String selectedBuildingType = "Bee_House";
+    private Map<String, ProductionTask> activeProductions = new HashMap<>();
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.farm = f;
         this.tiles = f.getTiles();
@@ -2678,34 +2679,38 @@ public class GamePlayController {
         user.setPosition(tiles[0][0]);
         System.out.println("you are now in your farm");
     }
-    private Map<String, ProductionTask> activeProductions = new HashMap<>();
+    // Inside your GamePlayController.java
+
     public String processArtisanUse(String artisanName, String itemName) {
-        // بررسی اینکه آیتم معتبر است یا خیر
+        // Check if item is valid
         if (!CraftingData.requiredMaterials.containsKey(itemName)) {
             return "Error: Invalid item name.";
         }
 
-        // بررسی مواد اولیه کاربر
+        // Check user materials
         Map<String, Integer> requiredMaterials = CraftingData.requiredMaterials.get(itemName);
         if (!user.getInventory().hasMaterials(requiredMaterials)) {
             return "Error: Not enough materials.";
         }
 
-        // کسر مواد اولیه
-        user.getInventory().removeMaterials(requiredMaterials);
-
-        // محاسبه زمان تولید
-        // محاسبه زمان تولید
-        Integer processingTime = (Integer) CraftingData.craftingTimes.get(itemName); // تبدیل به Integer
+        // Get processing time
+        Integer processingTime = CraftingData.craftingTimes.get(itemName);
         if (processingTime == null) {
             return "Error: Invalid item name.";
         }
-        int finishHour = TimeSystem.getInstance().getCurrentHour() + processingTime; // تبدیل به int
-        // ذخیره اطلاعات تولید در نقشه فعال
-        ProductionTask task = new ProductionTask(itemName, TimeSystem.getInstance().getCurrentDay(), finishHour);
+
+        int currentDay = TimeSystem.getInstance().getCurrentDay();
+        int currentHour = TimeSystem.getInstance().getCurrentHour();
+
+        // Calculate the raw finish hour before it's passed to ProductionTask for its internal adjustment
+        int calculatedFinishHourForConstructor = currentHour + processingTime;
+
+        // Pass all necessary parameters to the updated ProductionTask constructor
+        ProductionTask task = new ProductionTask(itemName, currentDay, currentHour, calculatedFinishHourForConstructor, processingTime , 1);
         activeProductions.put(artisanName, task);
 
-        return "Production started for " + itemName + " in " + artisanName + ". It will be ready by Hour " + finishHour + ".";
+        // The return message should use the adjusted finish day/hour obtained from the task's getters
+        return "Production started for " + itemName + " in " + artisanName + ". It will be ready by Day " + task.getDay() + " Hour " + task.getFinishHour() + ".";
     }
     public String processArtisanGet(String artisanName) {
         if (!activeProductions.containsKey(artisanName)) {
@@ -2728,7 +2733,21 @@ public class GamePlayController {
 
         return task.getItemName() + " has been added to your inventory.";
     }
+    public boolean isArtisanBuilding(String buildingName) {
+        // You'll need to maintain a list of artisan building names
+        Set<String> artisanBuildings = new HashSet<>(Arrays.asList(
+            "Mayonnaise Machine", "Keg", "Preserves Jar", "Bee House", "Cheese Press", "Loom", "Oil Maker", "Recycling Machine", "Smoker", "Furnace" // Add all your artisan building names
+        ));
+        return artisanBuildings.contains(buildingName);
+    }
 
+    public boolean isArtisanProducing(String artisanName) {
+        return activeProductions.containsKey(artisanName);
+    }
+
+    public ProductionTask getProductionTask(String artisanName) {
+        return activeProductions.get(artisanName);
+    }
 
 
     public String placeFirstAvailableBuilding() {
@@ -2925,6 +2944,28 @@ public class GamePlayController {
     }
     public boolean isInBuildMode() {
         return this.currentGameState == GameState.BUILD_MODE;
+    }
+    public void removeProductionTask(String artisanName) {
+        if (activeProductions.containsKey(artisanName)) {
+            activeProductions.remove(artisanName);
+            System.out.println("Production task for " + artisanName + " removed.");
+        } else {
+            System.out.println("No active production task found for " + artisanName + " to remove.");
+        }
+    }
+    public void addItemsToUserInventory(Map<String, Integer> itemsToAdd) {
+        if (user == null || user.getInventory() == null) {
+            System.err.println("Error: User or Inventory not available to add items.");
+            return;
+        }
+        for (Map.Entry<String, Integer> entry : itemsToAdd.entrySet()) {
+            String itemName = entry.getKey();
+            int quantity = entry.getValue();
+            // Assuming Item constructor (name, quantity, sellPrice, basePrice)
+            // You might need to retrieve actual prices from a data source or adjust the Item constructor call
+            Item itemToAdd = new Item(itemName, quantity); // Placeholder prices
+            user.getInventory().addItem(itemToAdd);
+        }
     }
 
 }

@@ -92,6 +92,8 @@ public class Inventory {
                 items.add(item);
                 return true;
             } else {
+                /// remember to remove this
+                items.add(item);
                 return false;
             }
         }
