@@ -1,9 +1,11 @@
 package com.StardewValley.controller;
 
+import com.StardewValley.Network.Client.ClientMain;
 import com.StardewValley.models.Question;
 import com.StardewValley.models.Result;
 import com.StardewValley.models.User;
 import com.StardewValley.repository.UserRepository;
+import com.StardewValley.Network.SessionManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,13 +22,22 @@ public class LoginMenuController {
         this.userRepository = UserRepository.getInstance();
     }
 
-    public Result Login(String username, String password, boolean stayLoggedIn) {
+    public Result Login(String username, String password, boolean stayLoggedIn,String clientId) {
+        userRepository.loadUsers();
         User user = userRepository.getUserByUsername(username);
+        SessionManager sessionManager = SessionManager.getInstance();
         if (user != null && user.getPlainPassword().trim().equals(password.trim())) {
+            if (sessionManager.isLoggedIn(username)) {
+                String loggedClient = sessionManager.getClientForUser(username);
+                return new Result(false, "User is already logged in from: " + loggedClient);
+            }
             loggedInUser = user;
             if (stayLoggedIn) {
                 user.setStayLoggedIn(true);
             }
+            sessionManager.login(username, clientId);
+            ClientMain.connectToServer(loggedInUser.getUsername());
+            System.out.println("Client on this PC is now associated with user: " + loggedInUser.getUsername());
             return new Result(true, "Login successful.", user);
         }
         return new Result(false, "Invalid username or password.");

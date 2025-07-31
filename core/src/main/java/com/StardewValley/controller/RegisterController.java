@@ -50,6 +50,7 @@ public class RegisterController {
     }
 
     public Result register(String username, String password, String passwordConfirm, String nickname, String email, String gender) {
+        userRepository.loadUsers();
         if (!isValidUsername(username)) {
             return new Result(false, "Invalid username. It must be at least 3 characters and include only letters, digits, or underscores.");
         }
@@ -76,6 +77,7 @@ public class RegisterController {
             String hashedPassword = hashPassword(password);
             User newUser = new User(username, password, nickname, email, gender);
             userRepository.addUser(newUser);
+            userRepository.saveUsers();
             users.put(username, newUser);
             lastRegisteredUser = newUser;
             return new Result(true, "User registered successfully.", newUser);

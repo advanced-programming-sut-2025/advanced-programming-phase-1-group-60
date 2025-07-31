@@ -17,6 +17,10 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.UUID;
+
 public class LoginView implements Screen {
     private final Game game;
     private Stage stage;
@@ -40,6 +44,8 @@ public class LoginView implements Screen {
     private TextButton generatePasswordButton;
     private TextButton setNewPasswordButton;
 
+    private String clientId;
+
     public LoginView(Game game) {
         this.game = game;
         this.batch = new SpriteBatch();
@@ -47,6 +53,11 @@ public class LoginView implements Screen {
         Gdx.input.setInputProcessor(stage);
         this.menuManager = MenuManager.getInstance();
         this.loginMenuController = new LoginMenuController(null); // Scanner not needed for UI
+        try {
+            this.clientId = InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            this.clientId = UUID.randomUUID().toString();
+        }
         createLoginForm();
         createForgotPasswordForm();
     }
@@ -351,7 +362,7 @@ public class LoginView implements Screen {
         String password = passwordField.getText();
         boolean stayLoggedIn = stayLoggedInCheck.isChecked();
 
-        Result result = loginMenuController.Login(username, password, stayLoggedIn);
+        Result result = loginMenuController.Login(username, password, stayLoggedIn, clientId);
         if (result.isSuccess()) {
             dispose();
             game.setScreen(new MainView(game, loginMenuController));

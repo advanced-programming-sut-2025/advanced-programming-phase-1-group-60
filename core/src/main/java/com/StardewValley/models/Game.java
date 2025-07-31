@@ -147,7 +147,12 @@ public class Game {
             terminateGame();
         }
     }
-
+    public void setCurrentPlayer(User user) {
+        int idx = players.indexOf(user);
+        if (idx != -1) {
+            currentPlayerIndex = idx;
+        }
+    }
     public void terminateGame() {
         state = GameState.TERMINATED;
         players.forEach(user -> user.setCurrentGame(null));

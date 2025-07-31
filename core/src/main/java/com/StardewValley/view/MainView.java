@@ -1,10 +1,7 @@
 package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MenuManager;
-import com.StardewValley.controller.GameController;
-import com.StardewValley.controller.LoginMenuController;
-import com.StardewValley.controller.MainController;
-import com.StardewValley.controller.ProfileController;
+import com.StardewValley.controller.*;
 import com.StardewValley.models.Result;
 import com.StardewValley.repository.UserRepository;
 import com.StardewValley.view.commands.MainCommands;
@@ -85,7 +82,8 @@ public class MainView implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 dispose();
-                game.setScreen(new GameView(game, loginController));
+                LobbyController lobbyController = new LobbyController(game, loginController);
+                game.setScreen(new LobbyView(game, lobbyController));
             }
         });
 
@@ -100,6 +98,10 @@ public class MainView implements Screen {
         logoutButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
+                if (loginController.getLoggedInUser() != null) {
+                    com.StardewValley.Network.SessionManager.getInstance()
+                        .logout(loginController.getLoggedInUser().getUsername());
+                }
                 dispose();
                 game.setScreen(new PreMenuView(game));
             }

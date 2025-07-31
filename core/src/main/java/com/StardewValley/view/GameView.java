@@ -54,10 +54,12 @@ public class GameView implements Screen {
     private Label mapStatusLabel;
     private boolean isGameRunning = false;
     private Texture lastFrameTexture;
+    private Lobby lobby;
 
-    public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController) {
+    public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController, Lobby lobby) {
         this.game = game;
         this.loginController = loginController;
+        this.lobby = lobby;
         this.stage = new Stage(new ScreenViewport());
         this.menuManager = MenuManager.getInstance();
         this.batch = new SpriteBatch();
@@ -202,12 +204,10 @@ public class GameView implements Screen {
         mapSelectionTable.add(titleLabel).colspan(2).padBottom(30).row();
         mapSelectionTable.add(instructionLabel).colspan(2).padBottom(20).row();
         mapSelectionTable.add(mapStatusLabel).colspan(2).padBottom(20).row();
-
         String[] mapOptions = {"Map 1", "Map 2", "Map 3", "Map 4"};
 
         final List<String> allPlayersForUI = new ArrayList<>(selectedPlayers);
         allPlayersForUI.add(0, loginController.getLoggedInUser().getUsername());
-
         for (int i = 0; i < allPlayersForUI.size(); i++) {
             Label playerLabel = new Label(allPlayersForUI.get(i) + ":", menuManager.getPixthulhuSkin());
             playerLabel.setColor(0.95f, 0.92f, 0.82f, 1f);
@@ -589,6 +589,15 @@ public class GameView implements Screen {
 
     @Override
     public void dispose() {
+        if (lobby != null && loginController != null && loginController.getLoggedInUser() != null) {
+            String username = loginController.getLoggedInUser().getUsername();
+            if (lobby.getCreator().equals(username)) {
+                com.StardewValley.Network.LobbyManager.getInstance().removeLobby(lobby);
+            }
+            else {
+                com.StardewValley.Network.LobbyManager.getInstance().removeMemberFromLobby(lobby.getId(), username);
+            }
+        }
         stage.dispose();
         batch.dispose();
         if (mapView != null) {
