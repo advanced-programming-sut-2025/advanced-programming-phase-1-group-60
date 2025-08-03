@@ -66,9 +66,6 @@ public class Game {
     }
 
     private void validateNewGame(User creator, List<String> usernames) throws GameException {
-        if (usernames.size() < 1 || usernames.size() > 3) {
-            throw new GameException("Invalid number of players (1-3 required)");
-        }
         if (creator.getCurrentGame() != null) {
             throw new GameException("Creator is already in a game");
         }

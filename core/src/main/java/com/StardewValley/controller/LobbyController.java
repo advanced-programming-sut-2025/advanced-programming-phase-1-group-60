@@ -3,6 +3,8 @@ package com.StardewValley.controller;
 import com.StardewValley.Network.LobbyManager;
 import com.StardewValley.Network.SessionManager;
 import com.StardewValley.models.Lobby;
+import com.StardewValley.models.User;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,7 +25,22 @@ public class LobbyController {
     public List<Lobby> getLobbies() {
         return LobbyManager.getInstance().getLobbies();
     }
-
+    public User getUserByUsername(String username) {
+        // Get user by username from your user repository or service
+        return com.StardewValley.repository.UserRepository.getInstance().getUserByUsername(username);
+    }
+    public LoginMenuController getLoginController() {
+        return loginController;
+    }
+    public Lobby getLobbyForUser(String username) {
+        List<Lobby> lobbies = getLobbies();
+        for (Lobby lobby : lobbies) {
+            if (lobby.getMembers().contains(username)) {
+                return lobby;
+            }
+        }
+        return null;
+    }
     public void createLobby(String name, boolean isPublic, String password, boolean isVisible) {
         String creator = loginController.getLoggedInUser().getUsername();
         Lobby lobby = new Lobby(name, isPublic, password, isVisible, creator);

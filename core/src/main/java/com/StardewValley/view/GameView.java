@@ -1,6 +1,8 @@
 package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.Network.Client.ClientMain;
+import com.StardewValley.Network.GameStateManager;
 import com.StardewValley.controller.GameController;
 import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.models.*;
@@ -70,8 +72,76 @@ public class GameView implements Screen {
 
         createUI();
         Gdx.input.setInputProcessor(stage);
-    }
 
+        // Check if the current user already has a farm assignment
+        User currentUser = loginController.getLoggedInUser();
+        String username = currentUser.getUsername();
+
+        // Try to load farm selection from the database
+        Integer farmIndex = GameStateManager.getInstance().loadFromDB(username);
+        if (farmIndex != null) {
+            System.out.println("Found existing farm selection for " + username + ": Farm " + farmIndex);
+
+            // Automatically start the game with the assigned farm
+            autoLoadIntoFarm(farmIndex);
+        }
+    }
+    // Add this new method to automatically load a user into their farm
+    private void autoLoadIntoFarm(int farmIndex) {
+        try {
+            // Get the Game singleton instance and reset it
+            com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
+
+            // Create new game with just the current user
+            gameInstance.newGame(loginController.getLoggedInUser(), new ArrayList<>());
+
+            // Add tools to the player
+            User currentUser = loginController.getLoggedInUser();
+            Tools.addBeginnerHoeToInventory(currentUser.getInventory());
+            Tools.addBeginnerPickaxeToInventory(currentUser.getInventory());
+            Tools.addBeginnerAxeToInventory(currentUser.getInventory());
+            Tools.addBeginnerWateringcanToInventory(currentUser.getInventory());
+            Tools.addBeginnerScytheToInventory(currentUser.getInventory());
+
+            // Initialize quests
+            com.StardewValley.repository.QuestRepository.getInstance().initialize();
+
+            // Assign the correct map to the player
+            gameInstance.selectMap(currentUser, farmIndex + 1); // Convert to 1-based index
+
+            // Initialize the game map
+            System.out.println("Initializing game map...");
+            gameInstance.initializeGameMap();
+
+            // Set the game state to IN_GAME
+            gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
+
+            // Get the current map from the game instance
+            GameMap gameMap = gameInstance.getCurrentMap();
+
+            // Create the MapView with the initialized map
+            Runnable backToMenuCallback = this::showMainMenu;
+            mapView = new MapView(gameMap, backToMenuCallback, this);
+
+            // Set user's chosen farm as active
+            mapView.setCurrentFarmIndex(farmIndex);
+
+            // Connect to the server
+            ClientMain.connectToServer(currentUser.getUsername());
+
+            System.out.println("Auto-loading " + currentUser.getUsername() + " into Farm " + farmIndex);
+            System.out.println("Game instance ID: " + ClientMain.getInstanceId());
+
+            // Navigate to gameplay screen
+            showGameplayScreen();
+        }
+        catch (Exception e) {
+            System.err.println("Error auto-loading game: " + e.getMessage());
+            e.printStackTrace();
+            // Fall back to showing the main menu if auto-loading fails
+            mainMenuTable.setVisible(true);
+        }
+    }
     private void createUI() {
         createMainMenu();
         createNewGameMenu();
@@ -85,7 +155,9 @@ public class GameView implements Screen {
         stage.addActor(newGameTable);
         stage.addActor(mapSelectionTable);
     }
-
+    public void setMapView(MapView mapView) {
+        this.mapView = mapView;
+    }
     private void createMainMenu() {
         mainMenuTable = new Table();
         mainMenuTable.setFillParent(true);
@@ -259,7 +331,7 @@ public class GameView implements Screen {
         Gdx.input.setInputProcessor(stage);
     }
 
-    private void showMainMenu() {
+    public void showMainMenu() {
         isGameRunning = false;
         newGameTable.setVisible(false);
         mapSelectionTable.setVisible(false);
@@ -338,14 +410,10 @@ public class GameView implements Screen {
                 Tools.addBeginnerPickaxeToInventory(user.getInventory());
                 Tools.addBeginnerAxeToInventory(user.getInventory());
                 Tools.addBeginnerWateringcanToInventory(user.getInventory());
-                //      Tools.addLearningFishingpoleToInventory(user.getInventory());
                 Tools.addBeginnerScytheToInventory(user.getInventory());
-                // Tools.addBeginnerMilkPailToInventory(user.getInventory());
-                //   Tools.addBeginnerShearToInventory(user.getInventory());
-                //     Tools.addBeginnerTrashbinToInventory(user.getInventory());
             }
 
-            // FIX: Initialize quests BEFORE creating the map
+            // Initialize quests BEFORE creating the map
             com.StardewValley.repository.QuestRepository.getInstance().initialize();
 
             // Get all players and assign them to their selected farms
@@ -355,19 +423,22 @@ public class GameView implements Screen {
             Map<String, Integer> playerMapChoices = new HashMap<>();
             for (int i = 0; i < allPlayerUsernames.size(); i++) {
                 String username = allPlayerUsernames.get(i);
-                int mapNumber = selectedMaps.get(i);
+                int mapNumber = selectedMaps.get(i) - 1; // Convert to 0-based index
                 playerMapChoices.put(username, mapNumber);
-                System.out.println("Player " + username + " selected map " + mapNumber);
+
+                // Save farm selection to GameStateManager
+                GameStateManager.getInstance().saveFarmSelection(username, mapNumber);
+                System.out.println("Player " + username + " selected map " + mapNumber + " (saved to GameStateManager)");
             }
 
             // Assign maps to players using the Game's selectMap method
             for (User player : players) {
                 int mapId = playerMapChoices.getOrDefault(player.getUsername(), 1);
-                gameInstance.selectMap(player, mapId);
-                System.out.println("Assigned " + player.getUsername() + " to Farm " + mapId);
+                gameInstance.selectMap(player, mapId + 1); // Convert back to 1-based for game model
+                System.out.println("Assigned " + player.getUsername() + " to Farm " + (mapId + 1));
             }
 
-            // IMPORTANT: Initialize the game map after all players have selected their maps
+            // Initialize the game map after all players have selected their maps
             System.out.println("Initializing game map...");
             gameInstance.initializeGameMap();
 
@@ -386,10 +457,17 @@ public class GameView implements Screen {
             Runnable backToMenuCallback = this::showMainMenu;
             mapView = new MapView(gameMap, backToMenuCallback, this);
 
-            // Set first farm as active and center camera on it
-            mapView.setCurrentFarmIndex(0);
+            // Get current user's selected farm index from GameStateManager
+            String currentUsername = loginController.getLoggedInUser().getUsername();
+            int userFarmIndex = GameStateManager.getInstance().getFarmSelection(currentUsername);
+            System.out.println("Setting current farm index to " + userFarmIndex + " for " + currentUsername);
 
-            System.out.println("Map created successfully with game map");
+            // Set user's chosen farm as active and center camera on it
+            mapView.setCurrentFarmIndex(userFarmIndex);
+
+            // Log the client instance ID
+            System.out.println("Game instance ID: " + ClientMain.getInstanceId() + " for user: " + currentUsername);
+
             mapStatusLabel.setText("Game started successfully!");
             mapStatusLabel.setColor(Color.GREEN);
 
@@ -413,7 +491,7 @@ public class GameView implements Screen {
         statusLabel.setText("");
     }
 
-    private void showGameplayScreen() {
+    public void showGameplayScreen() {
         isGameRunning = true;
         game.setScreen(mapView);
     }

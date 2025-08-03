@@ -3,6 +3,7 @@ package com.StardewValley.view;
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.controller.LobbyController;
 import com.StardewValley.models.Lobby;
+import com.StardewValley.models.User;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
@@ -15,6 +16,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class LobbyView implements Screen {
@@ -275,15 +277,121 @@ public class LobbyView implements Screen {
         Dialog joinedDialog = new Dialog("Lobby Joined", menuManager.getPixthulhuSkin()) {
             @Override
             protected void result(Object object) {
-                if (Boolean.TRUE.equals(object)) {
+                if ("LEAVE".equals(object)) {
                     lobbyController.leaveLobby(lobby, username);
                     this.hide();
+                } else if ("REFRESH".equals(object)) {
+                    checkAndJoinStartedGame(lobby, username);
                 }
             }
         };
-        joinedDialog.text("You have joined the Lobby of \"" + lobby.getName() + "\"");
-        joinedDialog.button("Leave", true);
+
+        joinedDialog.text("You have joined the Lobby of \"" + lobby.getName() + "\"\n\nWaiting for the host to start the game.\nClick Refresh to check if the game has started.");
+
+        // Style buttons
+        TextButton refreshBtn = new TextButton("Refresh", menuManager.getPixthulhuSkin());
+        refreshBtn.setColor(new Color(0.38f, 0.55f, 0.27f, 1f));
+        refreshBtn.getLabel().setColor(new Color(0.95f, 0.92f, 0.82f, 1f));
+
+        TextButton leaveBtn = new TextButton("Leave", menuManager.getPixthulhuSkin());
+        leaveBtn.setColor(new Color(0.38f, 0.55f, 0.27f, 1f));
+        leaveBtn.getLabel().setColor(new Color(0.95f, 0.92f, 0.82f, 1f));
+
+        joinedDialog.button(refreshBtn, "REFRESH");
+        joinedDialog.button(leaveBtn, "LEAVE");
         joinedDialog.show(stage);
+    }
+    private void checkAndJoinStartedGame(Lobby lobby, String username) {
+        // Check if a farm has been assigned to this user in the GameStateManager
+        Integer farmIndex = com.StardewValley.Network.GameStateManager.getInstance().loadFromDB(username);
+
+        if (farmIndex != null) {
+            System.out.println("Game found! User " + username + " assigned to Farm " + farmIndex);
+
+            // Launch the game for this user
+            launchGameForJoinedPlayer(username, farmIndex);
+        } else {
+            // Show a message that the game hasn't started yet
+            Dialog waitDialog = new Dialog("Waiting", menuManager.getPixthulhuSkin());
+            waitDialog.text("The host hasn't started the game yet.\nPlease wait and try again.");
+            waitDialog.button("OK");
+            waitDialog.show(stage);
+        }
+    }
+    private void launchGameForJoinedPlayer(String username, int farmIndex) {
+        try {
+            // Get the Game singleton instance and reset it
+            com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
+
+            // Get the current user
+            User currentUser = lobbyController.getUserByUsername(username);
+            if (currentUser == null) {
+                throw new Exception("User not found");
+            }
+
+            // Create new game with just the current user
+            gameInstance.newGame(currentUser, new ArrayList<>());
+
+            // Add tools to the player
+            com.StardewValley.models.Tools.addBeginnerHoeToInventory(currentUser.getInventory());
+            com.StardewValley.models.Tools.addBeginnerPickaxeToInventory(currentUser.getInventory());
+            com.StardewValley.models.Tools.addBeginnerAxeToInventory(currentUser.getInventory());
+            com.StardewValley.models.Tools.addBeginnerWateringcanToInventory(currentUser.getInventory());
+            com.StardewValley.models.Tools.addBeginnerScytheToInventory(currentUser.getInventory());
+
+            // Initialize quests
+            com.StardewValley.repository.QuestRepository.getInstance().initialize();
+
+            // Assign the correct map to the player
+            gameInstance.selectMap(currentUser, farmIndex + 1); // Convert to 1-based index
+
+            // Initialize the game map
+            System.out.println("Initializing game map for joined player...");
+            gameInstance.initializeGameMap();
+
+            // Set the game state to IN_GAME
+            gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
+
+            // Get the current map from the game instance
+            com.StardewValley.models.GameMap gameMap = gameInstance.getCurrentMap();
+
+            // Get the lobby object for this user
+            Lobby userLobby = lobbyController.getLobbyForUser(username);
+            if (userLobby == null) {
+                throw new Exception("Lobby not found for user");
+            }
+
+            // Create the GameView
+            GameView gameView = new GameView(game, lobbyController.getLoginController(), userLobby);
+
+            // Create the MapView
+            MapView mapView = new MapView(gameMap, gameView::showMainMenu, gameView);
+
+            // Set the correct farm index
+            mapView.setCurrentFarmIndex(farmIndex);
+
+            // Set the MapView in GameView
+            gameView.setMapView(mapView);
+
+            // Show the game screen
+            game.setScreen(gameView);
+            gameView.showGameplayScreen();
+
+            // Connect to server
+            com.StardewValley.Network.Client.ClientMain.connectToServer(username);
+
+            System.out.println("Game launched for " + username + " in Farm " + farmIndex);
+            System.out.println("Client instance ID: " + com.StardewValley.Network.Client.ClientMain.getInstanceId());
+        } catch (Exception e) {
+            System.err.println("Error launching game for joined player: " + e.getMessage());
+            e.printStackTrace();
+
+            // Show error dialog
+            Dialog errorDialog = new Dialog("Error", menuManager.getPixthulhuSkin());
+            errorDialog.text("Failed to start game: " + e.getMessage());
+            errorDialog.button("OK");
+            errorDialog.show(stage);
+        }
     }
     private void showPasswordDialog(Lobby lobby, String currentUser, Color buttonColor, Color textColor, Dialog parentDialog) {
         Dialog pwdDialog = new Dialog("Enter Password", menuManager.getPixthulhuSkin());
