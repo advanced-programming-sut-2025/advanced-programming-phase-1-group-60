@@ -638,7 +638,17 @@ public class User {
             }
         }
     }
-
+    public boolean hasSonar(){
+        this.energy.decreaseEnergy(20);
+        for (Item item : inventory.getItems()){
+            if(item.getName().toLowerCase().contains("fishingpole")){
+                if(item.getName().toLowerCase().contains("bamboo") || item.getName().toLowerCase().contains("fiberglass") || item.getName().toLowerCase().contains("iridium")){
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
 
     // SKILLS
     int fishingSkillsXp;

@@ -7,6 +7,7 @@ import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
 import com.StardewValley.models.Tree;
+import com.StardewValley.repository.FishingRepository;
 import com.StardewValley.repository.UserRepository;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -31,7 +32,6 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.List;
@@ -65,6 +65,7 @@ public class MapView implements Screen {
     private ToolManager toolManager;
     private int selectedQuickSlot = 0;
     private Vector2 renderOffset;
+    private boolean fishInitialized = false;
     // --- NEW: Inventory selection and quantity fields ---
     private SelectBox<String> inventorySelectBox;
     private TextField useItemQuantityField;
@@ -113,6 +114,8 @@ public class MapView implements Screen {
     private Label notificationLabel;
     private float notificationTimer = 0f;
 
+    private List<Fish> lakeFishes;
+    private Texture fishTexture;
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
         this.gameView = gameView;
@@ -161,8 +164,11 @@ public class MapView implements Screen {
         pixmap.setColor(Color.RED);
         pixmap.fill();
         this.playerTexture = new Texture(pixmap);
+        // for fish
+        pixmap.setColor(Color.BLUE); // A simple blue square for fish
+        pixmap.fill();
+        this.fishTexture = new Texture(pixmap);
         pixmap.dispose();
-
         initializeFarmOwnerMap();
 
         Vector2 farmCenter = getFarmCenter(currentFarmIndex);
@@ -177,10 +183,28 @@ public class MapView implements Screen {
         User user2 = UserRepository.getInstance().getUserByUsername("kam");
         user1.increaseFriendshipXpsWithUsers(user2, 120);
         user2.increaseFriendshipXpsWithUsers(user1, 120);
-
+        initializeLakeFishes();
         createUI();
-    }
 
+    }
+    private void initializeLakeFishes() {
+        lakeFishes = new ArrayList<>();
+        List<Fish> allAvailableFishes = FishingRepository.getFishes(); // Get all fish from repository
+
+        if (!allAvailableFishes.isEmpty()) {
+            Random random = new Random();
+                Fish fish = allAvailableFishes.get(random.nextInt(allAvailableFishes.size()));
+                float randomOffsetX = random.nextFloat() * (6 - TILE_SIZE); // Subtract TILE_SIZE to ensure fish stays within bounds
+                float randomOffsetY = random.nextFloat() * (4 - TILE_SIZE);
+
+                float nx = randomOffsetX;
+                float ny =randomOffsetY;
+                fish.setPosition(nx, ny);
+                fishTexture = new Texture(Gdx.files.internal("assets/Fish/"+fish.getName()+".png"));
+                lakeFishes.add(fish);
+
+        }
+    }
     private void handleGameplayMechanics(float delta) {
         User currentPlayer = gameInstance.getCurrentPlayer();
         Vector2 oldPos = new Vector2(playerPos);
@@ -757,7 +781,7 @@ public class MapView implements Screen {
     public void render(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
+        fishInitialized = false;
         handleInput(delta);
         updateAnimals(delta);
         toolManager.updateSwing(delta);
@@ -769,7 +793,6 @@ public class MapView implements Screen {
         // --- PHASE 1: Draw all sprites/textures with SpriteBatch ---
         batch.setProjectionMatrix(camera.combined); // Set camera for world rendering
         batch.begin(); // BEGIN MAIN BATCH
-
         renderMap();
         renderAnimals();
         renderPlayer();
@@ -778,7 +801,6 @@ public class MapView implements Screen {
         // If renderUI draws with the main batch (world-space UI), keep it here.
         // If it draws screen-space UI or uses its own batch/stage, it should be moved.
         renderUI();
-
         batch.end(); // END MAIN BATCH
 
         // --- PHASE 2: Draw all shapes/primitives with ShapeRenderer ---
@@ -865,6 +887,11 @@ public class MapView implements Screen {
                         }
                     } else if (element instanceof Lake) {
                         batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
+                        if(!fishInitialized){
+                            batch.draw(fishTexture, posX, posY, TILE_SIZE, TILE_SIZE);
+                            fishInitialized = true;
+                        }
+
                     } else if (element instanceof Quarry) {
                         batch.draw(mapManager.getQuarryTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
                     } else if (element instanceof CoopStaticElement) {
@@ -1531,6 +1558,8 @@ public class MapView implements Screen {
                 PlaceableGameBuilding clickedBuilding = (PlaceableGameBuilding) clickedTile.getStaticElement().get();
                 showBuildingContextMenu(clickedBuilding);
             }
+            else if (clickedTile != null && clickedTile.getStaticElement().isPresent() && clickedTile.getStaticElement().get() instanceof Lake) {
+                gameView.showFishingMinigameScreen(gameInstance.getCurrentPlayer(),TimeSystem.getInstance().getCurrentSeason(), gameInstance.getCurrentPlayer().getFishingSkills());            }
         }
 
         if (Gdx.input.isKeyPressed(Input.Keys.PLUS) || Gdx.input.isKeyPressed(Input.Keys.EQUALS))
@@ -1649,7 +1678,7 @@ public class MapView implements Screen {
         return true;
     }
 
-    private void showMessage(String message, float duration) {
+    public void showMessage(String message, float duration) {
         lastTurnMessage = message;
         messageTimer = duration;
     }

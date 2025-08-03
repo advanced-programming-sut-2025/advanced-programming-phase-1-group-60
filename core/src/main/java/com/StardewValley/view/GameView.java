@@ -533,7 +533,11 @@ public class GameView implements Screen {
             game.setScreen(mapView);
         }
     }
-
+    public void showMessage(String message) {
+        if (mapView != null) {
+            mapView.showMessage(message , 0.2f);
+        }
+    }
     public void setLastFrameTexture(Texture texture) {
         this.lastFrameTexture = texture;
     }
@@ -569,7 +573,10 @@ public class GameView implements Screen {
             mapView.resize(width, height);
         }
     }
-
+    public void showFishingMinigameScreen(User user, String currentSeason, int fishingSkill) {
+        FishingMiniGame fishingMinigameScreen = new FishingMiniGame(this, user, currentSeason, fishingSkill , user.hasSonar());
+        game.setScreen(fishingMinigameScreen);
+    }
     @Override
     public void show() {
         Gdx.input.setInputProcessor(stage);

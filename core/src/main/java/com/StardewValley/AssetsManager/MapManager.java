@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Random;
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 
 public class MapManager {
     private static MapManager instance;
@@ -27,6 +28,33 @@ public class MapManager {
     private Texture plowedGroundTexture;
     // Stone textures
     private Texture[] stoneTiles;
+    //Fish:
+    public static TextureRegion salmon = new TextureRegion(new Texture("Fish/Salmon.png"));
+    public static TextureRegion sardine = new TextureRegion(new Texture("Fish/Sardine.png"));
+    public static TextureRegion shad = new TextureRegion(new Texture("Fish/Shad.png"));
+    public static TextureRegion blueDiscus = new TextureRegion(new Texture("Fish/Blue_Discus.png"));
+    public static TextureRegion midnightCarp = new TextureRegion(new Texture("Fish/Midnight_Carp.png"));
+    public static TextureRegion squid = new TextureRegion(new Texture("Fish/Squid.png"));
+    public static TextureRegion tuna = new TextureRegion(new Texture("Fish/Tuna.png"));
+    public static TextureRegion perch = new TextureRegion(new Texture("Fish/Perch.png"));
+    public static TextureRegion flounder = new TextureRegion(new Texture("Fish/Flounder.png"));
+    public static TextureRegion lionfish = new TextureRegion(new Texture("Fish/Lionfish.png"));
+    public static TextureRegion herring = new TextureRegion(new Texture("Fish/Herring.png"));
+    public static TextureRegion ghostfish = new TextureRegion(new Texture("Fish/Ghostfish.png"));
+    public static TextureRegion tilapia = new TextureRegion(new Texture("Fish/Tilapia.png"));
+    public static TextureRegion dorado = new TextureRegion(new Texture("Fish/Dorado.png"));
+    public static TextureRegion sunfish = new TextureRegion(new Texture("Fish/Sunfish.png"));
+    public static TextureRegion rainbowTrout = new TextureRegion(new Texture("Fish/Rainbow_Trout.png"));
+    public static TextureRegion legend = new TextureRegion(new Texture("Fish/Legend.png"));
+    public static TextureRegion glacierfish = new TextureRegion(new Texture("Fish/Glacierfish.png"));
+    public static TextureRegion angler = new TextureRegion(new Texture("Fish/Angler.png"));
+    public static TextureRegion crimsonfish = new TextureRegion(new Texture("Fish/Crimsonfish.png"));
+
+    //Mini_Game:
+    public static TextureRegionDrawable fishingSystem = new TextureRegionDrawable(new TextureRegion(new Texture("MiniGame/FishingSystem.png")));
+    public static TextureRegionDrawable greenBar = new TextureRegionDrawable(new TextureRegion(new Texture("MiniGame/Green_Bar.png")));
+    public static TextureRegionDrawable normalFish = new TextureRegionDrawable(new TextureRegion(new Texture("MiniGame/Normal_Fish.png")));
+    public static TextureRegionDrawable legendFish = new TextureRegionDrawable(new TextureRegion(new Texture("MiniGame/Legend_Fish.png")));
 
     // Tree Textures
     private Map<String, Texture> treeTextures = new HashMap<>();

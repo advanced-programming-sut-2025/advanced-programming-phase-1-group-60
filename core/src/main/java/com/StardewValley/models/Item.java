@@ -15,6 +15,7 @@ public class Item {
     private HashMap<String, Object> properties = new HashMap<>();
     private User owner; // Added owner field
     private String path;
+    private String quality;
 
     public boolean isEdible() {
         return "Food".equals(type) || "Ingredient".equals(type);
@@ -131,5 +132,13 @@ public class Item {
     @Override
     public String toString() {
         return name + " " + quantity;
+    }
+
+    public String getQuality() {
+        return quality;
+    }
+
+    public void setQuality(String quality) {
+        this.quality = quality;
     }
 }

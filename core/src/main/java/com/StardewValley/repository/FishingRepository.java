@@ -14,8 +14,8 @@ public class FishingRepository {
         fishes.add(new Fish("Salmon", 75, "Fall", false));
         fishes.add(new Fish("Sardine", 40, "Fall", false));
         fishes.add(new Fish("Shad", 60, "Fall", false));
-        fishes.add(new Fish("Blue Discus", 120, "Fall", false));
-        fishes.add(new Fish("Midnight Carp", 150, "Winter", false));
+        fishes.add(new Fish("Blue_Discus", 120, "Fall", false));
+        fishes.add(new Fish("Midnight_Carp", 150, "Winter", false));
         fishes.add(new Fish("Squid", 80, "Winter", false));
         fishes.add(new Fish("Tuna", 100, "Winter", false));
         fishes.add(new Fish("Perch", 55, "Winter", false));
@@ -26,7 +26,7 @@ public class FishingRepository {
         fishes.add(new Fish("Tilapia", 75, "Summer", false));
         fishes.add(new Fish("Dorado", 100, "Summer", false));
         fishes.add(new Fish("Sunfish", 30, "Summer", false));
-        fishes.add(new Fish("Rainbow Trout", 65, "Summer", false));
+        fishes.add(new Fish("Rainbow_Trout", 65, "Summer", false));
         fishes.add(new Fish("Legend", 5000, "Spring", true));
         fishes.add(new Fish("Glacierfish", 1000, "Winter", true));
         fishes.add(new Fish("Angler", 900, "Fall", true));
@@ -78,5 +78,18 @@ public class FishingRepository {
 
     public static List<Fish> getFishes() {
         return new ArrayList<>(fishes);
+    }
+
+    public static List<Fish> getFishBySeason(String season) {
+        return fishes.stream()
+            .filter(fish -> fish.getSeason().equalsIgnoreCase(season) || fish.getSeason().equalsIgnoreCase("All"))
+            .collect(Collectors.toList());
+    }
+
+    public static Fish getFishByName(String name) {
+        return fishes.stream()
+            .filter(fish -> fish.getName().equalsIgnoreCase(name))
+            .findFirst()
+            .orElse(null);
     }
 }
