@@ -1,6 +1,8 @@
 package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MenuManager;
+import com.StardewValley.Network.GameStateManager;
+import com.StardewValley.Network.LobbyManager;
 import com.StardewValley.controller.LobbyController;
 import com.StardewValley.models.Lobby;
 import com.StardewValley.models.User;
@@ -329,8 +331,30 @@ public class LobbyView implements Screen {
                 throw new Exception("User not found");
             }
 
-            // Create new game with just the current user
-            gameInstance.newGame(currentUser, new ArrayList<>());
+            // Load all players who are part of this game from the database
+            List<String> allPlayersInGame = new ArrayList<>();
+            List<Lobby> allLobbies = LobbyManager.getInstance().getLobbies();
+            Lobby currentLobby = null;
+
+            // Find the lobby this player is in
+            for (Lobby lobby : allLobbies) {
+                if (lobby.getMembers().contains(username)) {
+                    currentLobby = lobby;
+                    allPlayersInGame.addAll(lobby.getMembers());
+                    break;
+                }
+            }
+
+            if (currentLobby == null) {
+                throw new Exception("Lobby not found for user");
+            }
+
+            // Create game with all lobby members
+            List<String> otherPlayers = new ArrayList<>(allPlayersInGame);
+            otherPlayers.remove(username); // Remove current user from list of other players
+
+            // Initialize the game with current user as creator and all other players
+            gameInstance.newGame(currentUser, otherPlayers);
 
             // Add tools to the player
             com.StardewValley.models.Tools.addBeginnerHoeToInventory(currentUser.getInventory());
@@ -342,8 +366,17 @@ public class LobbyView implements Screen {
             // Initialize quests
             com.StardewValley.repository.QuestRepository.getInstance().initialize();
 
-            // Assign the correct map to the player
-            gameInstance.selectMap(currentUser, farmIndex + 1); // Convert to 1-based index
+            // Assign map selections for all players from database
+            for (String playerName : allPlayersInGame) {
+                User player = lobbyController.getUserByUsername(playerName);
+                if (player != null) {
+                    Integer playerFarmIndex = GameStateManager.getInstance().loadFromDB(playerName);
+                    if (playerFarmIndex != null) {
+                        gameInstance.selectMap(player, playerFarmIndex + 1); // Convert to 1-based index
+                        System.out.println("Assigned " + playerName + " to Farm " + (playerFarmIndex + 1));
+                    }
+                }
+            }
 
             // Initialize the game map
             System.out.println("Initializing game map for joined player...");
@@ -355,14 +388,8 @@ public class LobbyView implements Screen {
             // Get the current map from the game instance
             com.StardewValley.models.GameMap gameMap = gameInstance.getCurrentMap();
 
-            // Get the lobby object for this user
-            Lobby userLobby = lobbyController.getLobbyForUser(username);
-            if (userLobby == null) {
-                throw new Exception("Lobby not found for user");
-            }
-
             // Create the GameView
-            GameView gameView = new GameView(game, lobbyController.getLoginController(), userLobby);
+            GameView gameView = new GameView(game, lobbyController.getLoginController(), currentLobby);
 
             // Create the MapView
             MapView mapView = new MapView(gameMap, gameView::showMainMenu, gameView);

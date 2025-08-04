@@ -3,6 +3,7 @@ package com.StardewValley.view;
 import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.AssetsManager.ToolManager;
+import com.StardewValley.Network.Client.ClientMain;
 import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
@@ -175,8 +176,8 @@ public class MapView implements Screen {
 
         User user1 = UserRepository.getInstance().getUserByUsername("kamran");
         User user2 = UserRepository.getInstance().getUserByUsername("kam");
-        user1.increaseFriendshipXpsWithUsers(user2, 120);
-        user2.increaseFriendshipXpsWithUsers(user1, 120);
+        //user1.increaseFriendshipXpsWithUsers(user2, 120);
+        //user2.increaseFriendshipXpsWithUsers(user1, 120);
 
         createUI();
     }
@@ -261,6 +262,13 @@ public class MapView implements Screen {
                 if (canMove) {
                     playerPos.set(newPos);
                 }
+                if (ClientMain.isConnected) {
+                    // Determine current location
+                    String location = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
+
+                    // Send position update to server
+                    ClientMain.sendPlayerPosition(playerPos.x, playerPos.y, location);
+                }
             }
         }
         animationTime += delta;
@@ -268,7 +276,29 @@ public class MapView implements Screen {
             messageTimer -= delta;
         }
     }
+    private void renderOtherPlayers() {
+        if (!ClientMain.isConnected) return;
 
+        Map<String, ClientMain.RemotePlayerInfo> remotePlayers = ClientMain.getRemotePlayers();
+
+        for (ClientMain.RemotePlayerInfo playerInfo : remotePlayers.values()) {
+            // Only render players in the same location as us
+            String myLocation = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
+            if (!playerInfo.getLocation().equals(myLocation)) continue;
+
+            // Render the player
+            float otherX = playerInfo.getX();
+            float otherY = playerInfo.getY();
+
+            // Draw player name above their character
+            font.setColor(Color.YELLOW);
+            font.draw(batch, playerInfo.getUsername(), otherX - 20, otherY + 45);
+            font.setColor(Color.WHITE);
+
+            // Draw player texture
+            batch.draw(playerTexture, otherX, otherY, TILE_SIZE, TILE_SIZE);
+        }
+    }
     private boolean handleToolUsage(Vector3 clickPos) {
         User currentPlayer = gameInstance.getCurrentPlayer();
 
@@ -773,6 +803,7 @@ public class MapView implements Screen {
         renderMap();
         renderAnimals();
         renderPlayer();
+        renderOtherPlayers();
         renderToolSwing();
         // Draw all text for progress bars while batch is active
         // If renderUI draws with the main batch (world-space UI), keep it here.
