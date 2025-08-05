@@ -14,7 +14,8 @@ public class GameMessage implements Serializable {
         PLAYER_LEAVE,
         ACTION_REQUEST,
         ACTION_RESPONSE,
-        STATE_UPDATE
+        STATE_UPDATE,
+        PLAYER_REACTION
     }
 
     private MessageType type;

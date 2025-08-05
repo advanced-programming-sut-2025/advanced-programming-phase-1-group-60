@@ -40,7 +40,10 @@ public class ClientMain {
         private String location;
         private int farmIndex;
         private User userObject;
-
+        private int currentEmojiId = -1;
+        private String currentReactionText = null;
+        private long reactionTimestamp = 0;
+        private static final long REACTION_DISPLAY_TIME = 5000;
         public RemotePlayerInfo(String username, String instanceId, float x, float y, String location, int farmIndex) {
             this.username = username;
             this.instanceId = instanceId;
@@ -52,7 +55,29 @@ public class ClientMain {
             // Try to get or create User object
             this.userObject = UserRepository.getInstance().getUserByUsername(username);
         }
+        public void setCurrentReaction(int emojiId, String text, long timestamp) {
+            this.currentEmojiId = emojiId;
+            this.currentReactionText = text;
+            this.reactionTimestamp = timestamp;
+        }
 
+        public boolean hasActiveReaction() {
+            return currentEmojiId != -1 &&
+                (System.currentTimeMillis() - reactionTimestamp) < REACTION_DISPLAY_TIME;
+        }
+
+        public int getCurrentEmojiId() {
+            return currentEmojiId;
+        }
+
+        public String getCurrentReactionText() {
+            return currentReactionText;
+        }
+
+        public void clearReaction() {
+            currentEmojiId = -1;
+            currentReactionText = null;
+        }
         // Getters
         public String getUsername() { return username; }
         public String getInstanceId() { return instanceId; }
@@ -132,7 +157,47 @@ public class ClientMain {
     public static void setMessageHandler(Consumer<GameMessage> handler) {
         messageHandler = handler;
     }
+    public static void sendPlayerReaction(int emojiId, String customText) {
+        if (!isConnected) return;
 
+        GameMessage reactionMessage = new GameMessage(MessageType.PLAYER_REACTION, username, instanceId);
+        reactionMessage.addData("emojiId", emojiId);
+
+        if (customText != null && !customText.isEmpty()) {
+            // Ensure text is no longer than 10 characters
+            if (customText.length() > 10) {
+                customText = customText.substring(0, 10);
+            }
+            reactionMessage.addData("text", customText);
+        }
+
+        reactionMessage.addData("timestamp", System.currentTimeMillis());
+
+        sendMessage(reactionMessage);
+    }
+    private static void handlePlayerReaction(GameMessage message) {
+        String playerInstanceId = message.getInstanceId();
+
+        // Don't process our own messages
+        if (playerInstanceId.equals(instanceId)) return;
+
+        RemotePlayerInfo playerInfo = remotePlayers.get(playerInstanceId);
+        if (playerInfo != null) {
+            int emojiId = (int) message.getData().get("emojiId");
+            String text = message.getData().containsKey("text") ?
+                (String) message.getData().get("text") : null;
+            long timestamp = (long) message.getData().get("timestamp");
+
+            // Store reaction info in the player's data for rendering
+            playerInfo.setCurrentReaction(emojiId, text, timestamp);
+
+            if (emojiId >= 1000) {
+                System.out.println("Player " + playerInfo.getUsername() + " reacted with text " + (emojiId - 1000));
+            } else {
+                System.out.println("Player " + playerInfo.getUsername() + " reacted with emoji " + emojiId);
+            }
+        }
+    }
     public static void sendPlayerPosition(float x, float y, String location) {
         if (!isConnected) return;
 
@@ -189,7 +254,10 @@ public class ClientMain {
                 // A player has left
                 removeRemotePlayer(message.getInstanceId());
                 break;
-
+            case PLAYER_REACTION:
+                // Handle incoming reaction
+                handlePlayerReaction(message);
+                break;
             default:
                 // Handle other message types
                 break;

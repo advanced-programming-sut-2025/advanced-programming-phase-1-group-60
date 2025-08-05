@@ -60,12 +60,19 @@ public class ClientHandler extends Thread {
             case PLAYER_LEAVE:
                 closeConnection();
                 break;
+            case PLAYER_REACTION:
+                handlePlayerReaction(message);
+                break;
 
             default:
                 System.out.println("Unhandled message type: " + message.getType());
         }
     }
-
+    private void handlePlayerReaction(GameMessage message) {
+        // Just broadcast the reaction to all clients
+        server.broadcastMessage(message, instanceId);
+        System.out.println("Player " + username + " sent a reaction");
+    }
     private void handlePlayerJoin(GameMessage message) {
         System.out.println("Player joined: " + username + " (Instance: " + instanceId + ")");
 

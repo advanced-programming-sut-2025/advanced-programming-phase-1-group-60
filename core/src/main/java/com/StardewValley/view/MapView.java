@@ -1,5 +1,6 @@
 package com.StardewValley.view;
 
+import com.StardewValley.AssetsManager.EmojiManager;
 import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.AssetsManager.ToolManager;
@@ -113,6 +114,10 @@ public class MapView implements Screen {
     //Gift players
     private Label notificationLabel;
     private float notificationTimer = 0f;
+    private int currentPlayerEmojiId = -1;
+    private String currentPlayerReactionText = null;
+    private long currentPlayerReactionTimestamp = 0;
+    private static final long REACTION_DISPLAY_TIME = 5000;
 
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
@@ -181,7 +186,85 @@ public class MapView implements Screen {
 
         createUI();
     }
+    private void handleEmojiInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+            showEmojiReactionDialog();
+        }
+    }
 
+    private void showEmojiReactionDialog() {
+        EmojiReactionDialog dialog = new EmojiReactionDialog(skin);
+        dialog.addDialogListener(new EmojiReactionDialog.DialogListener() {
+            @Override
+            public void onReactionSent(int emojiId, String text) {
+                // Store the current player's reaction locally
+                currentPlayerEmojiId = emojiId;
+                currentPlayerReactionText = text;
+                currentPlayerReactionTimestamp = System.currentTimeMillis();
+            }
+        });
+        dialog.show(stage);
+    }
+    private void renderPlayerReactions() {
+        User currentPlayer = gameInstance.getCurrentPlayer();
+
+        // Render current player's reaction if active
+        if (currentPlayerEmojiId != -1 &&
+            (System.currentTimeMillis() - currentPlayerReactionTimestamp) < REACTION_DISPLAY_TIME) {
+            renderEmojiAbovePlayer(
+                playerPos.x,
+                playerPos.y,
+                currentPlayerEmojiId,
+                currentPlayerReactionText
+            );
+        }
+
+        // Render other players' reactions
+        if (ClientMain.isConnected) {
+            Map<String, ClientMain.RemotePlayerInfo> remotePlayers = ClientMain.getRemotePlayers();
+
+            for (ClientMain.RemotePlayerInfo playerInfo : remotePlayers.values()) {
+                // Only render players in the same location as us
+                String myLocation = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
+                if (!playerInfo.getLocation().equals(myLocation)) continue;
+
+                if (playerInfo.hasActiveReaction()) {
+                    renderEmojiAbovePlayer(
+                        playerInfo.getX(),
+                        playerInfo.getY(),
+                        playerInfo.getCurrentEmojiId(),
+                        playerInfo.getCurrentReactionText()
+                    );
+                }
+            }
+        }
+    }
+
+    private void renderEmojiAbovePlayer(float x, float y, int emojiId, String text) {
+        float emojiSize = TILE_SIZE * 1.2f;
+        float emojiX = x + (TILE_SIZE - emojiSize) / 2;
+        float emojiY = y + TILE_SIZE + 10; // 10 pixels above player
+
+        // Draw emoji
+        Texture emojiTexture = EmojiManager.getInstance().getEmojiTexture(emojiId);
+        if (emojiTexture != null) {
+            batch.draw(emojiTexture, emojiX, emojiY, emojiSize, emojiSize);
+        }
+
+        // Draw text if present
+        if (text != null && !text.isEmpty()) {
+            float textY = emojiY + emojiSize + 5;
+            font.setColor(Color.WHITE);
+            // Add a black outline/shadow for better visibility
+            font.draw(batch, text, emojiX - 1, textY - 1);
+            font.draw(batch, text, emojiX + 1, textY - 1);
+            font.draw(batch, text, emojiX - 1, textY + 1);
+            font.draw(batch, text, emojiX + 1, textY + 1);
+            font.setColor(Color.YELLOW); // Text color
+            font.draw(batch, text, emojiX, textY);
+            font.setColor(Color.WHITE); // Reset color
+        }
+    }
     private void handleGameplayMechanics(float delta) {
         User currentPlayer = gameInstance.getCurrentPlayer();
         Vector2 oldPos = new Vector2(playerPos);
@@ -286,7 +369,7 @@ public class MapView implements Screen {
             String myLocation = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
             if (!playerInfo.getLocation().equals(myLocation)) continue;
 
-            // Render the player
+            // Get player position
             float otherX = playerInfo.getX();
             float otherY = playerInfo.getY();
 
@@ -295,8 +378,18 @@ public class MapView implements Screen {
             font.draw(batch, playerInfo.getUsername(), otherX - 20, otherY + 45);
             font.setColor(Color.WHITE);
 
-            // Draw player texture
-            batch.draw(playerTexture, otherX, otherY, TILE_SIZE, TILE_SIZE);
+            // Draw player with animations similar to main player
+            // This is simplified - ideally you'd track their movement state and direction
+            TextureRegion playerFrame = mapManager.getIdleAnimation().getKeyFrame(animationTime);
+
+            // Make character taller - 1.5x height ratio (like main player)
+            float playerWidth = TILE_SIZE * 0.8f;
+            float playerHeight = TILE_SIZE * 1.5f;
+
+            // Adjust Y position so character stands on ground properly
+            float adjustedY = otherY - (playerHeight - TILE_SIZE) * 0.5f;
+
+            batch.draw(playerFrame, otherX, adjustedY, playerWidth, playerHeight);
         }
     }
     private boolean handleToolUsage(Vector3 clickPos) {
@@ -804,6 +897,7 @@ public class MapView implements Screen {
         renderAnimals();
         renderPlayer();
         renderOtherPlayers();
+        renderPlayerReactions();
         renderToolSwing();
         // Draw all text for progress bars while batch is active
         // If renderUI draws with the main batch (world-space UI), keep it here.
@@ -1242,7 +1336,7 @@ public class MapView implements Screen {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
         }
-
+        handleEmojiInput();
         User currentPlayer = Game.getInstance().getCurrentPlayer();
         handleGameplayMechanics(delta);
 
