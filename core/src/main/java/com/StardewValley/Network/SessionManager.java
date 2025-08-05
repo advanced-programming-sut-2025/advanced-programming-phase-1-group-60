@@ -45,6 +45,16 @@ public class SessionManager {
         saveLoggedInUsers();
     }
 
+    public synchronized void clearAllSessions() {
+        loggedInUsers.clear();
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(DB_PATH, false))) {
+            // Writing to a file with 'append' set to false will truncate it.
+            bw.write("");
+        } catch (IOException e) {
+            System.err.println("Could not clear session file: " + e.getMessage());
+        }
+    }
+
     private void loadLoggedInUsers() {
         loggedInUsers.clear();
         try (BufferedReader br = new BufferedReader(new FileReader(DB_PATH))) {

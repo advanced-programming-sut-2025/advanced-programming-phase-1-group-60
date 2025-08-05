@@ -4,6 +4,7 @@ import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.Network.Client.ClientMain;
 import com.StardewValley.Network.GameStateManager;
 import com.StardewValley.controller.GameController;
+import com.StardewValley.controller.LobbyController;
 import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.models.*;
 import com.StardewValley.repository.UserRepository;
@@ -57,6 +58,7 @@ public class GameView implements Screen {
     private boolean isGameRunning = false;
     private Texture lastFrameTexture;
     private Lobby lobby;
+    private MapSelectionView mapSelectionView;
 
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController, Lobby lobby) {
         this.game = game;
@@ -72,7 +74,7 @@ public class GameView implements Screen {
 
         createUI();
         Gdx.input.setInputProcessor(stage);
-
+/*
         // Check if the current user already has a farm assignment
         User currentUser = loginController.getLoggedInUser();
         String username = currentUser.getUsername();
@@ -84,13 +86,13 @@ public class GameView implements Screen {
 
             // Automatically start the game with the assigned farm
             autoLoadIntoFarm(farmIndex);
-        }
+        }*/
     }
     // Add this new method to automatically load a user into their farm
     private void autoLoadIntoFarm(int farmIndex) {
         try {
             // Get the Game singleton instance and reset it
-            com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
+            Game gameInstance = Game.resetInstance();
 
             // Create new game with just the current user
             gameInstance.newGame(loginController.getLoggedInUser(), new ArrayList<>());
@@ -114,7 +116,7 @@ public class GameView implements Screen {
             gameInstance.initializeGameMap();
 
             // Set the game state to IN_GAME
-            gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
+            gameInstance.setState(Game.GameState.IN_GAME);
 
             // Get the current map from the game instance
             GameMap gameMap = gameInstance.getCurrentMap();
@@ -125,9 +127,6 @@ public class GameView implements Screen {
 
             // Set user's chosen farm as active
             mapView.setCurrentFarmIndex(farmIndex);
-
-            // Connect to the server
-            ClientMain.connectToServer(currentUser.getUsername());
 
             System.out.println("Auto-loading " + currentUser.getUsername() + " into Farm " + farmIndex);
             System.out.println("Game instance ID: " + ClientMain.getInstanceId());
@@ -155,6 +154,30 @@ public class GameView implements Screen {
         stage.addActor(newGameTable);
         stage.addActor(mapSelectionTable);
     }
+
+    public void showMapSelectionScreen(Lobby lobby) {
+        if (mapSelectionView != null) {
+            mapSelectionView.dispose();
+        }
+        LobbyController lobbyController = new LobbyController(game, loginController);
+        mapSelectionView = new MapSelectionView(game, lobbyController, lobby);
+        game.setScreen(mapSelectionView);
+    }
+
+    // This method is called by ServerListener when the game truly starts
+    public void showGameplayScreen() {
+        isGameRunning = true;
+        // You'll need to initialize the game and MapView here based on the
+        // final map selections received from the server.
+        // For now, let's assume MapView is ready.
+        if (mapView != null) {
+            game.setScreen(mapView);
+        } else {
+            System.err.println("MapView is not initialized! Cannot show gameplay screen.");
+            // You should handle this case, perhaps by creating the MapView here.
+        }
+    }
+
     public void setMapView(MapView mapView) {
         this.mapView = mapView;
     }
@@ -399,7 +422,7 @@ public class GameView implements Screen {
 
         try {
             // Get the Game singleton instance and reset it
-            com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
+            Game gameInstance = Game.resetInstance();
 
             // Create new game using the current user as creator and selected players list
             gameInstance.newGame(loginController.getLoggedInUser(), selectedPlayers);
@@ -443,7 +466,7 @@ public class GameView implements Screen {
             gameInstance.initializeGameMap();
 
             // Set the game state to IN_GAME
-            gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
+            gameInstance.setState(Game.GameState.IN_GAME);
 
             // Get the current map from the game instance
             GameMap gameMap = gameInstance.getCurrentMap();
@@ -489,11 +512,6 @@ public class GameView implements Screen {
         selectedPlayers.clear();
         mapSelectionBoxes.clear();
         statusLabel.setText("");
-    }
-
-    public void showGameplayScreen() {
-        isGameRunning = true;
-        game.setScreen(mapView);
     }
 
     public void showInventoryScreen() {
@@ -588,7 +606,7 @@ public class GameView implements Screen {
     }
 
     public void showGiftToPlayerView() {
-        User currentPlayer = com.StardewValley.models.Game.getInstance().getCurrentPlayer();
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
         if (giftToPlayerView != null) {
             giftToPlayerView.dispose();
         }
@@ -667,15 +685,16 @@ public class GameView implements Screen {
 
     @Override
     public void dispose() {
+        // START MODIFIED SECTION
         if (lobby != null && loginController != null && loginController.getLoggedInUser() != null) {
             String username = loginController.getLoggedInUser().getUsername();
-            if (lobby.getCreator().equals(username)) {
-                com.StardewValley.Network.LobbyManager.getInstance().removeLobby(lobby);
-            }
-            else {
-                com.StardewValley.Network.LobbyManager.getInstance().removeMemberFromLobby(lobby.getId(), username);
-            }
+            // The logic to leave/remove the lobby is now handled by LobbyController
+            // which in turn uses the more robust LobbyManager.
+            LobbyController tempLobbyController = new LobbyController(game, loginController);
+            tempLobbyController.leaveLobby(lobby.getId(), username);
         }
+        // END MODIFIED SECTION
+
         stage.dispose();
         batch.dispose();
         if (mapView != null) {

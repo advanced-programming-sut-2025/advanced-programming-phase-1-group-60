@@ -2,7 +2,9 @@ package com.StardewValley.Network;
 
 import com.StardewValley.models.Lobby;
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class LobbyManager {
     private static LobbyManager instance;
@@ -13,8 +15,10 @@ public class LobbyManager {
         loadLobbies();
     }
 
-    public static LobbyManager getInstance() {
-        if (instance == null) instance = new LobbyManager();
+    public static synchronized LobbyManager getInstance() {
+        if (instance == null) {
+            instance = new LobbyManager();
+        }
         return instance;
     }
 
@@ -24,20 +28,39 @@ public class LobbyManager {
     }
 
     public synchronized List<Lobby> getLobbies() {
-        loadLobbies();
+        loadLobbies(); // Always get the freshest data
         return new ArrayList<>(lobbies);
     }
-    public synchronized void removeLobby(Lobby lobby) {
-        lobbies.removeIf(l -> l.getId().equals(lobby.getId()));
-        saveLobbies();
+
+    public synchronized Optional<Lobby> getLobbyById(String lobbyId) {
+        return lobbies.stream().filter(l -> l.getId().equals(lobbyId)).findFirst();
     }
-    public synchronized void removeMemberFromLobby(String lobbyId, String username) {
-        Lobby lobby = lobbies.stream().filter(l -> l.getId().equals(lobbyId)).findFirst().orElse(null);
-        if (lobby != null) {
-            lobby.getMembers().remove(username);
+
+    public synchronized void updateLobby(Lobby updatedLobby) {
+        for (int i = 0; i < lobbies.size(); i++) {
+            if (lobbies.get(i).getId().equals(updatedLobby.getId())) {
+                lobbies.set(i, updatedLobby);
+                saveLobbies();
+                return;
+            }
+        }
+    }
+
+    public synchronized void handlePlayerLeave(String lobbyId, String username) {
+        Optional<Lobby> lobbyOpt = getLobbyById(lobbyId);
+        if (lobbyOpt.isPresent()) {
+            Lobby lobby = lobbyOpt.get();
+            // FIX: This now correctly checks if the lobby is empty after removal
+            boolean shouldClose = lobby.removeMember(username);
+
+            if (shouldClose) {
+                lobbies.remove(lobby);
+                System.out.println("Lobby " + lobby.getName() + " closed because it is now empty.");
+            }
             saveLobbies();
         }
     }
+
     private void loadLobbies() {
         lobbies.clear();
         File file = new File(DB_PATH);
@@ -45,14 +68,18 @@ public class LobbyManager {
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = br.readLine()) != null) {
-                lobbies.add(Lobby.fromCSV(line));
+                if (!line.trim().isEmpty()) {
+                    lobbies.add(Lobby.fromCSV(line));
+                }
             }
         } catch (IOException ignored) {}
     }
 
-    public void saveLobbies() {
+    public synchronized void saveLobbies() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(DB_PATH))) {
-            for (Lobby l : lobbies) pw.println(l.toCSV());
+            for (Lobby l : lobbies) {
+                pw.println(l.toCSV());
+            }
         } catch (IOException ignored) {}
     }
 }

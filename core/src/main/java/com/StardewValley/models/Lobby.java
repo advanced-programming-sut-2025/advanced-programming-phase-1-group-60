@@ -1,8 +1,9 @@
 package com.StardewValley.models;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
+import java.util.Random;
 
 public class Lobby {
     private final String id;
@@ -10,39 +11,77 @@ public class Lobby {
     private boolean isPublic;
     private String password;
     private boolean isVisible;
-    private String creator;
+    private String admin;
     private List<String> members;
+    private int capacity;
 
-    public Lobby(String name, boolean isPublic, String password, boolean isVisible, String creator) {
-        this.id = UUID.randomUUID().toString();
+    public Lobby(String name, boolean isPublic, String password, boolean isVisible, String creator, int capacity) {
+        // FIX: Generate a 10-digit random ID
+        this.id = generateRandomId(10);
         this.name = name;
         this.isPublic = isPublic;
         this.password = password;
         this.isVisible = isVisible;
-        this.creator = creator;
+        this.admin = creator;
+        this.capacity = capacity;
         this.members = new ArrayList<>();
         this.members.add(creator);
     }
 
+    // New method to generate a random numeric ID
+    private String generateRandomId(int length) {
+        Random random = new Random();
+        StringBuilder idBuilder = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            idBuilder.append(random.nextInt(10));
+        }
+        return idBuilder.toString();
+    }
+
+
+    // --- Getters ---
     public String getId() { return id; }
     public String getName() { return name; }
     public boolean isPublic() { return isPublic; }
     public String getPassword() { return password; }
     public boolean isVisible() { return isVisible; }
-    public String getCreator() { return creator; }
+    public String getAdmin() { return admin; }
     public List<String> getMembers() { return members; }
+    public int getCapacity() { return capacity; }
+
+    // --- Logic Methods ---
+    public boolean isFull() {
+        return members.size() >= capacity;
+    }
 
     public void addMember(String username) {
-        if (!members.contains(username)) members.add(username);
+        if (!members.contains(username) && !isFull()) {
+            members.add(username);
+        }
     }
-    public void removeMember(String username) {
+
+    /**
+     * Removes a member from the lobby. If the admin leaves, it assigns a new admin.
+     * @param username The username of the member to remove.
+     * @return True if the lobby is now empty and should be closed, false otherwise.
+     */
+    public boolean removeMember(String username) {
         members.remove(username);
+
+        if (username.equals(admin) && !members.isEmpty()) {
+            this.admin = members.get(0);
+            System.out.println("New admin for lobby " + this.name + " is " + this.admin);
+        }
+
+        // FIX: The lobby should only be closed if it's completely empty.
+        return members.isEmpty();
     }
-    // CSV serialization for simple DB
+
+    // --- CSV Serialization for simple DB ---
     public String toCSV() {
         return String.join(",",
             id, name, String.valueOf(isPublic), password == null ? "" : password,
-            String.valueOf(isVisible), creator, String.join(";", members)
+            String.valueOf(isVisible), admin, String.valueOf(capacity), String.join(";", members)
         );
     }
 
@@ -53,14 +92,14 @@ public class Lobby {
             Boolean.parseBoolean(parts[2]),
             parts[3].isEmpty() ? null : parts[3],
             Boolean.parseBoolean(parts[4]),
-            parts[5]
+            parts[5], // admin
+            Integer.parseInt(parts[6]) // capacity
         );
-        // Clear the default creator added in constructor
         lobby.members.clear();
-        if (parts.length > 6 && !parts[6].isEmpty()) {
-            for (String m : parts[6].split(";")) lobby.members.add(m);
+        if (parts.length > 7 && !parts[7].isEmpty()) {
+            lobby.members.addAll(Arrays.asList(parts[7].split(";")));
         }
-        // Set id via reflection (since it's final)
+        // Manually set the final ID field from the CSV
         try {
             java.lang.reflect.Field idField = Lobby.class.getDeclaredField("id");
             idField.setAccessible(true);

@@ -1319,7 +1319,7 @@ public class GamePlayController {
         }
 
         // Check Trees
-        com.StardewValley.models.Tree tree = com.StardewValley.repository.TreeRepository.trees.stream()
+        Tree tree = com.StardewValley.repository.TreeRepository.trees.stream()
             .filter(t -> t.getName().equalsIgnoreCase(name))
             .findFirst().orElse(null);
         if (tree != null) {
@@ -1338,7 +1338,7 @@ public class GamePlayController {
         }
 
         // Check Foraging Crops
-        com.StardewValley.models.ForagingCrop foragingCrop = com.StardewValley.repository.ForagingRepository.foragingCrops.stream()
+        ForagingCrop foragingCrop = com.StardewValley.repository.ForagingRepository.foragingCrops.stream()
             .filter(fc -> fc.getName().equalsIgnoreCase(name))
             .findFirst().orElse(null);
         if (foragingCrop != null) {
@@ -1351,7 +1351,7 @@ public class GamePlayController {
         }
 
         // Check Foraging Trees
-        com.StardewValley.models.ForagingTree foragingTree = com.StardewValley.repository.ForagingRepository.foragingTrees.stream()
+        ForagingTree foragingTree = com.StardewValley.repository.ForagingRepository.foragingTrees.stream()
             .filter(ft -> ft.getName().equalsIgnoreCase(name))
             .findFirst().orElse(null);
         if (foragingTree != null) {

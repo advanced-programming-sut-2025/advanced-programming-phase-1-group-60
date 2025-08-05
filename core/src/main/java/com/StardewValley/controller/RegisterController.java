@@ -21,7 +21,7 @@ public class RegisterController {
         this.userRepository = UserRepository.getInstance();
         populateSecurityQuestions();
 
-        addDefaultUsersForDebug();
+       // addDefaultUsersForDebug();
     }
 
     private void populateSecurityQuestions() {

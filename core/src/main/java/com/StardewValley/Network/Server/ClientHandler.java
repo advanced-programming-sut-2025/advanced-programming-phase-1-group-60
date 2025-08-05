@@ -1,147 +1,306 @@
 package com.StardewValley.Network.Server;
 
-import com.StardewValley.Network.GameStateManager;
-import com.StardewValley.Network.Message.GameMessage;
-import com.StardewValley.Network.Message.GameMessage.MessageType;
+import com.StardewValley.Network.JsonUtil;
+import com.StardewValley.Network.LobbyManager;
+import com.StardewValley.Network.Message;
+import com.StardewValley.models.Lobby;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.Map;
+import java.util.HashMap; // Import HashMap
 
-public class ClientHandler extends Thread {
-    private Socket socket;
+public class ClientHandler implements Runnable {
+    private final Socket clientSocket;
+    private final ServerMain server;
+    private PrintWriter out;
+    private BufferedReader in;
     private String username;
-    private String instanceId;
-    private ObjectInputStream in;
-    private ObjectOutputStream out;
-    private ServerMain server;
-    private boolean running = true;
+    private final LobbyManager lobbyManager;
+
+    // NEW: To store map selections for each lobby
+    private static final Map<String, Map<String, Integer>> lobbyMapSelections = new HashMap<>();
 
     public ClientHandler(Socket socket, ServerMain server) {
-        this.socket = socket;
+        this.clientSocket = socket;
         this.server = server;
+        this.lobbyManager = LobbyManager.getInstance();
     }
 
     @Override
     public void run() {
         try {
-            // Set up streams
-            out = new ObjectOutputStream(socket.getOutputStream());
-            out.flush();
-            in = new ObjectInputStream(socket.getInputStream());
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-            // Process messages in a loop
-            while (running) {
-                GameMessage message = (GameMessage) in.readObject();
-                processMessage(message);
+            this.username = in.readLine();
+            if (this.username == null || this.username.isEmpty()) {
+                throw new IOException("Client did not send a username.");
             }
+            server.addClient(this.username, this);
+            System.out.println("User connected: " + this.username);
+            System.out.println("Current users: " + server.getConnectedClients());
 
-        } catch (Exception e) {
-            System.err.println("Error handling client: " + e.getMessage());
-        } finally {
-            closeConnection();
-        }
-    }
-
-    private void processMessage(GameMessage message) {
-        this.username = message.getUsername();
-        this.instanceId = message.getInstanceId();
-
-        switch (message.getType()) {
-            case PLAYER_JOIN:
-                handlePlayerJoin(message);
-                break;
-
-            case PLAYER_POSITION:
-                handlePlayerPosition(message);
-                break;
-
-            case PLAYER_LEAVE:
-                closeConnection();
-                break;
-            case PLAYER_REACTION:
-                handlePlayerReaction(message);
-                break;
-
-            default:
-                System.out.println("Unhandled message type: " + message.getType());
-        }
-    }
-    private void handlePlayerReaction(GameMessage message) {
-        // Just broadcast the reaction to all clients
-        server.broadcastMessage(message, instanceId);
-        System.out.println("Player " + username + " sent a reaction");
-    }
-    private void handlePlayerJoin(GameMessage message) {
-        System.out.println("Player joined: " + username + " (Instance: " + instanceId + ")");
-
-        // Get the farm index from the message or from GameStateManager
-        int farmIndex;
-        if (message.getData().containsKey("farmIndex")) {
-            farmIndex = (int) message.getData().get("farmIndex");
-        } else {
-            farmIndex = GameStateManager.getInstance().getFarmSelection(username);
-        }
-
-        // Default starting position and location
-        float startX = 0, startY = 0;
-        String location = "village";
-
-        // Register client with server
-        server.registerClient(username, instanceId, this);
-
-        // Initialize player in GameStateManager
-        GameStateManager.getInstance().registerPlayer(username, instanceId, startX, startY, location);
-
-        // Send existing player states to the new player
-        GameStateManager.getInstance().sendWorldStateToClient(this);
-
-        // Broadcast to all other clients that this player has joined
-        message.addData("farmIndex", farmIndex);
-        server.broadcastMessage(message, instanceId);
-    }
-
-    private void handlePlayerPosition(GameMessage message) {
-        float x = (float) message.getData().get("x");
-        float y = (float) message.getData().get("y");
-        String location = (String) message.getData().get("location");
-
-        // Update player position in game state
-        GameStateManager.getInstance().updatePlayerPosition(username, instanceId, x, y, location);
-
-        // Broadcast position to all other clients
-        server.broadcastMessage(message, instanceId);
-    }
-
-    public void sendMessage(GameMessage message) {
-        try {
-            out.writeObject(message);
-            out.flush();
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                Message receivedMessage = JsonUtil.fromJson(inputLine);
+                if (receivedMessage != null) {
+                    new Thread(() -> processMessage(receivedMessage)).start();
+                }
+            }
         } catch (IOException e) {
-            System.err.println("Error sending message to client: " + e.getMessage());
-            closeConnection();
+            System.out.println("Client " + (username != null ? username : "") + " disconnected: " + e.getMessage());
+        } finally {
+            try {
+                if (in != null) in.close();
+                if (out != null) out.close();
+                if (clientSocket != null) clientSocket.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            server.removeClient(username);
+            System.out.println("User disconnected: " + username);
+            System.out.println("Current users: " + server.getConnectedClients());
+        }
+    }
+
+    private void processMessage(Message message) {
+        System.out.println("Processing message from " + username + ": " + message.getAction());
+        switch (message.getAction()) {
+            case CREATE_LOBBY:
+                handleCreateLobby(message.getPayload());
+                break;
+            case JOIN_LOBBY:
+                handleJoinLobby(message.getPayload());
+                break;
+            case LEAVE_LOBBY:
+                handleLeaveLobby(message.getPayload());
+            case START_GAME:
+                handleStartGame(message.getPayload());
+                break;
+            case SELECT_MAP:
+                handleSelectMap(message.getPayload());
+                break;
+            case PLAYER_MOVE:
+                handlePlayerMove(message.getPayload());
+                break;
+            case SHOW_REACTION:
+                handleEmojiReaction(message.getPayload());
+                break;
+            default:
+                System.out.println("Unknown action received by handler: " + message.getAction());
+        }
+    }
+
+    private void handleCreateLobby(Map<String, Object> payload) {
+        String name = (String) payload.get("name");
+        boolean isPublic = (Boolean) payload.get("isPublic");
+        String password = (String) payload.get("password");
+        boolean isVisible = (Boolean) payload.get("isVisible");
+        // GSON ممکن است اعداد را به صورت Double بخواند
+        int capacity = ((Double) payload.get("capacity")).intValue();
+
+        // سرور لابی را ایجاد می کند
+        Lobby newLobby = new Lobby(name, isPublic, password, isVisible, this.username, capacity);
+        lobbyManager.addLobby(newLobby);
+        System.out.println("Server created lobby '" + name + "' with ID: " + newLobby.getId() + " for user " + this.username);
+
+        // سرور به کلاینت ایجاد کننده پاسخ می دهد تا وارد لابی شود
+        Map<String, Object> responsePayload = new HashMap<>();
+        responsePayload.put("lobby", newLobby);
+        Message successMessage = new Message(Message.ActionType.CREATE_LOBBY_SUCCESS, responsePayload);
+        sendMessage(successMessage);
+    }
+
+    private void handleJoinLobby(Map<String, Object> payload) {
+        String lobbyId = (String) payload.get("lobbyId");
+        String password = (String) payload.get("password");
+
+        Lobby lobby = lobbyManager.getLobbyById(lobbyId).orElse(null);
+
+        if (lobby == null) {
+            // Send error message back to client
+            return;
+        }
+        if (lobby.isFull()) {
+            // Send error message
+            return;
+        }
+        if (!lobby.isPublic() && (lobby.getPassword() == null || !lobby.getPassword().equals(password))) {
+            // Send error message
+            return;
+        }
+
+        lobby.addMember(this.username);
+        lobbyManager.updateLobby(lobby);
+
+        // Broadcast the updated lobby state to all members
+        broadcastLobbyState(lobby);
+    }
+
+    private void handleLeaveLobby(Map<String, Object> payload) {
+        String lobbyId = (String) payload.get("lobbyId");
+        Lobby lobby = lobbyManager.getLobbyById(lobbyId).orElse(null);
+
+        if (lobby != null) {
+            boolean lobbyIsEmpty = lobby.removeMember(this.username);
+            if (lobbyIsEmpty) {
+                lobbyManager.getLobbies().remove(lobby);
+                lobbyManager.saveLobbies();
+                System.out.println("Lobby " + lobbyId + " closed as it is empty.");
+            } else {
+                lobbyManager.updateLobby(lobby);
+                // Broadcast the new state to remaining members
+                broadcastLobbyState(lobby);
+            }
+        }
+    }
+
+    private void broadcastLobbyState(Lobby lobby) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("lobby", lobby);
+        Message updateMessage = new Message(Message.ActionType.LOBBY_STATE_UPDATE, payload);
+
+        for (String member : lobby.getMembers()) {
+            server.sendMessageTo(member, updateMessage);
+        }
+    }
+
+    private void handleStartGame(Map<String, Object> payload) {
+        // دیگر نیازی به بارگذاری مجدد فایل نیست چون سرور همیشه لیست بروز را در حافظه دارد
+        String lobbyId = (String) payload.get("lobbyId");
+        Lobby lobby = lobbyManager.getLobbyById(lobbyId).orElse(null);
+
+        if (lobby == null || !lobby.getAdmin().equals(this.username)) {
+            System.err.println("START_GAME validation failed for user " + this.username + " and lobby " + lobbyId);
+            return;
+        }
+
+        // Initialize map selection for this lobby
+        lobbyMapSelections.put(lobbyId, new HashMap<>());
+
+        Map<String, Object> newPayload = new HashMap<>();
+        newPayload.put("lobby", lobby);
+
+        // Send a message to all lobby members to proceed to map selection
+        Message proceedMessage = new Message(Message.ActionType.PROCEED_TO_MAP_SELECTION, newPayload);
+        for (String memberUsername : lobby.getMembers()) {
+            server.sendMessageTo(memberUsername, proceedMessage);
+        }
+        System.out.println("Handler for " + username + " instructed lobby " + lobbyId + " to proceed to map selection.");
+    }
+    private void handleEmojiReaction(Map<String, Object> payload) {
+        // Create a new message to broadcast to all players
+        Map<String, Object> broadcastPayload = new HashMap<>();
+        broadcastPayload.put("reaction", payload);
+
+        Message broadcastMessage = new Message(Message.ActionType.SHOW_REACTION, broadcastPayload);
+
+        // Get the lobby for this player
+        String playerUsername = (String) payload.get("username");
+        Lobby playerLobby = null;
+
+        for (Lobby lobby : lobbyManager.getLobbies()) {
+            if (lobby.getMembers().contains(playerUsername)) {
+                playerLobby = lobby;
+                break;
+            }
+        }
+
+        // If player is in a lobby, broadcast to all lobby members
+        if (playerLobby != null) {
+            for (String member : playerLobby.getMembers()) {
+                server.sendMessageTo(member, broadcastMessage);
+            }
+        }
+    }
+    private void handleSelectMap(Map<String, Object> payload) {
+        String lobbyId = (String) payload.get("lobbyId");
+        // GSON might deserialize numbers as Double, so we handle both Integer and Double.
+        int mapIndex;
+        Object mapIndexObj = payload.get("mapIndex");
+        if (mapIndexObj instanceof Double) {
+            mapIndex = ((Double) mapIndexObj).intValue();
+        } else {
+            mapIndex = (Integer) mapIndexObj;
+        }
+
+        Lobby lobby = lobbyManager.getLobbyById(lobbyId).orElse(null);
+        if (lobby == null) return;
+
+        Map<String, Integer> selections = lobbyMapSelections.get(lobbyId);
+        if (selections == null) {
+            selections = new HashMap<>();
+            lobbyMapSelections.put(lobbyId, selections);
+        }
+
+        // Don't allow duplicate map selections
+        if (selections.containsValue(mapIndex)) {
+            // Send error message back to the client
+            Map<String, Object> errorPayload = new HashMap<>();
+            errorPayload.put("message", "This map has already been selected by another player");
+            Message errorMessage = new Message(Message.ActionType.ERROR, errorPayload);
+            sendMessage(errorMessage);
+            return;
+        }
+
+        selections.put(this.username, mapIndex);
+
+        // Update all clients with the current selections
+        Map<String, Object> updatePayload = new HashMap<>();
+        updatePayload.put("selections", selections);
+        Message updateMessage = new Message(Message.ActionType.MAP_SELECTION_UPDATE, updatePayload);
+        for (String memberUsername : lobby.getMembers()) {
+            server.sendMessageTo(memberUsername, updateMessage);
+        }
+
+        // If all players have selected maps, automatically start the game
+        if (selections.size() == lobby.getMembers().size()) {
+            Map<String, Object> gameStartPayload = new HashMap<>();
+            gameStartPayload.put("mapSelections", selections);
+            Message gameStartedMessage = new Message(Message.ActionType.GAME_STARTED, gameStartPayload);
+            for (String memberUsername : lobby.getMembers()) {
+                server.sendMessageTo(memberUsername, gameStartedMessage);
+            }
+            System.out.println("All players in lobby " + lobbyId + " have selected maps. Starting game.");
+        }
+    }
+    private void handlePlayerMove(Map<String, Object> payload) {
+        // Create a new message to broadcast to all players
+        Map<String, Object> broadcastPayload = new HashMap<>();
+        broadcastPayload.put("player", payload);
+
+        Message broadcastMessage = new Message(Message.ActionType.PLAYER_POSITION_UPDATE, broadcastPayload);
+
+        // Get the lobby for this player
+        String playerUsername = (String) payload.get("username");
+        Lobby playerLobby = null;
+
+        for (Lobby lobby : lobbyManager.getLobbies()) {
+            if (lobby.getMembers().contains(playerUsername)) {
+                playerLobby = lobby;
+                break;
+            }
+        }
+
+        // If player is in a lobby, broadcast to all lobby members
+        if (playerLobby != null) {
+            for (String member : playerLobby.getMembers()) {
+                server.sendMessageTo(member, broadcastMessage);
+            }
+        }
+    }
+    public void sendMessage(Message message) {
+        if (out != null) {
+            String jsonMessage = JsonUtil.toJson(message);
+            out.println(jsonMessage);
         }
     }
 
     public String getUsername() {
         return username;
-    }
-
-    public String getInstanceId() {
-        return instanceId;
-    }
-
-    private void closeConnection() {
-        running = false;
-        server.unregisterClient(instanceId);
-
-        try {
-            if (socket != null) socket.close();
-            if (out != null) out.close();
-            if (in != null) in.close();
-        } catch (IOException e) {
-            System.err.println("Error closing connection: " + e.getMessage());
-        }
     }
 }

@@ -36,7 +36,7 @@ public class LoginMenuController {
                 user.setStayLoggedIn(true);
             }
             sessionManager.login(username, clientId);
-            ClientMain.connectToServer(loggedInUser.getUsername());
+         //   ClientMain.connectToServer(loggedInUser.getUsername());
             System.out.println("Client on this PC is now associated with user: " + loggedInUser.getUsername());
             return new Result(true, "Login successful.", user);
         }

@@ -2,6 +2,7 @@ package com.StardewValley.view;
 
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.controller.*;
+import com.StardewValley.Network.Client.ClientMain; // <-- ایمپورت جدید
 import com.StardewValley.models.Result;
 import com.StardewValley.repository.UserRepository;
 import com.StardewValley.view.commands.MainCommands;
@@ -83,7 +84,9 @@ public class MainView implements Screen {
             public void changed(ChangeEvent event, Actor actor) {
                 dispose();
                 LobbyController lobbyController = new LobbyController(game, loginController);
-                game.setScreen(new LobbyView(game, lobbyController));
+                // اتصال به سرور و ارسال کنترلر
+                ClientMain.connectToServer(loginController.getLoggedInUser().getUsername(), game, lobbyController);
+                game.setScreen(new LobbyChoiceView(game, lobbyController));
             }
         });
 

@@ -130,7 +130,7 @@ public class StoreRepository {
     }
 
     private Item createItem(int id, String name, int storePrice, String path) {
-        Item item = new com.StardewValley.models.Item();
+        Item item = new Item();
         item.setId(id);
         item.setName(name);
         item.setStorePrice(storePrice);

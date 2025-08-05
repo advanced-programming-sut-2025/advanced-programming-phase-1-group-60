@@ -5,6 +5,7 @@ import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.AssetsManager.ToolManager;
 import com.StardewValley.Network.Client.ClientMain;
+import com.StardewValley.Network.Message;
 import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
@@ -42,7 +43,7 @@ import java.util.stream.Collectors;
 
 public class MapView implements Screen {
     private final GameMap gameMap;
-    private final com.StardewValley.models.Game gameInstance;
+    private final Game gameInstance;
     private GamePlayController gamePlayController;
     private final GameView gameView;
     private SpriteBatch batch;
@@ -114,15 +115,23 @@ public class MapView implements Screen {
     //Gift players
     private Label notificationLabel;
     private float notificationTimer = 0f;
-    private int currentPlayerEmojiId = -1;
-    private String currentPlayerReactionText = null;
-    private long currentPlayerReactionTimestamp = 0;
-    private static final long REACTION_DISPLAY_TIME = 5000;
+
+    private Map<String, Vector2> networkPlayerPositions = new HashMap<>();
+    private Map<String, Integer> networkPlayerDirections = new HashMap<>();
+    private Map<String, Boolean> networkPlayerMoving = new HashMap<>();
+    private Map<String, Float> networkPlayerAnimationTimes = new HashMap<>();
+    private float networkSyncTimer = 0f;
+    private static final float NETWORK_SYNC_INTERVAL = 0.1f;
+    private Map<String, Boolean> networkPlayerInVillage = new HashMap<>();
+    private Map<String, Integer> networkPlayerFarmIndex = new HashMap<>();
+
+    private Map<String, EmojiReaction> activeEmojis = new HashMap<>();
+    private boolean showDebugInfo = false;
 
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
         this.gameMap = gameMap;
         this.gameView = gameView;
-        this.gameInstance = com.StardewValley.models.Game.getInstance();
+        this.gameInstance = Game.getInstance();
         this.batch = new SpriteBatch();
         this.font = new BitmapFont();
         shapeRenderer = new ShapeRenderer();
@@ -179,90 +188,203 @@ public class MapView implements Screen {
         Gdx.input.setInputProcessor(stage);
         skin = MenuManager.getInstance().getPixthulhuSkin();
 
-        User user1 = UserRepository.getInstance().getUserByUsername("kamran");
-        User user2 = UserRepository.getInstance().getUserByUsername("kam");
-        //user1.increaseFriendshipXpsWithUsers(user2, 120);
-        //user2.increaseFriendshipXpsWithUsers(user1, 120);
-
         createUI();
     }
-    private void handleEmojiInput() {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
-            showEmojiReactionDialog();
+    private static class EmojiReaction {
+        int emojiId;
+        String text;
+        float timeLeft;
+
+        EmojiReaction(int emojiId, String text, float duration) {
+            this.emojiId = emojiId;
+            this.text = text;
+            this.timeLeft = duration;
         }
     }
+    private void updateEmojis(float delta) {
+        // Update emoji timers
+        Iterator<Map.Entry<String, EmojiReaction>> it = activeEmojis.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, EmojiReaction> entry = it.next();
+            EmojiReaction reaction = entry.getValue();
+            reaction.timeLeft -= delta;
 
-    private void showEmojiReactionDialog() {
-        EmojiReactionDialog dialog = new EmojiReactionDialog(skin);
-        dialog.addDialogListener(new EmojiReactionDialog.DialogListener() {
-            @Override
-            public void onReactionSent(int emojiId, String text) {
-                // Store the current player's reaction locally
-                currentPlayerEmojiId = emojiId;
-                currentPlayerReactionText = text;
-                currentPlayerReactionTimestamp = System.currentTimeMillis();
+            if (reaction.timeLeft <= 0) {
+                it.remove();
             }
-        });
-        dialog.show(stage);
-    }
-    private void renderPlayerReactions() {
-        User currentPlayer = gameInstance.getCurrentPlayer();
-
-        // Render current player's reaction if active
-        if (currentPlayerEmojiId != -1 &&
-            (System.currentTimeMillis() - currentPlayerReactionTimestamp) < REACTION_DISPLAY_TIME) {
-            renderEmojiAbovePlayer(
-                playerPos.x,
-                playerPos.y,
-                currentPlayerEmojiId,
-                currentPlayerReactionText
-            );
         }
+    }
+    private void renderEmojis() {
+        EmojiManager emojiManager = EmojiManager.getInstance();
 
-        // Render other players' reactions
-        if (ClientMain.isConnected) {
-            Map<String, ClientMain.RemotePlayerInfo> remotePlayers = ClientMain.getRemotePlayers();
+        // Draw current player's emoji if active
+        String currentPlayerName = gameInstance.getCurrentPlayer().getUsername();
+        if (activeEmojis.containsKey(currentPlayerName)) {
+            EmojiReaction reaction = activeEmojis.get(currentPlayerName);
+            Texture emojiTexture = emojiManager.getEmojiTexture(reaction.emojiId);
 
-            for (ClientMain.RemotePlayerInfo playerInfo : remotePlayers.values()) {
-                // Only render players in the same location as us
-                String myLocation = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
-                if (!playerInfo.getLocation().equals(myLocation)) continue;
+            if (emojiTexture != null) {
+                float emojiSize = TILE_SIZE * 1.5f;
+                batch.draw(emojiTexture,
+                    playerPos.x - emojiSize/2 + TILE_SIZE/2,
+                    playerPos.y + TILE_SIZE * 2,
+                    emojiSize, emojiSize);
 
-                if (playerInfo.hasActiveReaction()) {
-                    renderEmojiAbovePlayer(
-                        playerInfo.getX(),
-                        playerInfo.getY(),
-                        playerInfo.getCurrentEmojiId(),
-                        playerInfo.getCurrentReactionText()
-                    );
+                if (reaction.text != null && !reaction.text.isEmpty()) {
+                    font.setColor(Color.WHITE);
+                    float textWidth = font.getSpaceXadvance() * reaction.text.length();
+                    font.draw(batch, reaction.text,
+                        playerPos.x + TILE_SIZE/2 - textWidth/2,
+                        playerPos.y + TILE_SIZE * 2 + emojiSize + 20);
                 }
             }
         }
-    }
 
-    private void renderEmojiAbovePlayer(float x, float y, int emojiId, String text) {
-        float emojiSize = TILE_SIZE * 1.2f;
-        float emojiX = x + (TILE_SIZE - emojiSize) / 2;
-        float emojiY = y + TILE_SIZE + 10; // 10 pixels above player
+        // Draw other players' emojis
+        for (Map.Entry<String, Vector2> entry : networkPlayerPositions.entrySet()) {
+            String username = entry.getKey();
+            if (!activeEmojis.containsKey(username)) continue;
 
-        // Draw emoji
-        Texture emojiTexture = EmojiManager.getInstance().getEmojiTexture(emojiId);
-        if (emojiTexture != null) {
-            batch.draw(emojiTexture, emojiX, emojiY, emojiSize, emojiSize);
+            Vector2 pos = entry.getValue();
+            EmojiReaction reaction = activeEmojis.get(username);
+            Texture emojiTexture = emojiManager.getEmojiTexture(reaction.emojiId);
+
+            if (emojiTexture != null) {
+                float emojiSize = TILE_SIZE * 1.5f;
+                batch.draw(emojiTexture,
+                    pos.x - emojiSize/2 + TILE_SIZE/2,
+                    pos.y + TILE_SIZE * 2,
+                    emojiSize, emojiSize);
+
+                if (reaction.text != null && !reaction.text.isEmpty()) {
+                    font.setColor(Color.WHITE);
+                    float textWidth = font.getSpaceXadvance() * reaction.text.length();
+                    font.draw(batch, reaction.text,
+                        pos.x + TILE_SIZE/2 - textWidth/2,
+                        pos.y + TILE_SIZE * 2 + emojiSize + 20);
+                }
+            }
         }
 
-        // Draw text if present
-        if (text != null && !text.isEmpty()) {
-            float textY = emojiY + emojiSize + 5;
+        // Reset color after drawing
+        font.setColor(Color.WHITE);
+    }
+
+    // Add this method to handle showing emoji reactions
+    public void showEmojiReaction(String username, int emojiId, String text) {
+        activeEmojis.put(username, new EmojiReaction(emojiId, text, 5f)); // Show for 5 seconds
+    }
+    public void updateNetworkPlayerPosition(String username, float x, float y, int direction, boolean isMoving,
+                                            boolean inVillage, int farmIndex) {
+        // Don't update ourselves
+        if (gameInstance.getCurrentPlayer().getUsername().equals(username)) {
+            return;
+        }
+
+        networkPlayerPositions.put(username, new Vector2(x, y));
+        networkPlayerDirections.put(username, direction);
+        networkPlayerMoving.put(username, isMoving);
+        networkPlayerInVillage.put(username, inVillage);
+        networkPlayerFarmIndex.put(username, farmIndex);
+
+        // If this is a new player, initialize their animation time
+        if (!networkPlayerAnimationTimes.containsKey(username)) {
+            networkPlayerAnimationTimes.put(username, 0f);
+        }
+    }
+    private void sendPositionUpdate() {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("username", gameInstance.getCurrentPlayer().getUsername());
+        payload.put("x", playerPos.x);
+        payload.put("y", playerPos.y);
+        payload.put("direction", lastDirection);
+        payload.put("moving", isMoving);
+        payload.put("inVillage", inVillage);
+        payload.put("farmIndex", currentFarmIndex);
+
+        Message message = new Message(Message.ActionType.PLAYER_MOVE, payload);
+        ClientMain.sendMessage(message);
+    }
+    private User getUserByUsername(String username) {
+        for (User player : gameInstance.getPlayers()) {
+            if (player.getUsername().equals(username)) {
+                return player;
+            }
+        }
+        return null;
+    }
+    private void renderNetworkPlayers() {
+        for (Map.Entry<String, Vector2> entry : networkPlayerPositions.entrySet()) {
+            String username = entry.getKey();
+            Vector2 pos = entry.getValue();
+
+            // Get the network player's current location state
+            Boolean playerInVillage = networkPlayerInVillage.getOrDefault(username, false);
+            Integer playerFarmIndex = networkPlayerFarmIndex.getOrDefault(username, 0);
+
+            // Only skip if we're in different locations (village vs farm)
+            if (inVillage != playerInVillage) {
+                continue;
+            }
+
+            // If both in a farm (not village), only skip if we're in different farms
+            if (!inVillage && currentFarmIndex != playerFarmIndex) {
+                continue;
+            }
+
+            // Render the player
+            Animation<TextureRegion> animation;
+            int direction = networkPlayerDirections.getOrDefault(username, 0);
+            boolean moving = networkPlayerMoving.getOrDefault(username, false);
+
+            if (moving) {
+                switch (direction) {
+                    case 1: // Right
+                        animation = MapManager.getInstance().getWalkRightAnimation();
+                        break;
+                    case 2: // Up
+                        animation = MapManager.getInstance().getWalkUpAnimation();
+                        break;
+                    case 3: // Left
+                        animation = MapManager.getInstance().getWalkLeftAnimation();
+                        break;
+                    default: // Down or unknown
+                        animation = MapManager.getInstance().getWalkDownAnimation();
+                        break;
+                }
+            } else {
+                animation = MapManager.getInstance().getIdleAnimation();
+            }
+
+            // Get the current animation frame
+            float animTime = networkPlayerAnimationTimes.getOrDefault(username, 0f);
+            TextureRegion currentFrame = animation.getKeyFrame(animTime);
+
+            // Render the player with the same dimensions as the local player
+            float playerWidth = TILE_SIZE * 0.8f;
+            float playerHeight = TILE_SIZE * 1.5f;
+            float adjustedY = pos.y - (playerHeight - TILE_SIZE) * 0.5f;
+
+            batch.draw(currentFrame, pos.x, adjustedY, playerWidth, playerHeight);
+
+            // Draw the player's username above their head with improved visibility
+            // First draw a shadow (black outline)
+            font.setColor(Color.BLACK);
+            float nameX = pos.x - (username.length() * 4); // Center text based on length
+            float nameY = pos.y + playerHeight + 15;
+
+            // Draw shadow in 4 directions for outline effect
+            font.draw(batch, username, nameX-1, nameY-1);
+            font.draw(batch, username, nameX+1, nameY-1);
+            font.draw(batch, username, nameX-1, nameY+1);
+            font.draw(batch, username, nameX+1, nameY+1);
+
+            // Draw the actual text in bright color
+            font.setColor(Color.YELLOW); // Yellow for better visibility
+            font.draw(batch, username, nameX, nameY);
+
+            // Reset color after drawing
             font.setColor(Color.WHITE);
-            // Add a black outline/shadow for better visibility
-            font.draw(batch, text, emojiX - 1, textY - 1);
-            font.draw(batch, text, emojiX + 1, textY - 1);
-            font.draw(batch, text, emojiX - 1, textY + 1);
-            font.draw(batch, text, emojiX + 1, textY + 1);
-            font.setColor(Color.YELLOW); // Text color
-            font.draw(batch, text, emojiX, textY);
-            font.setColor(Color.WHITE); // Reset color
         }
     }
     private void handleGameplayMechanics(float delta) {
@@ -345,13 +467,6 @@ public class MapView implements Screen {
                 if (canMove) {
                     playerPos.set(newPos);
                 }
-                if (ClientMain.isConnected) {
-                    // Determine current location
-                    String location = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
-
-                    // Send position update to server
-                    ClientMain.sendPlayerPosition(playerPos.x, playerPos.y, location);
-                }
             }
         }
         animationTime += delta;
@@ -359,39 +474,7 @@ public class MapView implements Screen {
             messageTimer -= delta;
         }
     }
-    private void renderOtherPlayers() {
-        if (!ClientMain.isConnected) return;
 
-        Map<String, ClientMain.RemotePlayerInfo> remotePlayers = ClientMain.getRemotePlayers();
-
-        for (ClientMain.RemotePlayerInfo playerInfo : remotePlayers.values()) {
-            // Only render players in the same location as us
-            String myLocation = inVillage ? "village" : "farm_" + (currentFarmIndex + 1);
-            if (!playerInfo.getLocation().equals(myLocation)) continue;
-
-            // Get player position
-            float otherX = playerInfo.getX();
-            float otherY = playerInfo.getY();
-
-            // Draw player name above their character
-            font.setColor(Color.YELLOW);
-            font.draw(batch, playerInfo.getUsername(), otherX - 20, otherY + 45);
-            font.setColor(Color.WHITE);
-
-            // Draw player with animations similar to main player
-            // This is simplified - ideally you'd track their movement state and direction
-            TextureRegion playerFrame = mapManager.getIdleAnimation().getKeyFrame(animationTime);
-
-            // Make character taller - 1.5x height ratio (like main player)
-            float playerWidth = TILE_SIZE * 0.8f;
-            float playerHeight = TILE_SIZE * 1.5f;
-
-            // Adjust Y position so character stands on ground properly
-            float adjustedY = otherY - (playerHeight - TILE_SIZE) * 0.5f;
-
-            batch.draw(playerFrame, otherX, adjustedY, playerWidth, playerHeight);
-        }
-    }
     private boolean handleToolUsage(Vector3 clickPos) {
         User currentPlayer = gameInstance.getCurrentPlayer();
 
@@ -776,6 +859,7 @@ public class MapView implements Screen {
             inVillage = true;
         }
         centerCameraOnPlayer();
+        sendPositionUpdate();
     }
 
     private void createNotificationLabel() {
@@ -888,16 +972,27 @@ public class MapView implements Screen {
         updateBuildingSelectBoxItems(); // This is UI logic, can be here
 
         camera.update(); // Always update camera before using its combined matrix
+        for (String username : networkPlayerAnimationTimes.keySet()) {
+            float time = networkPlayerAnimationTimes.get(username);
+            networkPlayerAnimationTimes.put(username, time + delta);
+        }
 
+        // Send position updates to network
+        networkSyncTimer += delta;
+        if (networkSyncTimer >= NETWORK_SYNC_INTERVAL) {
+            sendPositionUpdate();
+            networkSyncTimer = 0f;
+        }
+        updateEmojis(delta);
         // --- PHASE 1: Draw all sprites/textures with SpriteBatch ---
         batch.setProjectionMatrix(camera.combined); // Set camera for world rendering
         batch.begin(); // BEGIN MAIN BATCH
 
         renderMap();
         renderAnimals();
+        renderNetworkPlayers();
         renderPlayer();
-        renderOtherPlayers();
-        renderPlayerReactions();
+        renderEmojis();
         renderToolSwing();
         // Draw all text for progress bars while batch is active
         // If renderUI draws with the main batch (world-space UI), keep it here.
@@ -1330,13 +1425,34 @@ public class MapView implements Screen {
             font.setColor(Color.WHITE);
         }
     }
+    private void showEmojiDialog() {
+        EmojiReactionDialog dialog = new EmojiReactionDialog(skin);
+        dialog.addDialogListener(new EmojiReactionDialog.DialogListener() {
+            @Override
+            public void onReactionSent(int emojiId, String text) {
+                // Display locally
+                showEmojiReaction(gameInstance.getCurrentPlayer().getUsername(), emojiId, text);
 
+                // Send to server
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("username", gameInstance.getCurrentPlayer().getUsername());
+                payload.put("emojiId", emojiId);
+                payload.put("text", text);
+
+                Message message = new Message(Message.ActionType.SHOW_REACTION, payload);
+                ClientMain.sendMessage(message);
+            }
+        });
+        dialog.show(stage);
+    }
     private void handleInput(float delta) {
         if (speechIsShowing) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
         }
-        handleEmojiInput();
+        if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+            showEmojiDialog();
+        }
         User currentPlayer = Game.getInstance().getCurrentPlayer();
         handleGameplayMechanics(delta);
 

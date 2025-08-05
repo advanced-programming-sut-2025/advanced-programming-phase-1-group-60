@@ -1,55 +1,14 @@
 package com.StardewValley.Network;
 
-import com.StardewValley.Network.Message.GameMessage;
-import com.StardewValley.Network.Server.ClientHandler;
 import com.StardewValley.models.User;
 
 import java.io.*;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GameStateManager {
     private static GameStateManager instance;
     private final ConcurrentHashMap<String, Integer> userFarmSelections = new ConcurrentHashMap<>();
     private final String DB_PATH = "core/src/main/java/com/StardewValley/Network/Database/FarmSelections.csv";
-
-    // NEW: Store player positions
-    private final ConcurrentHashMap<String, PlayerState> playerStates = new ConcurrentHashMap<>();
-
-    // Static class to hold player state
-    public static class PlayerState {
-        private float x;
-        private float y;
-        private String location; // "village" or "farm_1", "farm_2", etc.
-        private String username;
-        private String instanceId;
-
-        public PlayerState(String username, String instanceId, float x, float y, String location) {
-            this.username = username;
-            this.instanceId = instanceId;
-            this.x = x;
-            this.y = y;
-            this.location = location;
-        }
-
-        // Getters
-        public float getX() { return x; }
-        public float getY() { return y; }
-        public String getLocation() { return location; }
-        public String getUsername() { return username; }
-        public String getInstanceId() { return instanceId; }
-
-        // Setters
-        public void setPosition(float x, float y) {
-            this.x = x;
-            this.y = y;
-        }
-
-        public void setLocation(String location) {
-            this.location = location;
-        }
-    }
 
     private GameStateManager() {
         // Private constructor for singleton
@@ -94,74 +53,6 @@ public class GameStateManager {
 
         System.out.println("Retrieved farm selection: " + username + " -> Farm " + farmIndex);
         return farmIndex;
-    }
-
-    /**
-     * Register a player in the game state
-     */
-    public void registerPlayer(String username, String instanceId, float x, float y, String location) {
-        PlayerState state = new PlayerState(username, instanceId, x, y, location);
-        playerStates.put(instanceId, state);
-        System.out.println("Registered player " + username + " in game state at " + location);
-    }
-
-    /**
-     * Update a player's position in the game state
-     */
-    public void updatePlayerPosition(String username, String instanceId, float x, float y, String location) {
-        PlayerState state = playerStates.get(instanceId);
-        if (state == null) {
-            state = new PlayerState(username, instanceId, x, y, location);
-            playerStates.put(instanceId, state);
-        } else {
-            state.setPosition(x, y);
-            state.setLocation(location);
-        }
-        System.out.println("Updated position for " + username + ": (" + x + ", " + y + ") in " + location);
-    }
-
-    /**
-     * Get a player's state
-     */
-    public PlayerState getPlayerState(String instanceId) {
-        return playerStates.get(instanceId);
-    }
-
-    /**
-     * Remove a player from the game state
-     */
-    public void removePlayer(String instanceId) {
-        PlayerState removed = playerStates.remove(instanceId);
-        if (removed != null) {
-            System.out.println("Removed player " + removed.getUsername() + " from game state");
-        }
-    }
-
-    /**
-     * Send the current world state to a newly connected client
-     */
-    public void sendWorldStateToClient(ClientHandler client) {
-        for (Map.Entry<String, PlayerState> entry : playerStates.entrySet()) {
-            // Skip sending the client's own state back to them
-            if (!entry.getKey().equals(client.getInstanceId())) {
-                PlayerState state = entry.getValue();
-
-                // Create a player position message
-                GameMessage positionMessage = new GameMessage(
-                    GameMessage.MessageType.PLAYER_POSITION,
-                    state.getUsername(),
-                    state.getInstanceId()
-                );
-
-                // Add position data
-                positionMessage.addData("x", state.getX());
-                positionMessage.addData("y", state.getY());
-                positionMessage.addData("location", state.getLocation());
-
-                // Send to the client
-                client.sendMessage(positionMessage);
-            }
-        }
     }
 
     /**

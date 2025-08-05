@@ -1,21 +1,36 @@
 package com.StardewValley.controller;
 
+import com.StardewValley.Network.Client.ClientMain;
 import com.StardewValley.Network.LobbyManager;
+import com.StardewValley.Network.Message;
 import com.StardewValley.Network.SessionManager;
+import com.StardewValley.exceptions.GameException;
 import com.StardewValley.models.Lobby;
 import com.StardewValley.models.User;
+import com.StardewValley.models.Tools;
+import com.StardewValley.repository.UserRepository;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class LobbyController {
     private final com.badlogic.gdx.Game game;
     private final LoginMenuController loginController;
+    private final LobbyManager lobbyManager;
 
     public LobbyController(com.badlogic.gdx.Game game, LoginMenuController loginController) {
         this.game = game;
         this.loginController = loginController;
+        this.lobbyManager = LobbyManager.getInstance();
+    }
+
+    public void startGame(String lobbyId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("lobbyId", lobbyId);
+        Message message = new Message(Message.ActionType.START_GAME, payload);
+        ClientMain.sendMessage(message);
     }
 
     public List<String> getOnlinePlayers() {
@@ -23,66 +38,129 @@ public class LobbyController {
     }
 
     public List<Lobby> getLobbies() {
-        return LobbyManager.getInstance().getLobbies();
+        // FIX: Always reload lobbies from file to see new ones created by other clients
+        // This is a temporary fix for the file-based approach.
+        return lobbyManager.getLobbies();
     }
+
     public User getUserByUsername(String username) {
-        // Get user by username from your user repository or service
-        return com.StardewValley.repository.UserRepository.getInstance().getUserByUsername(username);
+        return UserRepository.getInstance().getUserByUsername(username);
     }
+
     public LoginMenuController getLoginController() {
         return loginController;
     }
+
     public Lobby getLobbyForUser(String username) {
-        List<Lobby> lobbies = getLobbies();
-        for (Lobby lobby : lobbies) {
+        // FIX: Reload lobbies to get the most up-to-date state
+        for (Lobby lobby : getLobbies()) {
             if (lobby.getMembers().contains(username)) {
                 return lobby;
             }
         }
         return null;
     }
-    public void createLobby(String name, boolean isPublic, String password, boolean isVisible) {
-        String creator = loginController.getLoggedInUser().getUsername();
-        Lobby lobby = new Lobby(name, isPublic, password, isVisible, creator);
-        LobbyManager.getInstance().addLobby(lobby);
-        game.setScreen(new com.StardewValley.view.GameView(game, loginController, lobby));
-    }
 
-    public void onCreateLobby() {
-        // This will be handled by the view (show dialog)
-    }
-
-    public void onJoinLobby() {
-        // To be implemented
-    }
-
-    public void onRefreshLobbies() {
-        // To be implemented
-    }
     public String getCurrentUsername() {
         return loginController.getLoggedInUser().getUsername();
     }
-    public Lobby getLobbyById(String id) {
-        for (Lobby lobby : LobbyManager.getInstance().getLobbies()) {
-            if (lobby.getId().equals(id)) return lobby;
-        }
-        return null;
+
+    public void createLobby(String name, boolean isPublic, String password, boolean isVisible, int capacity) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("name", name);
+        payload.put("isPublic", isPublic);
+        payload.put("password", password);
+        payload.put("isVisible", isVisible);
+        payload.put("capacity", capacity);
+
+        Message message = new Message(Message.ActionType.CREATE_LOBBY, payload);
+        ClientMain.sendMessage(message);
     }
-    public void leaveLobby(Lobby lobby, String username) {
-        if (lobby != null && lobby.getMembers().contains(username)) {
-            lobby.removeMember(username);
-            LobbyManager.getInstance().saveLobbies();
-        }
+
+    // REFACTORED: This now sends a message to the server
+    public void joinLobby(String lobbyId, String password, String username) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("lobbyId", lobbyId);
+        payload.put("password", password);
+        // username is already known by the server's ClientHandler
+
+        Message message = new Message(Message.ActionType.JOIN_LOBBY, payload);
+        ClientMain.sendMessage(message);
     }
-    public void joinLobby(Lobby lobby, String password, String username) {
-        if (!lobby.isPublic() && (lobby.getPassword() == null || !lobby.getPassword().equals(password))) {
-            return; // Password incorrect, handle in view
+
+    // REFACTORED: This now sends a message to the server
+    public void leaveLobby(String lobbyId, String username) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("lobbyId", lobbyId);
+
+        Message message = new Message(Message.ActionType.LEAVE_LOBBY, payload);
+        ClientMain.sendMessage(message);
+    }
+
+    public void kickPlayer(String lobbyId, String adminUsername, String playerToKick) {
+        // This should also be a message to the server
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("lobbyId", lobbyId);
+        payload.put("playerToKick", playerToKick);
+
+        Message message = new Message(Message.ActionType.KICK_PLAYER, payload);
+        ClientMain.sendMessage(message);
+    }
+    public void handleGameStart(Map<String, Integer> mapSelections) throws GameException {
+        System.out.println("Starting game with map selections: " + mapSelections);
+
+        // Get current username
+        String currentUsername = loginController.getLoggedInUser().getUsername();
+
+        // Find the current user's selected map
+        Integer selectedMap = mapSelections.get(currentUsername);
+        if (selectedMap == null) {
+            System.err.println("Error: No map selection found for current user!");
+            selectedMap = 0; // Default to first map as fallback
         }
-        if (!lobby.getMembers().contains(username)) {
-            lobby.addMember(username);
-            LobbyManager.getInstance().saveLobbies();
+
+        // Create a new Game instance with all players
+        com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.resetInstance();
+
+        // Get all usernames from the map selections
+        List<String> otherPlayers = new ArrayList<>(mapSelections.keySet());
+        otherPlayers.remove(currentUsername); // Remove current player
+
+        // Create the game with all players
+        gameInstance.newGame(loginController.getLoggedInUser(), otherPlayers);
+
+        // Add starter tools to all players
+        for (User user : gameInstance.getPlayers()) {
+            Tools.addBeginnerHoeToInventory(user.getInventory());
+            Tools.addBeginnerPickaxeToInventory(user.getInventory());
+            Tools.addBeginnerAxeToInventory(user.getInventory());
+            Tools.addBeginnerWateringcanToInventory(user.getInventory());
+            Tools.addBeginnerScytheToInventory(user.getInventory());
         }
-        // Optionally, update UI or move to lobby screen
+
+        // Initialize quests
+        com.StardewValley.repository.QuestRepository.getInstance().initialize();
+
+        // Assign map selections to each player
+        for (User player : gameInstance.getPlayers()) {
+            int mapId = mapSelections.getOrDefault(player.getUsername(), 1);
+            gameInstance.selectMap(player, mapId);
+            System.out.println("Assigned " + player.getUsername() + " to map " + mapId);
+        }
+
+        // Initialize the game map
+        gameInstance.initializeGameMap();
+        gameInstance.setState(com.StardewValley.models.Game.GameState.IN_GAME);
+
+        // Create a new GameView with the initialized game
+        com.StardewValley.view.GameView gameView = new com.StardewValley.view.GameView(game, loginController, null);
+
+        // Save map selection for persistence
+        com.StardewValley.Network.GameStateManager.getInstance().saveFarmSelection(currentUsername, selectedMap - 1);
+
+        // Set the game screen
+        gameView.setMapView(new com.StardewValley.view.MapView(gameInstance.getCurrentMap(), gameView::showMainMenu, gameView));
+        gameView.showGameplayScreen();
     }
     public void onBack() {
         game.setScreen(new com.StardewValley.view.MainView(game, loginController));

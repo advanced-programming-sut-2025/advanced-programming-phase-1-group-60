@@ -85,7 +85,6 @@ public class EmojiReactionDialog extends Dialog {
             public void changed(ChangeEvent event, Actor actor) {
                 if (selectedEmojiId >= 0) {
                     String text = customTextField.getText();
-                    ClientMain.sendPlayerReaction(selectedEmojiId, text);
 
                     // Notify listeners
                     for (DialogListener listener : listeners) {
@@ -93,6 +92,12 @@ public class EmojiReactionDialog extends Dialog {
                     }
 
                     hide();
+                } else {
+                    // Show error if no emoji selected
+                    Dialog errorDialog = new Dialog("Error", getSkin());
+                    errorDialog.text("Please select an emoji first");
+                    errorDialog.button("OK");
+                    errorDialog.show(getStage());
                 }
             }
         });
