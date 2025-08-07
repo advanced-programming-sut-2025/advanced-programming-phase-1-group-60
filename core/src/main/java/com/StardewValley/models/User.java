@@ -705,4 +705,15 @@ public class User {
         }
     }
 
+    //Trade
+    private List<String> tradeHistory = new ArrayList<>();
+
+    public void addTradeHistory(String entry) {
+        tradeHistory.add(entry);
+    }
+
+    public List<String> getTradeHistory() {
+        return tradeHistory;
+    }
+
 }

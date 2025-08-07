@@ -5,7 +5,7 @@ import java.util.HashMap;
 public class Item {
     private int id;
     private String name;
-    private String type;
+    protected String type;
     private int basePrice;
     private int quantity;
     private int storePrice;
@@ -13,7 +13,7 @@ public class Item {
     private int energy;
     private int sellPrice;
     private HashMap<String, Object> properties = new HashMap<>();
-    private User owner; // Added owner field
+    private transient User owner; // Added owner field
     private String path;
 
     public boolean isEdible() {

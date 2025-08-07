@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 public class Tools extends Item {
     private int toolLevel;
-    private String type;
+ //   private String type;
     private HashMap<String, Object> attributes;
     private int upgradeCost;
     private int energyCost;

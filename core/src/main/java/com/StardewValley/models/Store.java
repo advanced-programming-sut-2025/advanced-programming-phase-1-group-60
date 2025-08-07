@@ -1,5 +1,8 @@
 package com.StardewValley.models;
 
+import com.StardewValley.Network.Client.ClientMain;
+import com.StardewValley.Network.Message;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -219,6 +222,7 @@ public class Store implements StaticElement {
                             soldBuildings.put(product, 1);
                             result.setSuccess(true);
                             result.setMessage("bought " + product);
+                            notifyItemSold(product, "building", 0);
                             return result;
                         } else {
                             result.setMessage("not enough materials");
@@ -318,9 +322,11 @@ public class Store implements StaticElement {
                     if (itemToSell.getName().equals("Milk Pail")) {
                         Tools.addBeginnerMilkPailToInventory(player.getInventory());
                         isMilkPailSold = true;
+                        notifyItemSold("Milk Pail", "item", 0);
                     } else if (itemToSell.getName().equals("Shears")) {
                         Tools.addBeginnerShearToInventory(player.getInventory());
                         isShearsSold = true;
+                        notifyItemSold("Shears", "item", 0);
                     } else {
                         Item boughtItem = new Item(itemToSell.getName(), quantity, itemToSell.getPath());
                         player.getInventory().addItem(boughtItem);
@@ -373,6 +379,7 @@ public class Store implements StaticElement {
                     player.setMoney(player.getMoney() - 10000);
                     player.learnRecipe(productName);
                     isFishSmokerSold = true;
+                    notifyItemSold("Fish Smoker", "recipe", 0);
                     result.setSuccess(true);
                     result.setMessage("bought " + productName + " recipe");
                     return result;
@@ -396,6 +403,7 @@ public class Store implements StaticElement {
                     player.getInventory().addItem(foodItem);
                     player.setMoney(player.getMoney() - 250);
                     isTroutSoupSold = true;
+                    notifyItemSold("Trout Soup", "item", 0);
                     result.setSuccess(true);
                     result.setMessage("Bought " + productName);
                     return result;
@@ -440,6 +448,7 @@ public class Store implements StaticElement {
         player.setMoney(player.getMoney() - price);
         player.learnRecipe(recipeName);
         soldRecipes.put(recipeName, soldRecipes.getOrDefault(recipeName, 0) + 1);
+        notifyItemSold(recipeName, "recipe", 0);
 
         result.setSuccess(true);
         result.setMessage("Learned " + recipeName + " recipe");
@@ -471,6 +480,44 @@ public class Store implements StaticElement {
         }
 
         return result;
+    }
+
+    private void notifyItemSold(String itemName, String itemType, int level) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("storeName", this.name);
+        payload.put("itemName", itemName);
+        payload.put("itemType", itemType);
+        payload.put("level", level); // برای آپگریدها مهم است
+
+        Message message = new Message(Message.ActionType.ITEM_SOLD_UPDATE, payload);
+        ClientMain.sendMessage(message);
+    }
+
+    public void markAsSold(String itemName, String itemType, int level) {
+        switch (itemType) {
+            case "item":
+                if ("Milk Pail".equals(itemName)) isMilkPailSold = true;
+                if ("Shears".equals(itemName)) isShearsSold = true;
+                if ("Trout Soup".equals(itemName)) isTroutSoupSold = true;
+                break;
+            case "recipe":
+                if ("Fish Smoker".equals(itemName)) isFishSmokerSold = true;
+                else soldRecipes.put(itemName, 1);
+                break;
+            case "building":
+                soldBuildings.put(itemName, 1);
+                break;
+            case "upgrade":
+                soldUpgrades.put(level, 1);
+                break;
+            case "bin_upgrade":
+                soldBinsUpgrades.put(level, 1);
+                break;
+            case "pole_upgrade":
+                soldPoleUpgrades.put(level, 1);
+                break;
+        }
+        System.out.println("Store '" + this.name + "' updated: " + itemName + " is now sold out.");
     }
 
 
@@ -532,6 +579,7 @@ public class Store implements StaticElement {
 
         upgradeToolStage(tool, level);
         soldUpgrades.put(level, soldUpgrades.getOrDefault(level, 0) + 1);
+        notifyItemSold("Tool", "upgrade", level);
 
         result.setSuccess(true);
         result.setMessage("Upgrade successful for " + tool.getName());
@@ -571,6 +619,7 @@ public class Store implements StaticElement {
         player.setMoney(player.getMoney() - cost);
         player.getInventory().removeItemByName(neededIngredient, 5);
         soldBinsUpgrades.put(level, soldBinsUpgrades.getOrDefault(level, 0) + 1);
+        notifyItemSold("Trashcan", "bin_upgrade", level);
 
         result.setSuccess(true);
         result.setMessage("Trash Can upgrade successful!");
@@ -608,6 +657,8 @@ public class Store implements StaticElement {
             player.setMoney(player.getMoney() - upgradePoleCosts.get(level));
             tool.setFishingpoleStage(getFishingPoleStageFromLevel(level));
             soldPoleUpgrades.put(level, 1);
+            notifyItemSold("Fishingpole", "pole_upgrade", level);
+
             result.setSuccess(true);
             result.setMessage("Upgraded to " + tool.getFishingpoleStage().name());
             return result;
@@ -628,6 +679,8 @@ public class Store implements StaticElement {
             firstPole.setPath("assets/Inventory/ToolsAndUpgrade/Training_Rod.png");
             player.getInventory().addItem(firstPole);
             soldPoleUpgrades.put(level, 1);
+            notifyItemSold("Fishingpole", "pole_upgrade", level);
+
             result.setSuccess(true);
             result.setMessage("bought Training Rod");
             return result;
