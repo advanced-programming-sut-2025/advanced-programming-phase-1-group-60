@@ -16,7 +16,9 @@ public class Game {
     private boolean forceTerminateVote = false;
     private Set<User> terminationVotes = new HashSet<>();
 
-    private Game() {}
+    private Game() {
+        this.players = new ArrayList<>();
+    }
 
     public static synchronized Game getInstance() {
         if (instance == null) {
@@ -28,6 +30,24 @@ public class Game {
         instance = new Game();
         User.resetChatHistories();
         return instance;
+    }
+    public void addUser(User user) {
+        if (user != null && !players.contains(user)) {
+            this.players.add(user);
+            System.out.println("GAME_USER_MANAGER: Added user " + user.getUsername() + " to game. Total players: " + players.size());
+        }
+    }
+
+    /**
+     * Removes a user from the list of active players in the game.
+     * Call this when a player disconnects or leaves the game.
+     * @param user The User object to remove.
+     */
+    public void removeUser(User user) {
+        if (user != null && players.contains(user)) {
+            this.players.remove(user);
+            System.out.println("GAME_USER_MANAGER: Removed user " + user.getUsername() + " from game. Total players: " + players.size());
+        }
     }
     public void setCurrentMap(GameMap map) {
         this.currentMap = map;
@@ -177,7 +197,7 @@ public class Game {
         return currentMap;
     }
     public User getUserByUsername(String username) {
-        for (User user : players) {
+        for (User user : instance.getPlayers()) {
             if (user.getUsername().equals(username)) {
                 return user;
             }

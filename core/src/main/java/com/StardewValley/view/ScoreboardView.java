@@ -254,10 +254,7 @@ public class ScoreboardView implements Screen {
     @Override
     public void dispose() {
         stage.dispose();
-        batch.dispose();
-        if (font != null) { // اطمینان از آزاد شدن فونت
-            font.dispose();
-        }
+        //batch.dispose();
         // Skin فرض بر این است که توسط MenuManager مدیریت می‌شود یا مشترک است، بنابراین اینجا آزاد نمی‌شود.
     }
 }

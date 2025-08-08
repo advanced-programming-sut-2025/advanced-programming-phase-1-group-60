@@ -80,19 +80,7 @@ public class ServerMain {
             e.printStackTrace();
         }
     }
-    /**
-     * NEW: Broadcasts updated game data (e.g., player money, skills, quests) to all clients in the same game.
-     * This method will serialize relevant User data and send it.
-     * @param updatedUser The user whose data has changed.
-     */
     public void broadcastGameDataUpdate(User updatedUser) {
-        // Find all users in the same game instance
-        List<User> usersInGame = Game.getInstance().getPlayers(); // Assuming Game.getInstance() gives the current game
-        // and its users are relevant for the scoreboard.
-        // If you have multiple active game instances on the server,
-        // you'll need a way to get users for a specific gameId.
-        // For now, we assume a single game instance.
-
         // Create a simplified payload for the updated user
         Map<String, Object> userDataPayload = new HashMap<>();
         userDataPayload.put("username", updatedUser.getUsername());
@@ -106,13 +94,14 @@ public class ServerMain {
 
         Message updateMessage = new Message(Message.ActionType.PLAYER_DATA_UPDATE, payload);
 
-        // Send this update to all clients connected to this game instance
-        for (User user : usersInGame) {
-            ClientHandler handler = connectedClients.get(user.getUsername());
-            if (handler != null) {
+        // Send this update to ALL currently connected clients
+        System.out.println("SERVER_DEBUG: Broadcasting PLAYER_DATA_UPDATE for " + updatedUser.getUsername() + " to ALL " + connectedClients.size() + " connected clients.");
+        for (ClientHandler handler : connectedClients.values()) {
+            if(!handler.getUsername().equals(updatedUser.getUsername())){
+                System.out.println("SERVER_DEBUG: Sending PLAYER_DATA_UPDATE to " + handler.getUsername() + " (current money: " + handler.getUsername() + " - " + updatedUser.getMoney() + ")");
                 handler.sendMessage(updateMessage);
             }
         }
-        System.out.println("Broadcasted PLAYER_DATA_UPDATE for user: " + updatedUser.getUsername());
+        System.out.println("SERVER_DEBUG: Finished broadcasting PLAYER_DATA_UPDATE for user: " + updatedUser.getUsername());
     }
 }

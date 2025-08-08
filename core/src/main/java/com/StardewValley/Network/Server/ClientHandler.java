@@ -52,6 +52,16 @@ public class ClientHandler implements Runnable {
             } else {
                 System.out.println("SERVER: Existing user connected: " + this.username);
             }
+            User userFromRepo = UserRepository.getInstance().getUserByUsername(this.username);
+            if (userFromRepo != null) {
+                Game.getInstance().addUser(userFromRepo); // Add user to the server's Game instance
+                System.out.println("SERVER_CLIENT_HANDLER_INIT: User '" + this.username + "' added to server's Game active players list.");
+            } else {
+                System.err.println("SERVER_CLIENT_HANDLER_ERROR: User '" + this.username + "' not found in UserRepository during connection. This client might not function correctly.");
+                // Optionally, you might want to send an ERROR message back to the client
+                sendMessage(new Message(Message.ActionType.ERROR, Map.of("message", "User " + this.username + " not recognized by server.")));
+                return; // Stop processing this client if user is unknown
+            }
             server.addClient(this.username, this);
             System.out.println("User connected: " + this.username);
             System.out.println("Current users: " + server.getConnectedClients());
@@ -70,6 +80,15 @@ public class ClientHandler implements Runnable {
                 if (in != null) in.close();
                 if (out != null) out.close();
                 if (clientSocket != null) clientSocket.close();
+                if (this.username != null) { // Ensure username is set before trying to remove
+                    User disconnectedUser = Game.getInstance().getUserByUsername(this.username);
+                    if (disconnectedUser != null) {
+                        Game.getInstance().removeUser(disconnectedUser);
+                        System.out.println("SERVER_CLIENT_HANDLER_CLEANUP: User '" + this.username + "' removed from server's Game active players list.");
+                    } else {
+                        System.out.println("SERVER_CLIENT_HANDLER_CLEANUP_WARN: User '" + this.username + "' not found in Game instance during disconnect cleanup.");
+                    }
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -643,36 +662,29 @@ public class ClientHandler implements Runnable {
      * and then broadcasts the updated data to all relevant clients.
      * @param payload The payload containing the updated user data.
      */
+    // THIS IS THE REVERTED AND CORRECTED handlePlayerDataUpdate
     private void handlePlayerDataUpdate(Map<String, Object> payload) {
+        System.out.println("SERVER_CLIENT_HANDLER_PLAYER_DATA: handlePlayerDataUpdate received from " + payload.get("username"));
         // Extract updated user data from the payload
-        // Note: GSON might deserialize numbers as Double, so cast accordingly.
         String username = (String) payload.get("username");
         double money = ((Double) payload.get("money"));
         double completedQuestsCount = ((Double) payload.get("completedQuestsCount"));
         double averageSkillLevel = ((Double) payload.get("averageSkillLevel"));
 
         // Find the actual User object on the server and update its properties
-        // This assumes Game.getInstance() gives access to the current active game state
-        // and its users. If you have multiple games, you'd need to identify the correct game instance.
         User userToUpdate = Game.getInstance().getUserByUsername(username);
         if (userToUpdate != null) {
-            userToUpdate.setMoney((int) money);
-            // For completedQuestsCount, you might need a more granular update
-            // For simplicity, we'll just set it assuming the client sends the correct count.
-            // A more robust solution would involve the server validating and updating quests.
-            // userToUpdate.setCompletedQuestsCount((int) completedQuestsCount); // You might need to add this setter
-            // For averageSkillLevel, similarly.
-            // userToUpdate.setAverageSkillLevel((float) averageSkillLevel); // You might need to add this setter
+            // Update the server's authoritative User object
+            userToUpdate.setMoney((int) money); // User.setMoney now safely updates and triggers client-side send
+            userToUpdate.setCompletedQuestsCount((int)completedQuestsCount);
+            userToUpdate.setAverageSkill((float) averageSkillLevel);
+            System.out.println("SERVER_CLIENT_HANDLER_PLAYER_DATA: Updated server-side User data for " + username + ": Money=" + userToUpdate.getMoney());
 
-            // IMPORTANT: If skills or quests are complex objects, you'll need to
-            // serialize/deserialize them properly. For now, we're just sending primitive data.
-            // If you send a full User object, ensure it's serializable by Gson.
-
-            // Now, broadcast this updated user data to all clients in the same game instance
-            // (or all clients if it's a global scoreboard)
-            server.broadcastGameDataUpdate(userToUpdate); // Assuming Game has a getGameId()
+            // Broadcast this updated user data to all connected clients
+            // This method in ServerMain iterates through connectedClients and sends the update.
+            server.broadcastGameDataUpdate(userToUpdate);
         } else {
-            System.err.println("Received PLAYER_DATA_UPDATE for unknown user: " + username);
+            System.err.println("SERVER_CLIENT_HANDLER_PLAYER_DATA_ERROR: Received PLAYER_DATA_UPDATE for unknown user: " + username);
         }
     }
 

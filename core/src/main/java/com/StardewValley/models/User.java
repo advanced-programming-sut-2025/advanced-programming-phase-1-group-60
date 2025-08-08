@@ -24,6 +24,8 @@ public class User {
     private boolean stayLoggedIn;
     private Tile position;
     private Energy energy = new Energy();
+    private int completedQuestsCount;
+    private float AverageSkill = 0;
     private List<Skill> skills = new ArrayList<>();
     private Inventory inventory = new Inventory(Inventory.InventoryType.NORMAL, this);
     private List<Game> games = new ArrayList<>();
@@ -45,8 +47,6 @@ public class User {
     private Game currentGame;
     private Farm farm;
     public boolean isInVillage = false;
-    private List<Item> animalPlaces = new ArrayList<>();
-    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
 
     // Registration part
@@ -64,6 +64,7 @@ public class User {
         this.friendshipXpsWithNPCs = new HashMap<>();
         this.friendshipXpsWithUsers = new HashMap<>();
         this.friendshipLevelWithUsers = new HashMap<>();
+        this.completedQuestsCount =0;
         this.skills = new ArrayList<>();
         skills.add(new Skill("Farming"));
         skills.add(new Skill("Mining"));
@@ -173,9 +174,9 @@ public class User {
         // این متد باید تجربه skill را افزایش دهد و در صورت نیاز سطح را ارتقا دهد.
         if (skill != null) {
             skill.gainExperience(exp);
+            System.out.println("DEBUG: Skill " + skill.getName() + " updated for " + this.username + ". Current level: " + skill.getLevel());
+            sendPlayerDataUpdateToServer(); // Send update after skill changes
         }
-        // Moved sendPlayerDataUpdateToServer() to the end of actions that change data
-        sendPlayerDataUpdateToServer();
     }
 
     public String getUsername() {
@@ -278,7 +279,7 @@ public class User {
     }
 
     public void increaseFriendshipXpsWithUsers(User user, Integer xp) {
-        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.get(user) + xp);
+        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.getOrDefault(user, 0) + xp);
     }
 
     public void increaseFriendshipXpsWithNpc (Npc npc, Integer xp) {
@@ -298,7 +299,7 @@ public class User {
     }
 
     public int getFriendshipLevelWithUsers (User user) {
-     //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
+        //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
         int xp = friendshipXpsWithUsers.getOrDefault(user, 0);
         if (xp < 100) return 0;
         if (xp > 100 && xp < 300) return 1;
@@ -317,10 +318,17 @@ public class User {
         return money;
     }
 
+    // Corrected setMoney to send update
     public void setMoney(int money) {
-        this.money = money;
-        sendPlayerDataUpdateToServer(); // Call update after change
+        if (this.money != money) { // Only send update if money actually changed
+            System.out.println("DEBUG: User " + this.username + " money changed from " + this.money + " to " + money);
+            this.money = money;
+            sendPlayerDataUpdateToServer(); // Send update after money changes
+        } else {
+            System.out.println("DEBUG: User " + this.username + " money set to same value: " + money + ". No update sent.");
+        }
     }
+
     public void setSecurityQuestion(String question, String answer) {
         if (this.securityQuestions == null) {
             this.securityQuestions = new ArrayList<>();
@@ -361,16 +369,24 @@ public class User {
     public void addCompletedQuest(Quest quest) {
         if (quest != null && !completedQuests.contains(quest)) {
             completedQuests.add(quest);
-            sendPlayerDataUpdateToServer(); // Call update after change
+            System.out.println("DEBUG: Quest completed by " + this.username + ". Total completed: " + completedQuests.size());
+            sendPlayerDataUpdateToServer(); // Send update after quest completion
+        } else {
+            System.out.println("DEBUG: Quest not added for " + this.username + " (null or already completed).");
         }
     }
 
     // Get count of completed quests from the 'completedQuests' list
     public int getCompletedQuestsCount() {
-        return completedQuests.size();
+        if(completedQuestsCount < completedQuests.size()){
+            completedQuestsCount = completedQuests.size();
+        }
+        return completedQuestsCount;
     }
-
-    // This method should be called when average skill level changes (after skill update)
+    public void setCompletedQuestsCount(int count){
+        completedQuestsCount = count;
+    }
+    // This method calculates and returns average skill level
     public float getAverageSkillLevel() {
         if (skills == null || skills.isEmpty()) {
             return 0.0f;
@@ -379,7 +395,10 @@ public class User {
         for (Skill skill : skills) {
             totalLevel += skill.getLevel();
         }
-        return totalLevel / skills.size();
+        if(AverageSkill < totalLevel / skills.size()){
+            AverageSkill = totalLevel / skills.size();
+        }
+        return AverageSkill;
     }
 
 
@@ -621,6 +640,8 @@ public class User {
 
     // animals
     private List<Animal> animals = new ArrayList<>();
+    private List<Item> animalPlaces = new ArrayList<>();
+    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
     public void addAnimal(Animal animal) {
         animals.add(animal);
@@ -682,7 +703,9 @@ public class User {
     int fishingSkillsXp;
     public int getFishingSkills() { return fishingSkillsXp / 50; }
     public void increaseFishingSkills(int amount) { fishingSkillsXp += amount;
-        sendPlayerDataUpdateToServer();}
+        System.out.println("DEBUG: Fishing skill XP increased for " + this.username + ". Current XP: " + fishingSkillsXp);
+        sendPlayerDataUpdateToServer(); // Send update after skill changes
+    }
 
 
     // Cook
@@ -744,51 +767,27 @@ public class User {
         }
     }
 
-    //Trade
-    private List<String> tradeHistory = new ArrayList<>();
-
-    public void addTradeHistory(String entry) {
-        tradeHistory.add(entry);
-    }
-
-    public List<String> getTradeHistory() {
-        return tradeHistory;
-    }
-
     /**
      * Sends the current player's relevant data to the server for synchronization.
-     * This should be called whenever the player's money, completed quests, or skill levels change.
-     * IMPORTANT: This method retrieves the current values of money, quests, and skills.
-     * It should NOT call the getters that trigger another call to this method.
+     * This should be called explicitly whenever the player's money, completed quests, or skill levels change.
      */
     public void sendPlayerDataUpdateToServer() {
         if (ClientMain.isConnected) { // Only send if connected to the server
             Map<String, Object> payload = new HashMap<>();
             payload.put("username", this.getUsername());
-            payload.put("money", this.money); // Access the field directly
-            payload.put("completedQuestsCount", this.completedQuests.size()); // Access the field directly or calculate without recursion
-            payload.put("averageSkillLevel", calculateAverageSkillLevel()); // Call a non-recursive calculation
+            payload.put("money", this.getMoney()); // Use the getter which is now safe (no recursive call)
+            payload.put("completedQuestsCount", this.getCompletedQuestsCount()); // Use the getter (now safe)
+            payload.put("averageSkillLevel", this.getAverageSkillLevel()); // Use the getter (now safe)
 
             ClientMain.sendMessage(new Message(Message.ActionType.PLAYER_DATA_UPDATE, payload));
-            System.out.println("Sent PLAYER_DATA_UPDATE for user " + this.getUsername() + ": Money=" + this.money +
-                ", Quests=" + this.completedQuests.size() + ", AvgSkill=" + calculateAverageSkillLevel());
+            System.out.println("CLIENT_DEBUG: Sent PLAYER_DATA_UPDATE for user " + this.getUsername() + ": Money=" + this.getMoney() +
+                ", Quests=" + this.getCompletedQuestsCount() + ", AvgSkill=" + this.getAverageSkillLevel());
         } else {
-            System.out.println("Not connected to server. PLAYER_DATA_UPDATE not sent for " + this.getUsername());
+            System.out.println("CLIENT_DEBUG: Not connected to server. PLAYER_DATA_UPDATE not sent for " + this.getUsername());
         }
     }
 
-    /**
-     * Helper method to calculate average skill level without causing recursion.
-     * This should be called by sendPlayerDataUpdateToServer().
-     */
-    private float calculateAverageSkillLevel() {
-        if (skills == null || skills.isEmpty()) {
-            return 0.0f;
-        }
-        float totalLevel = 0;
-        for (Skill skill : skills) {
-            totalLevel += skill.getLevel();
-        }
-        return totalLevel / skills.size();
+    public void setAverageSkill(float averageSkill) {
+        AverageSkill = averageSkill;
     }
 }

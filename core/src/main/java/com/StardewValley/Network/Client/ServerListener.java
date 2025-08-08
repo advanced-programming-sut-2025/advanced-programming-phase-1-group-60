@@ -238,7 +238,8 @@ public class ServerListener implements Runnable {
                         // User updatedUser = gson.fromJson(gson.toJson(updatedUserData), User.class);
                         // Game.getInstance().updateUser(updatedUser); // A method to replace/update user in Game
 
-                        System.out.println("Client received PLAYER_DATA_UPDATE for " + username + ": Money=" + money);
+                        System.out.println("CLIENT_DEBUG: Updated local User data for " + username + ": Money=" + userToUpdate.getMoney() +
+                            ", Quests=" + userToUpdate.getCompletedQuestsCount() + ", AvgSkill=" + userToUpdate.getAverageSkillLevel());
                     }
                 }
                 break;

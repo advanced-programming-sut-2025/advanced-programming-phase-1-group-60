@@ -1592,10 +1592,6 @@ public class MapView implements Screen {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
-            User user = currentPlayer;
-            int newMoneyValue = 2300;
-            // فرض کنید در جایی که پول کاربر تغییر می‌کند (مثلاً خرید/فروش آیتم)
-            user.setMoney(newMoneyValue);
             captureCurrentFrame(); // Take screenshot
             gameView.setLastFrameTexture(lastFrameTexture); // Pass to GameView
             gameView.showInventoryScreen();
@@ -1603,6 +1599,9 @@ public class MapView implements Screen {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.B)) {
+            int newMoneyValue = 2300;
+            // فرض کنید در جایی که پول کاربر تغییر می‌کند (مثلاً خرید/فروش آیتم)
+            currentPlayer.setMoney(newMoneyValue);
             Item coal = new Item("Coal", 5);
             currentPlayer.getInventory().addItem(coal);
             currentPlayer.getInventory().addItem(new Item("Rice",5));

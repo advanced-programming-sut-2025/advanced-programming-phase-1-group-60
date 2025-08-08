@@ -34,11 +34,7 @@ public class Message {
         TRADE_FINALIZE_RESPONSE,// C -> S: Receiver sends final accept/reject
         TRADE_COMPLETE,         // S -> C: Trade was successful, update inventories
         TRADE_CANCELLED,        // S -> C: Trade was cancelled
-        INVENTORY_UPDATE,
-
-        SELECT_MAP, // Client tells server which map they selected
-        MAP_SELECTION_UPDATE, // Server tells clients which maps are taken
-        GAME_STARTED, // Server tells clients the game has started with all assignments
+        INVENTORY_UPDATE, // Server tells clients the game has started with all assignments
         PLAYER_DATA_UPDATE,
         // Game Actions
         PLAYER_MOVE,
