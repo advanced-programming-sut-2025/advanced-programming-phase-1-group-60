@@ -5,6 +5,7 @@ import com.StardewValley.Network.Message;
 import com.StardewValley.controller.LobbyController;
 import com.StardewValley.exceptions.GameException;
 import com.StardewValley.models.Lobby;
+import com.StardewValley.models.User;
 import com.StardewValley.view.InLobbyView;
 import com.StardewValley.view.MapSelectionView;
 import com.StardewValley.view.MapView;
@@ -146,6 +147,31 @@ public class ServerListener implements Runnable {
 
                     MapView mapView = (MapView) game.getScreen();
                     mapView.showEmojiReaction(username, emojiId, text);
+                }
+                break;
+            }
+            case PLAYER_DATA_UPDATE: { // NEW: Handle PLAYER_DATA_UPDATE from server
+                Map<String, Object> updatedUserData = (Map<String, Object>) message.getPayload().get("updatedUser");
+                if (updatedUserData != null) {
+                    String username = (String) updatedUserData.get("username");
+                    double money = ((Double) updatedUserData.get("money"));
+                    double completedQuestsCount = ((Double) updatedUserData.get("completedQuestsCount"));
+                    double averageSkillLevel = ((Double) updatedUserData.get("averageSkillLevel"));
+
+                    // Update the local Game model's User object
+                    User userToUpdate = com.StardewValley.models.Game.getInstance().getUserByUsername(username);
+                    if (userToUpdate != null) {
+                        userToUpdate.setMoney((int) money);
+                        // Ensure User class has setters for these if you want to update them directly
+                        // userToUpdate.setCompletedQuestsCount((int) completedQuestsCount);
+                        // userToUpdate.setAverageSkillLevel((float) averageSkillLevel);
+
+                        // If you have a more complex User object, you might need to deserialize it fully
+                        // User updatedUser = gson.fromJson(gson.toJson(updatedUserData), User.class);
+                        // Game.getInstance().updateUser(updatedUser); // A method to replace/update user in Game
+
+                        System.out.println("Client received PLAYER_DATA_UPDATE for " + username + ": Money=" + money);
+                    }
                 }
                 break;
             }

@@ -3,7 +3,9 @@ package com.StardewValley.Network.Server;
 import com.StardewValley.Network.JsonUtil;
 import com.StardewValley.Network.LobbyManager;
 import com.StardewValley.Network.Message;
+import com.StardewValley.models.Game;
 import com.StardewValley.models.Lobby;
+import com.StardewValley.models.User;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -89,6 +91,9 @@ public class ClientHandler implements Runnable {
                 break;
             case SHOW_REACTION:
                 handleEmojiReaction(message.getPayload());
+                break;
+            case PLAYER_DATA_UPDATE: // NEW: Handle player data update from client
+                handlePlayerDataUpdate(message.getPayload());
                 break;
             default:
                 System.out.println("Unknown action received by handler: " + message.getAction());
@@ -297,6 +302,44 @@ public class ClientHandler implements Runnable {
         if (out != null) {
             String jsonMessage = JsonUtil.toJson(message);
             out.println(jsonMessage);
+        }
+    }
+    /**
+     * NEW: Handles PLAYER_DATA_UPDATE messages from clients.
+     * This method updates the server's authoritative Game/User model
+     * and then broadcasts the updated data to all relevant clients.
+     * @param payload The payload containing the updated user data.
+     */
+    private void handlePlayerDataUpdate(Map<String, Object> payload) {
+        // Extract updated user data from the payload
+        // Note: GSON might deserialize numbers as Double, so cast accordingly.
+        String username = (String) payload.get("username");
+        double money = ((Double) payload.get("money"));
+        double completedQuestsCount = ((Double) payload.get("completedQuestsCount"));
+        double averageSkillLevel = ((Double) payload.get("averageSkillLevel"));
+
+        // Find the actual User object on the server and update its properties
+        // This assumes Game.getInstance() gives access to the current active game state
+        // and its users. If you have multiple games, you'd need to identify the correct game instance.
+        User userToUpdate = Game.getInstance().getUserByUsername(username);
+        if (userToUpdate != null) {
+            userToUpdate.setMoney((int) money);
+            // For completedQuestsCount, you might need a more granular update
+            // For simplicity, we'll just set it assuming the client sends the correct count.
+            // A more robust solution would involve the server validating and updating quests.
+            // userToUpdate.setCompletedQuestsCount((int) completedQuestsCount); // You might need to add this setter
+            // For averageSkillLevel, similarly.
+            // userToUpdate.setAverageSkillLevel((float) averageSkillLevel); // You might need to add this setter
+
+            // IMPORTANT: If skills or quests are complex objects, you'll need to
+            // serialize/deserialize them properly. For now, we're just sending primitive data.
+            // If you send a full User object, ensure it's serializable by Gson.
+
+            // Now, broadcast this updated user data to all clients in the same game instance
+            // (or all clients if it's a global scoreboard)
+            server.broadcastGameDataUpdate(userToUpdate); // Assuming Game has a getGameId()
+        } else {
+            System.err.println("Received PLAYER_DATA_UPDATE for unknown user: " + username);
         }
     }
 

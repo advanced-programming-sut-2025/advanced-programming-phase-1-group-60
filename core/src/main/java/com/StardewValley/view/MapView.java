@@ -110,7 +110,7 @@ public class MapView implements Screen {
     };
     private BuildingDetailsDialog buildingContextMenu;
     private PlaceableGameBuilding selectedBuilding;
-
+    public float scoreboardNum;
 
     //Gift players
     private Label notificationLabel;
@@ -1455,7 +1455,9 @@ public class MapView implements Screen {
         }
         User currentPlayer = Game.getInstance().getCurrentPlayer();
         handleGameplayMechanics(delta);
-
+        if(Gdx.input.isKeyPressed(Input.Keys.R)){
+            gameView.showScoreboard();
+        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.K)) {
             if (isMyTurn()) {
                 playerPositions.put(currentPlayer, new Vector2(playerPos));
@@ -1586,6 +1588,10 @@ public class MapView implements Screen {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+            User user = currentPlayer;
+            int newMoneyValue = 2300;
+            // فرض کنید در جایی که پول کاربر تغییر می‌کند (مثلاً خرید/فروش آیتم)
+            user.setMoney(newMoneyValue);
             captureCurrentFrame(); // Take screenshot
             gameView.setLastFrameTexture(lastFrameTexture); // Pass to GameView
             gameView.showInventoryScreen();

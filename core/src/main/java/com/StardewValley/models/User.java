@@ -1,5 +1,7 @@
 package com.StardewValley.models;
 
+import com.StardewValley.Network.Client.ClientMain;
+import com.StardewValley.Network.Message;
 import com.StardewValley.repository.NpcRepository;
 import com.StardewValley.repository.UserRepository;
 
@@ -35,6 +37,7 @@ public class User {
     private List<Question> securityQuestions;
     private String securityAnswer;
     private List<Quest> activeQuests;
+    private List<Quest> completedQuests = new ArrayList<>(); // Proper field to store completed quests
     private int selectedMapId;
     private List<Tools> tools;
     private Item equippedTool;
@@ -42,6 +45,8 @@ public class User {
     private Game currentGame;
     private Farm farm;
     public boolean isInVillage = false;
+    private List<Item> animalPlaces = new ArrayList<>();
+    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
 
     // Registration part
@@ -164,6 +169,13 @@ public class User {
     }
 
     public void updateSkill(Skill skill, int exp) {
+        // TODO: منطق به‌روزرسانی تجربه مهارت را اینجا پیاده‌سازی کنید.
+        // این متد باید تجربه skill را افزایش دهد و در صورت نیاز سطح را ارتقا دهد.
+        if (skill != null) {
+            skill.gainExperience(exp);
+        }
+        // Moved sendPlayerDataUpdateToServer() to the end of actions that change data
+        sendPlayerDataUpdateToServer();
     }
 
     public String getUsername() {
@@ -266,7 +278,7 @@ public class User {
     }
 
     public void increaseFriendshipXpsWithUsers(User user, Integer xp) {
-        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.get(user) + xp);
+        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.getOrDefault(user, 0) + xp);
     }
 
     public void increaseFriendshipXpsWithNpc (Npc npc, Integer xp) {
@@ -286,7 +298,7 @@ public class User {
     }
 
     public int getFriendshipLevelWithUsers (User user) {
-     //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
+        //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
         int xp = friendshipXpsWithUsers.getOrDefault(user, 0);
         if (xp < 100) return 0;
         if (xp > 100 && xp < 300) return 1;
@@ -307,6 +319,7 @@ public class User {
 
     public void setMoney(int money) {
         this.money = money;
+        sendPlayerDataUpdateToServer(); // Call update after change
     }
     public void setSecurityQuestion(String question, String answer) {
         if (this.securityQuestions == null) {
@@ -344,6 +357,32 @@ public class User {
         this.activeQuests = activeQuests;
     }
 
+    // This method should add a completed quest to the list
+    public void addCompletedQuest(Quest quest) {
+        if (quest != null && !completedQuests.contains(quest)) {
+            completedQuests.add(quest);
+            sendPlayerDataUpdateToServer(); // Call update after change
+        }
+    }
+
+    // Get count of completed quests from the 'completedQuests' list
+    public int getCompletedQuestsCount() {
+        return completedQuests.size();
+    }
+
+    // This method should be called when average skill level changes (after skill update)
+    public float getAverageSkillLevel() {
+        if (skills == null || skills.isEmpty()) {
+            return 0.0f;
+        }
+        float totalLevel = 0;
+        for (Skill skill : skills) {
+            totalLevel += skill.getLevel();
+        }
+        return totalLevel / skills.size();
+    }
+
+
     public void selectMap(int mapId) {
         this.selectedMapId = mapId;
     }
@@ -380,7 +419,8 @@ public class User {
     public Result talk(User receiver, String message) {
         Result result = new Result();
 
-        if (Math.abs(position.getPositionX() - receiver.getPosition().getPositionX()) > 1 ||
+        if (position == null || receiver.getPosition() == null ||
+            Math.abs(position.getPositionX() - receiver.getPosition().getPositionX()) > 1 ||
             Math.abs(position.getPositionY() - receiver.getPosition().getPositionY()) > 1) {
             result.setSuccess(false);
             result.setMessage("You are too far away to talk!");
@@ -581,8 +621,6 @@ public class User {
 
     // animals
     private List<Animal> animals = new ArrayList<>();
-    private List<Item> animalPlaces = new ArrayList<>();
-    private List<Item> placedAnimalPlaces = new ArrayList<>();
 
     public void addAnimal(Animal animal) {
         animals.add(animal);
@@ -643,7 +681,8 @@ public class User {
     // SKILLS
     int fishingSkillsXp;
     public int getFishingSkills() { return fishingSkillsXp / 50; }
-    public void increaseFishingSkills(int amount) { fishingSkillsXp += amount; }
+    public void increaseFishingSkills(int amount) { fishingSkillsXp += amount;
+        sendPlayerDataUpdateToServer();}
 
 
     // Cook
@@ -705,4 +744,40 @@ public class User {
         }
     }
 
+    /**
+     * Sends the current player's relevant data to the server for synchronization.
+     * This should be called whenever the player's money, completed quests, or skill levels change.
+     * IMPORTANT: This method retrieves the current values of money, quests, and skills.
+     * It should NOT call the getters that trigger another call to this method.
+     */
+    public void sendPlayerDataUpdateToServer() {
+        if (ClientMain.isConnected) { // Only send if connected to the server
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("username", this.getUsername());
+            payload.put("money", this.money); // Access the field directly
+            payload.put("completedQuestsCount", this.completedQuests.size()); // Access the field directly or calculate without recursion
+            payload.put("averageSkillLevel", calculateAverageSkillLevel()); // Call a non-recursive calculation
+
+            ClientMain.sendMessage(new Message(Message.ActionType.PLAYER_DATA_UPDATE, payload));
+            System.out.println("Sent PLAYER_DATA_UPDATE for user " + this.getUsername() + ": Money=" + this.money +
+                ", Quests=" + this.completedQuests.size() + ", AvgSkill=" + calculateAverageSkillLevel());
+        } else {
+            System.out.println("Not connected to server. PLAYER_DATA_UPDATE not sent for " + this.getUsername());
+        }
+    }
+
+    /**
+     * Helper method to calculate average skill level without causing recursion.
+     * This should be called by sendPlayerDataUpdateToServer().
+     */
+    private float calculateAverageSkillLevel() {
+        if (skills == null || skills.isEmpty()) {
+            return 0.0f;
+        }
+        float totalLevel = 0;
+        for (Skill skill : skills) {
+            totalLevel += skill.getLevel();
+        }
+        return totalLevel / skills.size();
+    }
 }

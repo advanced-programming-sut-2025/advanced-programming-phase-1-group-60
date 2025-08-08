@@ -46,7 +46,7 @@ public class GameView implements Screen {
     private CarpenterShopView carpenterShopView;
     private KitchenView kitchenView;
     private GiftToPlayerView giftToPlayerView;
-
+    private ScoreboardView scoreboardView;
     private Table mainMenuTable;
     private Table newGameTable;
     private Table mapSelectionTable;
@@ -656,13 +656,22 @@ public class GameView implements Screen {
             stage.draw();
         }
     }
-
+    public void showScoreboard() {
+        if (scoreboardView != null) {
+            scoreboardView.dispose(); // اطمینان از آزاد شدن منابع قبلی
+        }
+        scoreboardView = new ScoreboardView(this);
+        game.setScreen(scoreboardView);
+    }
 
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
         if (mapView != null) {
             mapView.resize(width, height);
+        }
+        if (scoreboardView != null && game.getScreen() == scoreboardView) {
+            scoreboardView.resize(width, height);
         }
     }
 

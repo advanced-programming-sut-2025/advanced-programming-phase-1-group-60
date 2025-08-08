@@ -176,6 +176,14 @@ public class Game {
     public GameMap getCurrentMap() {
         return currentMap;
     }
+    public User getUserByUsername(String username) {
+        for (User user : players) {
+            if (user.getUsername().equals(username)) {
+                return user;
+            }
+        }
+        return null;
+    }
 
     public Map<User, Integer> getSelectedMaps() {
         return selectedMaps;

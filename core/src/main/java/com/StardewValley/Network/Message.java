@@ -21,7 +21,7 @@ public class Message {
         SELECT_MAP, // Client tells server which map they selected
         MAP_SELECTION_UPDATE, // Server tells clients which maps are taken
         GAME_STARTED, // Server tells clients the game has started with all assignments
-
+        PLAYER_DATA_UPDATE,
         // Game Actions
         PLAYER_MOVE, // Player position update
         PLAYER_POSITION_UPDATE, // Broadcast of all player positions
