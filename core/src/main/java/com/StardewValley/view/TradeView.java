@@ -68,46 +68,61 @@ public class TradeView implements Screen {
         root.setBackground(new Image(new Texture(Gdx.files.internal("assets/Background/layers/background.png"))).getDrawable());
         root.pad(20);
 
-        // Inventories
+        // Inventories (only for requester)
         localInventoryTable = new Table(menuManager.getPixthulhuSkin());
         remoteInventoryTable = new Table(menuManager.getPixthulhuSkin());
         ScrollPane localScrollPane = new ScrollPane(localInventoryTable, menuManager.getPixthulhuSkin());
         ScrollPane remoteScrollPane = new ScrollPane(remoteInventoryTable, menuManager.getPixthulhuSkin());
 
-        root.add(new Label(localPlayer.getUsername() + "'s Inventory", menuManager.getPixthulhuSkin(), "title")).expandX();
-        root.add(new Label(remotePlayer.getUsername() + "'s Inventory", menuManager.getPixthulhuSkin(), "title")).expandX().row();
-        root.add(localScrollPane).expand().fill();
-        root.add(remoteScrollPane).expand().fill().row();
+        if (isRequester) {
+            root.add(new Label(localPlayer.getUsername() + "'s Inventory", menuManager.getPixthulhuSkin(), "title")).expandX();
+            root.add(new Label(remotePlayer.getUsername() + "'s Inventory", menuManager.getPixthulhuSkin(), "title")).expandX().row();
+            root.add(localScrollPane).expand().fill();
+            root.add(remoteScrollPane).expand().fill().row();
+        } else {
+            // Hide inventories for receiver
+            localInventoryTable.setVisible(false);
+            remoteInventoryTable.setVisible(false);
+        }
 
-        // Offer and Request Areas
+        // Offer and Request Areas (renamed to Items You Give/Receive for clarity)
         offerTable = new Table(menuManager.getPixthulhuSkin());
         requestTable = new Table(menuManager.getPixthulhuSkin());
         ScrollPane offerScrollPane = new ScrollPane(offerTable, menuManager.getPixthulhuSkin());
         ScrollPane requestScrollPane = new ScrollPane(requestTable, menuManager.getPixthulhuSkin());
 
-        root.add(new Label("Your Offer", menuManager.getPixthulhuSkin(), "title")).padTop(20);
-        root.add(new Label("Your Request", menuManager.getPixthulhuSkin(), "title")).padTop(20).row();
+        root.add(new Label("Items You Give", menuManager.getPixthulhuSkin(), "title")).padTop(20);
+        root.add(new Label("Items You Receive", menuManager.getPixthulhuSkin(), "title")).padTop(20).row();
         root.add(offerScrollPane).expand().fill().height(150);
         root.add(requestScrollPane).expand().fill().height(150).row();
 
-        // Money Sliders
+        // Money Sliders (renamed labels for clarity)
         offerMoneySlider = new Slider(0, localPlayer.getMoney(), 1, false, menuManager.getPixthulhuSkin());
         requestMoneySlider = new Slider(0, remotePlayer.getMoney(), 1, false, menuManager.getPixthulhuSkin());
         offerMoneyLabel = new Label("0g", menuManager.getPixthulhuSkin());
         requestMoneyLabel = new Label("0g", menuManager.getPixthulhuSkin());
 
-        if (!isRequester) {
-            offerMoneySlider.setDisabled(true);
-            requestMoneySlider.setDisabled(true);
-        }
-
         Table offerMoneyTable = new Table();
+        offerMoneyTable.add(new Label("Money You Give: ", menuManager.getPixthulhuSkin()));
         offerMoneyTable.add(offerMoneySlider).width(200);
         offerMoneyTable.add(offerMoneyLabel).padLeft(10);
 
         Table requestMoneyTable = new Table();
+        requestMoneyTable.add(new Label("Money You Receive: ", menuManager.getPixthulhuSkin()));
         requestMoneyTable.add(requestMoneySlider).width(200);
         requestMoneyTable.add(requestMoneyLabel).padLeft(10);
+
+        if (!isRequester) {
+            offerMoneySlider.setDisabled(true);
+            requestMoneySlider.setDisabled(true);
+            offerMoneySlider.setVisible(false);
+            requestMoneySlider.setVisible(false);
+            // Keep labels visible to show the money amounts
+        } else {
+            // For requester, set initial values
+            offerMoneySlider.setValue(0);
+            requestMoneySlider.setValue(0);
+        }
 
         root.add(offerMoneyTable);
         root.add(requestMoneyTable).row();
@@ -135,7 +150,9 @@ public class TradeView implements Screen {
 
         stage.addActor(root);
 
-        populateInventories();
+        if (isRequester) {
+            populateInventories();
+        }
         addListeners();
     }
 
@@ -344,10 +361,12 @@ public class TradeView implements Screen {
         this.localPlayerMoneyOffer = requestedMoney;
         Gdx.app.postRunnable(() -> {
             updateOfferRequestTables();
-            offerMoneySlider.setValue(localPlayerMoneyOffer);
             offerMoneyLabel.setText(localPlayerMoneyOffer + "g");
-            requestMoneySlider.setValue(remotePlayerMoneyOffer);
             requestMoneyLabel.setText(remotePlayerMoneyOffer + "g");
+            if (isRequester) {
+                offerMoneySlider.setValue(localPlayerMoneyOffer);
+                requestMoneySlider.setValue(remotePlayerMoneyOffer);
+            }
         });
     }
 
@@ -364,17 +383,17 @@ public class TradeView implements Screen {
         StringBuilder message = new StringBuilder();
         if (accepted) {
             message.append("Trade successful!\n\n");
-            message.append("Offered Items: \n");
+            message.append("Items You Gave: \n");
             for (Item item : localPlayerOffer) {
                 message.append("- ").append(item.getName()).append(" x").append(item.getQuantity()).append("\n");
             }
-            message.append("\nRequested Items: \n");
+            message.append("\nItems You Received: \n");
             for (Item item : remotePlayerOffer) {
                 message.append("+ ").append(item.getName()).append(" x").append(item.getQuantity()).append("\n");
             }
             message.append("\nMoney Changes: \n");
-            message.append("Offered Money: -").append(localPlayerMoneyOffer).append("g\n");
-            message.append("Requested Money: +").append(remotePlayerMoneyOffer).append("g\n");
+            message.append("Money You Gave: -").append(localPlayerMoneyOffer).append("g\n");
+            message.append("Money You Received: +").append(remotePlayerMoneyOffer).append("g\n");
         } else {
             message.append("Trade rejected.\nNo changes applied.");
         }

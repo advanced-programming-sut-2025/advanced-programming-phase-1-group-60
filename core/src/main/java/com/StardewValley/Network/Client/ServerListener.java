@@ -62,6 +62,9 @@ public class ServerListener implements Runnable {
 
     @SuppressWarnings("unchecked")
     private void handleMessage(Message message) throws GameException {
+        if (!message.getAction().equals(Message.ActionType.PLAYER_POSITION_UPDATE)) {
+            System.out.println("CLIENT_RECEIVE_MESSAGE: actionType=" + message.getAction() + ", payload=" + message.getPayload());
+        }
         switch (message.getAction()) {
             case CREATE_LOBBY_SUCCESS: {
                 Object createdLobbyData = message.getPayload().get("lobby");
@@ -190,6 +193,26 @@ public class ServerListener implements Runnable {
             case LOBBY_LIST_UPDATE:
                 handlePlayerListUpdate(message.getPayload());
                 break;
+            case INVENTORY_UPDATE: {
+                Map<String, Object> payload = message.getPayload();
+                List<Map<String, Object>> rawInventory = (List<Map<String, Object>>) payload.get("inventory");
+                List<Item> updatedInventory = new ArrayList<>();
+                if (rawInventory != null) {
+                    for (Map<String, Object> itemMap : rawInventory) {
+                        String name = (String) itemMap.get("name");
+                        int quantity = ((Double) itemMap.get("quantity")).intValue();
+                        String path = (String) itemMap.get("path");
+                        updatedInventory.add(new Item(name, quantity, path));
+                    }
+                }
+                int updatedMoney = ((Double) payload.get("money")).intValue();
+
+                User localPlayer = lobbyController.getLoginController().getLoggedInUser();
+                localPlayer.getInventory().setItems(updatedInventory);
+                localPlayer.setMoney(updatedMoney);
+                System.out.println("CLIENT: Inventory updated for " + localPlayer.getUsername());
+                break;
+            }
             default: {
                 System.out.println("Unhandled message from server: " + message.getAction());
                 break;
@@ -359,5 +382,4 @@ public class ServerListener implements Runnable {
             ((TradeView) game.getScreen()).finalizeTrade(accepted);
         }
     }
-
 }

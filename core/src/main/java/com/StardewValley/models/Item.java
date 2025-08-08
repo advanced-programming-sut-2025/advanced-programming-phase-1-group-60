@@ -1,6 +1,7 @@
 package com.StardewValley.models;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class Item {
     private int id;
@@ -131,5 +132,14 @@ public class Item {
     @Override
     public String toString() {
         return name + " " + quantity;
+    }
+
+    public Map<String, Object> toMap() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("name", this.name);
+        map.put("quantity", this.quantity);
+        map.put("path", this.path);
+        // Add any other properties of the Item class here if needed
+        return map;
     }
 }

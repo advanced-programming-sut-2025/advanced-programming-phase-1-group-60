@@ -44,6 +44,12 @@ public class ClientHandler implements Runnable {
             if (this.username == null || this.username.isEmpty()) {
                 throw new IOException("Client did not send a username.");
             }
+            UserRepository userRepo = UserRepository.getInstance();
+            if (userRepo.getUserByUsername(this.username) == null) {
+                System.out.println("SERVER: New user added to repository: " + this.username);
+            } else {
+                System.out.println("SERVER: Existing user connected: " + this.username);
+            }
             server.addClient(this.username, this);
             System.out.println("User connected: " + this.username);
             System.out.println("Current users: " + server.getConnectedClients());
@@ -359,6 +365,7 @@ public class ClientHandler implements Runnable {
 
         // NEW: Get requester's inventory from payload and update the user object on the server
         if (payload.containsKey("inventory")) {
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> rawInventory = (List<Map<String, Object>>) payload.get("inventory");
             List<Item> requesterInventory = new ArrayList<>();
             for (Map<String, Object> itemMap : rawInventory) {
@@ -370,6 +377,8 @@ public class ClientHandler implements Runnable {
             User requester = UserRepository.getInstance().getUserByUsername(this.username);
             if (requester != null) {
                 requester.getInventory().setItems(requesterInventory);
+            } else {
+                System.out.println("SERVER_WARNING: Requester not found in repository during trade request: " + this.username);
             }
         }
 
@@ -387,6 +396,7 @@ public class ClientHandler implements Runnable {
             // دریافت اینونتوری بازیکن دوم (پذیرنده)
             List<Item> receiverInventory = new ArrayList<>();
             if (payload.containsKey("inventory")) {
+                @SuppressWarnings("unchecked")
                 List<Map<String, Object>> rawInventory = (List<Map<String, Object>>) payload.get("inventory");
                 for (Map<String, Object> itemMap : rawInventory) {
                     String name = (String) itemMap.get("name");
@@ -400,6 +410,8 @@ public class ClientHandler implements Runnable {
             User receiverUser = UserRepository.getInstance().getUserByUsername(this.username);
             if (receiverUser != null) {
                 receiverUser.getInventory().setItems(receiverInventory);
+            } else {
+                System.out.println("SERVER_WARNING: Receiver not found in repository during trade response: " + this.username);
             }
 
             // دریافت اینونتوری بازیکن اول (درخواست دهنده) از سرور
@@ -407,6 +419,8 @@ public class ClientHandler implements Runnable {
             List<Item> requesterInventory = new ArrayList<>();
             if (requesterUser != null) {
                 requesterInventory = requesterUser.getInventory().getItems();
+            } else {
+                System.out.println("SERVER_WARNING: Requester not found in repository during trade response: " + requester);
             }
 
 
@@ -437,64 +451,59 @@ public class ClientHandler implements Runnable {
 
     private void handleTradeUpdate(Map<String, Object> payload) {
         String tradeId = (String) payload.get("tradeId");
-
-        // Extract raw lists (GSON deserializes to List<Map<String, Object>>)
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> offeredRaw = (List<Map<String, Object>>) payload.get("offeredItems");
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> requestedRaw = (List<Map<String, Object>>) payload.get("requestedItems");
-
-        // Convert to List<Item>
-        List<Item> offeredItems = new ArrayList<>();
-        if (offeredRaw != null) {
-            for (Map<String, Object> itemMap : offeredRaw) {
-                String name = (String) itemMap.get("name"); // Adjust field names if different in Item class
-                int quantity = ((Double) itemMap.get("quantity")).intValue();
-                String path = (String) itemMap.get("path");
-                offeredItems.add(new Item(name, quantity, path));
-            }
-        }
-
-        List<Item> requestedItems = new ArrayList<>();
-        if (requestedRaw != null) {
-            for (Map<String, Object> itemMap : requestedRaw) {
-                String name = (String) itemMap.get("name");
-                int quantity = ((Double) itemMap.get("quantity")).intValue();
-                String path = (String) itemMap.get("path");
-                requestedItems.add(new Item(name, quantity, path));
-            }
-        }
-
-        int offeredMoney = ((Double) payload.get("offeredMoney")).intValue();
-        int requestedMoney = ((Double) payload.get("requestedMoney")).intValue();
+        String senderUsername = this.username; // کاربری که این آپدیت را ارسال کرده است
 
         synchronized (activeTrades) {
-            TradeOffer serverOffer = activeTrades.get(tradeId);
-            if (serverOffer != null) {
-                if (serverOffer.getRequester().equals(this.username)) {
-                    serverOffer.setOfferedItems(offeredItems);
-                    serverOffer.setRequestedItems(requestedItems);
-                    serverOffer.setOfferedMoney(offeredMoney);
-                    serverOffer.setRequestedMoney(requestedMoney);
+            TradeOffer offer = activeTrades.get(tradeId);
+            if (offer != null) {
+                // بر اساس توضیحات، فقط درخواست‌دهنده می‌تواند ترید را تغییر دهد
+                // این موضوع باید در سمت سرور کنترل شود
+                if (!senderUsername.equals(offer.getRequester())) {
+                    System.out.println("SERVER_WARNING: Received trade update from non-requester (" + senderUsername + "). Ignoring.");
+                    return;
                 }
 
-                Map<String, Object> updatePayload = new HashMap<>();
-                updatePayload.put("tradeId", tradeId);
-                updatePayload.put("offeredItems", serverOffer.getOfferedItems());
-                updatePayload.put("requestedItems", serverOffer.getRequestedItems());
-                updatePayload.put("offeredMoney", serverOffer.getOfferedMoney());
-                updatePayload.put("requestedMoney", serverOffer.getRequestedMoney());
+                // از آنجایی که فقط درخواست‌دهنده آپدیت ارسال می‌کند، مستقیماً وضعیت ترید در سرور را به‌روز می‌کنیم
+                offer.setOfferedItems(parseItemsFromPayload(payload, "offeredItems"));
+                offer.setRequestedItems(parseItemsFromPayload(payload, "requestedItems"));
+                offer.setOfferedMoney(((Double) payload.get("offeredMoney")).intValue());
+                offer.setRequestedMoney(((Double) payload.get("requestedMoney")).intValue());
 
-                Message updateMessage = new Message(Message.ActionType.TRADE_OFFER_UPDATED, updatePayload);
+                // اکنون، وضعیت جدید را فقط برای گیرنده ارسال می‌کنیم
+                // دیدگاه در پیام ارسالی برای گیرنده باید مناسب او باشد
+                Map<String, Object> payloadForReceiver = new HashMap<>();
+                payloadForReceiver.put("offeredItems", offer.getOfferedItems()); // آیتم‌هایی که درخواست‌دهنده پیشنهاد می‌دهد
+                payloadForReceiver.put("requestedItems", offer.getRequestedItems()); // آیتم‌هایی که درخواست‌دهنده می‌خواهد
+                payloadForReceiver.put("offeredMoney", offer.getOfferedMoney());
+                payloadForReceiver.put("requestedMoney", offer.getRequestedMoney());
 
-                String otherPlayer = serverOffer.getReceiver().equals(this.username) ? serverOffer.getRequester() : serverOffer.getReceiver();
-                server.sendMessageTo(otherPlayer, updateMessage);
+                // ارسال پیام به بازیکن دیگر (گیرنده)
+                server.sendMessageTo(offer.getReceiver(), new Message(Message.ActionType.TRADE_OFFER_UPDATED, payloadForReceiver));
             }
         }
     }
 
+    private List<Item> parseItemsFromPayload(Map<String, Object> payload, String key) {
+        List<Item> items = new ArrayList<>();
+        if (payload.get(key) instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rawItems = (List<Map<String, Object>>) payload.get(key);
+            if (rawItems != null) {
+                for (Map<String, Object> itemMap : rawItems) {
+                    // اطمینان از وجود همه فیلدها و مدیریت خطاهای احتمالی در تبدیل نوع داده‌ها
+                    String name = (String) itemMap.get("name");
+                    int quantity = ((Double) itemMap.get("quantity")).intValue();
+                    String path = (String) itemMap.get("path");
+                    items.add(new Item(name, quantity, path));
+                }
+            }
+        }
+        return items;
+    }
+
     private void handleTradeSubmit(Map<String, Object> payload) {
         String tradeId = (String) payload.get("tradeId");
+        System.out.println("SERVER_RECEIVE_SUBMIT: tradeId=" + payload.get("tradeId") + ", requester=" + payload.get("requester") + ", receiver=" + payload.get("receiver"));
         synchronized (activeTrades) {
             TradeOffer offer = activeTrades.get(tradeId);
             if (offer != null && offer.getRequester().equals(this.username)) {
@@ -513,6 +522,7 @@ public class ClientHandler implements Runnable {
     private void handleTradeFinalize(Map<String, Object> payload) {
         String tradeId = (String) payload.get("tradeId");
         boolean accepted = (Boolean) payload.get("accepted");
+        System.out.println("SERVER_RECEIVE_FINALIZE: tradeId=" + tradeId + ", accepted=" + accepted + ", requester=" + payload.get("requester") + ", receiver=" + payload.get("receiver"));
 
         synchronized (activeTrades) {
             TradeOffer offer = activeTrades.get(tradeId);
@@ -522,34 +532,36 @@ public class ClientHandler implements Runnable {
                     User receiver = UserRepository.getInstance().getUserByUsername(offer.getReceiver());
 
                     if (requester == null || receiver == null) {
-                        sendErrorToBoth(offer, "User not found.");
+                        System.out.println("SERVER_CHECK_FAIL: User not found.");
+                        sendErrorToBoth(offer, "User not found during trade finalization.");
                         activeTrades.remove(tradeId);
                         return;
                     }
 
-                    // VALIDATION: Check if both players have enough items and money
+                    // VALIDATION: بررسی اینکه آیا هر دو بازیکن منابع کافی را دارند یا خیر
+                    boolean requesterItemsOk = true;
                     for (Item item : offer.getOfferedItems()) {
                         if (!requester.getInventory().hasItem(item.getName(), item.getQuantity())) {
-                            sendErrorToBoth(offer, requester.getUsername() + " does not have enough " + item.getName() + ".");
-                            activeTrades.remove(tradeId);
-                            return;
+                            requesterItemsOk = false;
+                            break;
                         }
                     }
+                    boolean receiverItemsOk = true;
                     for (Item item : offer.getRequestedItems()) {
                         if (!receiver.getInventory().hasItem(item.getName(), item.getQuantity())) {
-                            sendErrorToBoth(offer, receiver.getUsername() + " does not have enough " + item.getName() + ".");
-                            activeTrades.remove(tradeId);
-                            return;
+                            receiverItemsOk = false;
+                            break;
                         }
                     }
 
-                    if (requester.getMoney() < offer.getOfferedMoney() || receiver.getMoney() < offer.getRequestedMoney()) {
-                        sendErrorToBoth(offer, "Not enough money to complete trade.");
+                    if (!requesterItemsOk || !receiverItemsOk || requester.getMoney() < offer.getOfferedMoney() || receiver.getMoney() < offer.getRequestedMoney()) {
+                        sendErrorToBoth(offer, "Not enough resources to complete trade.");
                         activeTrades.remove(tradeId);
                         return;
                     }
 
-                    // TRANSACTION: Perform the trade
+                    // TRANSACTION: انجام ترید
+                    System.out.println("SERVER_CHECK_PASS: Applying trade changes.");
                     requester.setMoney(requester.getMoney() - offer.getOfferedMoney() + offer.getRequestedMoney());
                     receiver.setMoney(receiver.getMoney() + offer.getOfferedMoney() - offer.getRequestedMoney());
 
@@ -562,16 +574,45 @@ public class ClientHandler implements Runnable {
                         requester.getInventory().addItem(item);
                     }
 
+                    // PERSIST: ذخیره تغییرات در فایل
+                    UserRepository.getInstance().saveUsers();
+                    System.out.println("SERVER: User data saved after trade.");
+
+                    // NOTIFY CLIENTS: ارسال پیام برای به‌روزرسانی موجودی به هر دو بازیکن
+
+                    // ارسال پیام به‌روزرسانی به درخواست‌دهنده ترید
+                    Map<String, Object> requesterUpdatePayload = new HashMap<>();
+                    requesterUpdatePayload.put("inventory", requester.getInventory().getItems());
+                    requesterUpdatePayload.put("money", requester.getMoney());
+                    Message requesterUpdateMessage = new Message(Message.ActionType.INVENTORY_UPDATE, requesterUpdatePayload);
+                    server.sendMessageTo(requester.getUsername(), requesterUpdateMessage);
+                    System.out.println("SERVER: Sent INVENTORY_UPDATE to requester: " + requester.getUsername());
+
+                    // ارسال پیام به‌روزرسانی به دریافت‌کننده ترید
+                    Map<String, Object> receiverUpdatePayload = new HashMap<>();
+                    receiverUpdatePayload.put("inventory", receiver.getInventory().getItems());
+                    receiverUpdatePayload.put("money", receiver.getMoney());
+                    Message receiverUpdateMessage = new Message(Message.ActionType.INVENTORY_UPDATE, receiverUpdatePayload);
+                    server.sendMessageTo(receiver.getUsername(), receiverUpdateMessage);
+                    System.out.println("SERVER: Sent INVENTORY_UPDATE to receiver: " + receiver.getUsername());
+
+                    // ارسال پیام تکمیل ترید برای بستن رابط کاربری ترید
                     offer.setFinalized(true);
-                    Message completeMessage = new Message(Message.ActionType.TRADE_COMPLETE, new HashMap<>());
+                    Map<String, Object> completePayload = new HashMap<>();
+                    completePayload.put("offer", offer);
+                    Message completeMessage = new Message(Message.ActionType.TRADE_COMPLETE, completePayload);
                     server.sendMessageTo(offer.getRequester(), completeMessage);
                     server.sendMessageTo(offer.getReceiver(), completeMessage);
+                    System.out.println("SERVER: Sent TRADE_COMPLETE to both parties.");
 
                 } else {
+                    // رد شدن ترید
+                    System.out.println("SERVER: Trade rejected by receiver.");
                     Message cancelMessage = new Message(Message.ActionType.TRADE_CANCELLED, new HashMap<>());
                     server.sendMessageTo(offer.getRequester(), cancelMessage);
                     server.sendMessageTo(offer.getReceiver(), cancelMessage);
                 }
+                // حذف ترید از لیست تریدهای فعال
                 activeTrades.remove(tradeId);
             }
         }

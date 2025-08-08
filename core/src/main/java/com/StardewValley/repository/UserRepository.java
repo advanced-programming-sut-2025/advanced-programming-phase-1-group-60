@@ -52,7 +52,7 @@ public class UserRepository {
         }
     }
     public void loadUsers() {
-        allUsers.clear();
+        // allUsers.clear(); // This line is removed to prevent clearing existing user data.
         File file = new File("core/src/main/java/com/StardewValley/Network/Database/Users.csv");
         if (!file.exists()) return;
         try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
@@ -60,11 +60,25 @@ public class UserRepository {
             while ((line = reader.readLine()) != null) {
                 String[] parts = line.split(",", -1);
                 if (parts.length >= 5) {
-                    try {
-                        User user = new User(parts[0], parts[1], parts[2], parts[3], parts[4]);
-                        allUsers.add(user);
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                    String username = parts[0];
+
+                    // Check if user already exists in memory to avoid duplicates and overwriting.
+                    boolean userExists = false;
+                    for (User existingUser : this.allUsers) {
+                        if (existingUser.getUsername().equals(username)) {
+                            userExists = true;
+                            break;
+                        }
+                    }
+
+                    // If user doesn't exist, create and add them to the list.
+                    if (!userExists) {
+                        try {
+                            User user = new User(parts[0], parts[1], parts[2], parts[3], parts[4]);
+                            allUsers.add(user);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }

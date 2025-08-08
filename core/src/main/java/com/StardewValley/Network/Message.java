@@ -34,6 +34,7 @@ public class Message {
         TRADE_FINALIZE_RESPONSE,// C -> S: Receiver sends final accept/reject
         TRADE_COMPLETE,         // S -> C: Trade was successful, update inventories
         TRADE_CANCELLED,        // S -> C: Trade was cancelled
+        INVENTORY_UPDATE,
 
         // Game Actions
         PLAYER_MOVE,
