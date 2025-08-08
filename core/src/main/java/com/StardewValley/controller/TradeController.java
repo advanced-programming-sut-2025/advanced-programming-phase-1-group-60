@@ -283,6 +283,10 @@ public class TradeController {
             from.increaseFriendshipXpsWithUsers(mainUser, 50);
             System.out.println("Trade #" + id + " accepted.");
             target.setAccepted(true);
+
+            // ذخیره تغییرات
+            UserRepository.getInstance().saveUsers();
+
         } else if (reject) {
             target.rejectTrade();
             User from = target.getFromUser();

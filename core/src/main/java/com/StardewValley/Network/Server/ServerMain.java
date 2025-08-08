@@ -30,6 +30,7 @@ public class ServerMain {
     }
 
     public void startServer() {
+        com.StardewValley.repository.UserRepository.getInstance().loadUsers(); // FIX: Load users at server startup
         System.out.println("Server started: #" + SERVER_NAME);
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             while (true) {

@@ -1,5 +1,6 @@
 package com.StardewValley.Network.Client;
 
+import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.Network.JsonUtil;
 import com.StardewValley.Network.Message;
 import com.StardewValley.controller.LobbyController;
@@ -9,15 +10,22 @@ import com.StardewValley.models.User;
 import com.StardewValley.view.InLobbyView;
 import com.StardewValley.view.MapSelectionView;
 import com.StardewValley.view.MapView;
+import com.StardewValley.models.*;
+import com.StardewValley.view.*;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Game;
+import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ServerListener implements Runnable {
@@ -59,6 +67,9 @@ public class ServerListener implements Runnable {
 
     @SuppressWarnings("unchecked")
     private void handleMessage(Message message) throws GameException {
+        if (!message.getAction().equals(Message.ActionType.PLAYER_POSITION_UPDATE)) {
+            System.out.println("CLIENT_RECEIVE_MESSAGE: actionType=" + message.getAction() + ", payload=" + message.getPayload());
+        }
         switch (message.getAction()) {
             case CREATE_LOBBY_SUCCESS: {
                 Object createdLobbyData = message.getPayload().get("lobby");
@@ -149,6 +160,63 @@ public class ServerListener implements Runnable {
                     mapView.showEmojiReaction(username, emojiId, text);
                 }
                 break;
+            } case ITEM_SOLD_UPDATE: { // <-- کیس جدید
+                Map<String, Object> payload = message.getPayload();
+                String storeName = (String) payload.get("storeName");
+                String itemName = (String) payload.get("itemName");
+                String itemType = (String) payload.get("itemType");
+                int level = ((Double) payload.get("level")).intValue(); // Gson اعداد را Double می‌خواند
+
+                // پیدا کردن فروشگاه مورد نظر و به‌روزرسانی آن
+                com.StardewValley.models.Game gameInstance = com.StardewValley.models.Game.getInstance();
+                if (gameInstance != null && gameInstance.getCurrentMap() != null) {
+                    for (StaticElement element : gameInstance.getCurrentMap().getVillage().getElements()) {
+                        if (element instanceof Store && ((Store) element).getName().equalsIgnoreCase(storeName)) {
+                            ((Store) element).markAsSold(itemName, itemType, level);
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+            case TRADE_INVITE:
+                handleTradeInvite(message.getPayload());
+                break;
+            case TRADE_START:
+                handleTradeStart(message.getPayload());
+                break;
+            case TRADE_OFFER_UPDATED:
+                handleTradeOfferUpdated(message.getPayload());
+                break;
+            case TRADE_FINALIZE_REQUEST:
+                handleTradeFinalizeRequest(message.getPayload());
+                break;
+            case TRADE_COMPLETE:
+            case TRADE_CANCELLED:
+                handleTradeEnd(message);
+                break;
+            case LOBBY_LIST_UPDATE:
+                handlePlayerListUpdate(message.getPayload());
+                break;
+            case INVENTORY_UPDATE: {
+                Map<String, Object> payload = message.getPayload();
+                List<Map<String, Object>> rawInventory = (List<Map<String, Object>>) payload.get("inventory");
+                List<Item> updatedInventory = new ArrayList<>();
+                if (rawInventory != null) {
+                    for (Map<String, Object> itemMap : rawInventory) {
+                        String name = (String) itemMap.get("name");
+                        int quantity = ((Double) itemMap.get("quantity")).intValue();
+                        String path = (String) itemMap.get("path");
+                        updatedInventory.add(new Item(name, quantity, path));
+                    }
+                }
+                int updatedMoney = ((Double) payload.get("money")).intValue();
+
+                User localPlayer = lobbyController.getLoginController().getLoggedInUser();
+                localPlayer.getInventory().setItems(updatedInventory);
+                localPlayer.setMoney(updatedMoney);
+                System.out.println("CLIENT: Inventory updated for " + localPlayer.getUsername());
+                break;
             }
             case PLAYER_DATA_UPDATE: { // NEW: Handle PLAYER_DATA_UPDATE from server
                 Map<String, Object> updatedUserData = (Map<String, Object>) message.getPayload().get("updatedUser");
@@ -179,6 +247,169 @@ public class ServerListener implements Runnable {
                 System.out.println("Unhandled message from server: " + message.getAction());
                 break;
             }
+        }
+    }
+
+    private void handlePlayerListUpdate(Map<String, Object> payload) {
+        if (game.getScreen() instanceof TradeMenuView) {
+            List<String> players = (List<String>) payload.get("players");
+            ((TradeMenuView) game.getScreen()).updatePlayerList(players);
+        }
+    }
+
+    private void handleTradeInvite(Map<String, Object> payload) {
+        String requester = (String) payload.get("requester");
+
+        Dialog dialog = new Dialog("Trade Request", MenuManager.getInstance().getPixthulhuSkin()) {
+            @Override
+            protected void result(Object object) {
+                boolean accepted = (Boolean) object;
+                Map<String, Object> responsePayload = new HashMap<>();
+                responsePayload.put("requester", requester);
+                responsePayload.put("accepted", accepted);
+
+                // NEW: If accepting, send the full inventory to the server
+                if (accepted) {
+                    User localPlayer = lobbyController.getLoginController().getLoggedInUser();
+                    responsePayload.put("inventory", localPlayer.getInventory().getItems());
+                }
+
+                Message responseMessage = new Message(Message.ActionType.TRADE_RESPONSE, responsePayload);
+                ClientMain.sendMessage(responseMessage);
+            }
+        };
+        dialog.text(requester + " wants to trade with you.");
+        dialog.button("Accept", true);
+        dialog.button("Reject", false);
+
+        Stage currentStage = null;
+        Screen currentScreen = game.getScreen();
+
+        if (currentScreen instanceof MapView) {
+            currentStage = ((MapView) currentScreen).getStage();
+        } else if (currentScreen instanceof GameView) {
+            currentStage = ((GameView) currentScreen).getStage();
+        } else if (currentScreen instanceof TradeMenuView) {
+            currentStage = ((TradeMenuView) currentScreen).getStage();
+        }
+
+        if (currentStage != null) {
+            dialog.show(currentStage);
+        } else {
+            System.err.println("Cannot show trade invite: No suitable stage found for the current screen.");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Item> parseInventory(Object rawInventoryData) {
+        List<Item> inventory = new ArrayList<>();
+        if (rawInventoryData instanceof List) {
+            List<Map<String, Object>> rawList = (List<Map<String, Object>>) rawInventoryData;
+            for (Map<String, Object> itemMap : rawList) {
+                String name = (String) itemMap.get("name");
+                int quantity = ((Double) itemMap.get("quantity")).intValue();
+                String path = (String) itemMap.get("path");
+                inventory.add(new Item(name, quantity, path));
+            }
+        }
+        return inventory;
+    }
+
+    // متد اصلاح شده handleTradeStart
+    private void handleTradeStart(Map<String, Object> payload) {
+        String tradeId = (String) payload.get("tradeId");
+        String requester = (String) payload.get("requester");
+        String receiver = (String) payload.get("receiver");
+
+        // **دریافت و پردازش اینونتوری‌ها از پیام سرور**
+        List<Item> requesterInventory = parseInventory(payload.get("requesterInventory"));
+        List<Item> receiverInventory = parseInventory(payload.get("receiverInventory"));
+
+        User localPlayer = lobbyController.getLoginController().getLoggedInUser();
+        boolean isRequester = localPlayer.getUsername().equals(requester);
+
+        String remoteUsername = isRequester ? receiver : requester;
+        User remotePlayer = lobbyController.getUserByUsername(remoteUsername);
+
+        // **آپدیت کردن اینونتوری بازیکن مقابل در کلاینت محلی**
+        if (remotePlayer != null) {
+            if (isRequester) {
+                remotePlayer.getInventory().setItems(receiverInventory);
+            } else {
+                remotePlayer.getInventory().setItems(requesterInventory);
+            }
+        }
+
+        GameView gameView = null;
+        Screen currentScreen = game.getScreen();
+
+        if (currentScreen instanceof MapView) {
+            gameView = ((MapView) currentScreen).getGameView();
+        } else if (currentScreen instanceof TradeMenuView) {
+            gameView = ((TradeMenuView) currentScreen).getGameView();
+        } else if (currentScreen instanceof GameView) {
+            gameView = (GameView) currentScreen;
+        }
+
+        if (gameView != null) {
+            final GameView finalGameView = gameView;
+            final User finalRemotePlayer = remotePlayer;
+            final String finalTradeId = tradeId;
+
+            Gdx.app.postRunnable(() -> {
+                finalGameView.showTradeView(localPlayer, finalRemotePlayer, isRequester, finalTradeId);
+            });
+        } else {
+            System.err.println("Cannot switch to TradeView: GameView instance not found from current screen: " + currentScreen.getClass().getName());
+        }
+    }
+
+    private void handleTradeOfferUpdated(Map<String, Object> payload) {
+        if (game.getScreen() instanceof TradeView) {
+            // Extract raw lists (GSON deserializes to List<Map<String, Object>>)
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> offeredRaw = (List<Map<String, Object>>) payload.get("offeredItems");
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> requestedRaw = (List<Map<String, Object>>) payload.get("requestedItems");
+
+            // Convert to List<Item>
+            List<Item> offeredItems = new ArrayList<>();
+            if (offeredRaw != null) {
+                for (Map<String, Object> itemMap : offeredRaw) {
+                    String name = (String) itemMap.get("name"); // Adjust field names if different in Item class
+                    int quantity = ((Double) itemMap.get("quantity")).intValue();
+                    String path = (String) itemMap.get("path");
+                    offeredItems.add(new Item(name, quantity, path));
+                }
+            }
+
+            List<Item> requestedItems = new ArrayList<>();
+            if (requestedRaw != null) {
+                for (Map<String, Object> itemMap : requestedRaw) {
+                    String name = (String) itemMap.get("name");
+                    int quantity = ((Double) itemMap.get("quantity")).intValue();
+                    String path = (String) itemMap.get("path");
+                    requestedItems.add(new Item(name, quantity, path));
+                }
+            }
+
+            int offeredMoney = ((Double) payload.get("offeredMoney")).intValue();
+            int requestedMoney = ((Double) payload.get("requestedMoney")).intValue();
+
+            ((TradeView) game.getScreen()).updateTradeOffer(offeredItems, requestedItems, offeredMoney, requestedMoney);
+        }
+    }
+
+    private void handleTradeFinalizeRequest(Map<String, Object> payload) {
+        if (game.getScreen() instanceof TradeView) {
+            ((TradeView) game.getScreen()).showFinalizeButtons();
+        }
+    }
+
+    private void handleTradeEnd(Message message) { // Now receives the message
+        if (game.getScreen() instanceof TradeView) {
+            boolean accepted = message.getAction() == Message.ActionType.TRADE_COMPLETE;
+            ((TradeView) game.getScreen()).finalizeTrade(accepted);
         }
     }
 }

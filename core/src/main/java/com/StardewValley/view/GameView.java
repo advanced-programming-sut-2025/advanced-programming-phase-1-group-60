@@ -59,6 +59,8 @@ public class GameView implements Screen {
     private Texture lastFrameTexture;
     private Lobby lobby;
     private MapSelectionView mapSelectionView;
+    private TradeMenuView tradeMenuView;
+    private TradeView tradeView;
 
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController, Lobby lobby) {
         this.game = game;
@@ -614,6 +616,43 @@ public class GameView implements Screen {
         game.setScreen(giftToPlayerView);
     }
 
+    public void showTradeMenu() {
+        Gdx.app.postRunnable(() -> {
+            User currentPlayer = loginController.getLoggedInUser();
+            if (tradeMenuView != null) {
+                tradeMenuView.dispose();
+            }
+            tradeMenuView = new TradeMenuView(game, currentPlayer, this, new LobbyController(game, loginController));
+            game.setScreen(tradeMenuView);
+        });
+    }
+
+    public void showTradeView(User localPlayer, User remotePlayer, boolean isRequester, String tradeId) {
+        Gdx.app.postRunnable(() -> {
+            if (tradeView != null) {
+                tradeView.dispose();
+            }
+            tradeView = new TradeView(game, this, localPlayer, remotePlayer, isRequester, tradeId);
+            game.setScreen(tradeView);
+        });
+    }
+
+    public Stage getStage() {
+        if (game.getScreen() instanceof MapView) {
+            return ((MapView) game.getScreen()).getStage();
+        } else if (game.getScreen() instanceof TradeMenuView) {
+            return ((TradeMenuView) game.getScreen()).getStage();
+        }
+        return null; // Or a default stage if needed
+    }
+
+    public Stage getMapViewStage() {
+        if (mapView != null) {
+            return mapView.getStage();
+        }
+        return null;
+    }
+
 
     // You will need to create this class yourself based on your colleague's code
     public void showCraftingMenu(User player) {
@@ -717,6 +756,9 @@ public class GameView implements Screen {
         }
         if (kitchenView != null) {
             kitchenView.dispose();
+        }
+        if (tradeMenuView != null) {
+            tradeMenuView.dispose();
         }
         if (lastFrameTexture != null) lastFrameTexture.dispose();
     }

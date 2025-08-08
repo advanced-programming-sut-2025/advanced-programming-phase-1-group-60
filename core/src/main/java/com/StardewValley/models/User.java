@@ -278,7 +278,7 @@ public class User {
     }
 
     public void increaseFriendshipXpsWithUsers(User user, Integer xp) {
-        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.getOrDefault(user, 0) + xp);
+        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.get(user) + xp);
     }
 
     public void increaseFriendshipXpsWithNpc (Npc npc, Integer xp) {
@@ -298,7 +298,7 @@ public class User {
     }
 
     public int getFriendshipLevelWithUsers (User user) {
-        //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
+     //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
         int xp = friendshipXpsWithUsers.getOrDefault(user, 0);
         if (xp < 100) return 0;
         if (xp > 100 && xp < 300) return 1;
@@ -742,6 +742,17 @@ public class User {
         if (!cookRecipes.contains(recipeName)) {
             cookRecipes.add(recipeName);
         }
+    }
+
+    //Trade
+    private List<String> tradeHistory = new ArrayList<>();
+
+    public void addTradeHistory(String entry) {
+        tradeHistory.add(entry);
+    }
+
+    public List<String> getTradeHistory() {
+        return tradeHistory;
     }
 
     /**

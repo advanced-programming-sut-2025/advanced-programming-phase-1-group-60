@@ -1,11 +1,12 @@
 package com.StardewValley.models;
 
 import java.util.HashMap;
+import java.util.Map;
 
 public class Item {
     private int id;
     private String name;
-    private String type;
+    protected String type;
     private int basePrice;
     private int quantity;
     private int storePrice;
@@ -13,7 +14,7 @@ public class Item {
     private int energy;
     private int sellPrice;
     private HashMap<String, Object> properties = new HashMap<>();
-    private User owner; // Added owner field
+    private transient User owner; // Added owner field
     private String path;
 
     public boolean isEdible() {
@@ -131,5 +132,14 @@ public class Item {
     @Override
     public String toString() {
         return name + " " + quantity;
+    }
+
+    public Map<String, Object> toMap() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("name", this.name);
+        map.put("quantity", this.quantity);
+        map.put("path", this.path);
+        // Add any other properties of the Item class here if needed
+        return map;
     }
 }

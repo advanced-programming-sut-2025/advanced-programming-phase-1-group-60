@@ -418,6 +418,10 @@ public class MapView implements Screen {
             isMoving = true;
             currentPlayerAnimation = MapManager.getInstance().getWalkDownAnimation();
         }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.T)) {
+            gameView.showTradeMenu();
+            return;
+        }
         if (!isMoving) {
             currentPlayerAnimation = MapManager.getInstance().getIdleAnimation();
         }
@@ -2735,6 +2739,9 @@ private void drawArtisanProductionProgressTextOnly() {
                 }
             }
         }
+    }
+    public GameView getGameView() {
+        return gameView;
     }
     @Override
     public void hide() {}
