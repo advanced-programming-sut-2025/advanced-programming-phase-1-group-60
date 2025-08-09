@@ -1,6 +1,8 @@
 // StardewValley/models/Seeds.java
 package com.StardewValley.models;
 
+import com.StardewValley.repository.FruitsAndVegetablesRepository;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -60,6 +62,6 @@ public class Seeds extends Item implements RandomElement {
     }
     // Added Function: Allows direct access to the associated FruitsAndVegetables object
     public FruitsAndVegetables getAssociatedProduceInfo() {
-        return this.crop;
+        return FruitsAndVegetablesRepository.getCropByName(getGrowsInto());
     }
 }

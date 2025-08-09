@@ -11,11 +11,17 @@ import java.util.*;
 
 public class CropManager {
     private static CropManager instance;
+
+    // Caches
     private final Map<String, Texture> seedTextureCache = new HashMap<>();
+    private final Map<String, List<Texture>> stageTextureCache = new HashMap<>();
     private final Map<String, Texture> fruitTextureCache = new HashMap<>();
-    private final Map<String, List<Texture>> cropStageTextureCache = new HashMap<>();
-    private boolean cropsLoaded = false;
+    private final Map<String, Texture> multiHarvestBaseCache = new HashMap<>();
+    private final Map<String, Texture> giantCropTextureCache = new HashMap<>();
+    private boolean allLoaded = false;
+
     private CropManager() {}
+
     public static synchronized CropManager getInstance() {
         if (instance == null) {
             instance = new CropManager();
@@ -23,164 +29,207 @@ public class CropManager {
         return instance;
     }
 
-    public Texture getSeedTexture(String imageFileName) {
-        if (imageFileName == null || imageFileName.isEmpty()) return null;
-        String key = imageFileName.toLowerCase(Locale.ROOT);
-        if (!seedTextureCache.containsKey(key)) {
-            String path = "assets/Map/FruitsAndVegetables/Seed/" + imageFileName;
+    /* --------------------------------------------------
+       Public API
+       -------------------------------------------------- */
+
+    // Seed packet icons
+    public Texture getSeedTexture(Seeds seed) {
+        if (seed == null) return null;
+        return getSeedTexture(seed.getImagePath());
+    }
+    public Texture getGiantCropTexture(String cropName) {
+        if (cropName == null) return null;
+        String key = cropName.toLowerCase(Locale.ROOT);
+        if (giantCropTextureCache.containsKey(key)) return giantCropTextureCache.get(key);
+
+        List<String> variants = buildNameVariants(cropName);
+        for (String v : variants) {
+            String path = "assets/Map/FruitsAndVegetables/GiantCrops/Giant_" + v + ".png";
             if (Gdx.files.internal(path).exists()) {
-                seedTextureCache.put(key, new Texture(Gdx.files.internal(path)));
-            } else {
-                String altPath = "Map/FruitsAndVegetables/Seed/" + imageFileName;
-                if (Gdx.files.internal(altPath).exists()) {
-                    seedTextureCache.put(key, new Texture(Gdx.files.internal(altPath)));
-                } else {
+                try {
+                    Texture tex = new Texture(Gdx.files.internal(path));
+                    giantCropTextureCache.put(key, tex);
+                    return tex;
+                } catch (Exception e) {
+                    Gdx.app.error("CropManager", "Failed loading giant crop texture: " + path, e);
                     return null;
                 }
             }
         }
-        return seedTextureCache.get(key);
+        return null;
+    }
+    public Texture getSeedTexture(String imageFileName) {
+        if (imageFileName == null || imageFileName.isEmpty()) return null;
+        String key = imageFileName.toLowerCase(Locale.ROOT);
+        if (seedTextureCache.containsKey(key)) return seedTextureCache.get(key);
+
+        String primary = "assets/Map/FruitsAndVegetables/Seed/" + imageFileName;
+        if (Gdx.files.internal(primary).exists()) {
+            seedTextureCache.put(key, new Texture(Gdx.files.internal(primary)));
+            return seedTextureCache.get(key);
+        }
+        String alt = "Map/FruitsAndVegetables/Seed/" + imageFileName;
+        if (Gdx.files.internal(alt).exists()) {
+            seedTextureCache.put(key, new Texture(Gdx.files.internal(alt)));
+            return seedTextureCache.get(key);
+        }
+        return null;
     }
 
-    public Texture getSeedTexture(Seeds seed) {
-        return (seed == null) ? null : getSeedTexture(seed.getImagePath());
+    /**
+     * Get a daily stage texture (1-based dayNumber).
+     * Clamps to last stage if dayNumber exceeds loaded count.
+     */
+    public Texture getStageTextureForDay(String cropName, int dayNumber) {
+        if (cropName == null) return null;
+        String key = cropName.toLowerCase(Locale.ROOT);
+        ensureCropStagesLoaded(key, cropName);
+        List<Texture> frames = stageTextureCache.get(key);
+        if (frames == null || frames.isEmpty()) return null;
+        if (dayNumber <= 0) dayNumber = 1;
+        if (dayNumber > frames.size()) dayNumber = frames.size();
+        return frames.get(dayNumber - 1);
+    }
+
+    public int getLoadedStageCount(String cropName) {
+        if (cropName == null) return 0;
+        List<Texture> frames = stageTextureCache.get(cropName.toLowerCase(Locale.ROOT));
+        return frames == null ? 0 : frames.size();
     }
 
     public Texture getFruitTexture(String cropName) {
         if (cropName == null) return null;
-        String key = cropName.toLowerCase(Locale.ROOT);
-        return fruitTextureCache.get(key);
+        return fruitTextureCache.get(cropName.toLowerCase(Locale.ROOT));
     }
-    public Texture getCropStageTexture(String cropName, int frameIndex) {
+
+    /**
+     * Returns the "naked" base texture for multi-harvest crops after harvest.
+     * Path: assets/Map/FruitsAndVegetables/MultipleTime/<CropName>_Stage_0.png
+     */
+    public Texture getMultiHarvestBaseTexture(String cropName) {
         if (cropName == null) return null;
-        List<Texture> frames = cropStageTextureCache.get(cropName.toLowerCase(Locale.ROOT));
-        if (frames == null || frameIndex < 0 || frameIndex >= frames.size()) return null;
-        return frames.get(frameIndex);
-    }
-    public int getCropStageFrameCount(String cropName) {
-        List<Texture> frames = cropStageTextureCache.get(cropName.toLowerCase(Locale.ROOT));
-        return frames == null ? 0 : frames.size();
-    }
-    public void loadAllCropGraphics(boolean forceReload) {
-        if (cropsLoaded && !forceReload) return;
-        for (FruitsAndVegetables crop : FruitsAndVegetablesRepository.crops) {
-            loadSingleCropGraphics(crop, forceReload);
+        String key = cropName.toLowerCase(Locale.ROOT);
+        if (multiHarvestBaseCache.containsKey(key)) return multiHarvestBaseCache.get(key);
+
+        // Naming variants (match stage loading)
+        List<String> variants = buildNameVariants(cropName);
+        for (String v : variants) {
+            String path = "assets/Map/FruitsAndVegetables/MultipleTime/" + v + "_Stage_0.png";
+            if (Gdx.files.internal(path).exists()) {
+                try {
+                    Texture tex = new Texture(Gdx.files.internal(path));
+                    multiHarvestBaseCache.put(key, tex);
+                    return tex;
+                } catch (Exception e) {
+                    Gdx.app.error("CropManager", "Failed loading multi-harvest base: " + path, e);
+                    return null;
+                }
+            }
         }
-        cropsLoaded = true;
+        return null;
     }
+
+    public void loadAllCropGraphics(boolean forceReload) {
+        if (allLoaded && !forceReload) return;
+        for (FruitsAndVegetables fv : FruitsAndVegetablesRepository.crops) {
+            loadSingleCropGraphics(fv, forceReload);
+        }
+        allLoaded = true;
+    }
+
     public void loadAllCropGraphics() {
         loadAllCropGraphics(false);
     }
+
     public void loadSingleCropGraphics(FruitsAndVegetables crop, boolean forceReload) {
         if (crop == null) return;
-        String cropKey = crop.getName().toLowerCase(Locale.ROOT);
-        if (!forceReload && fruitTextureCache.containsKey(cropKey) && cropStageTextureCache.containsKey(cropKey)) {
-            return;
-        }
-        if (forceReload) {
-            disposeCrop(cropKey);
-        }
-        List<String> folderCandidates = buildFolderNameCandidates(crop.getName());
-        List<Texture> stageFrames = loadStageFrames(folderCandidates);
+        String key = crop.getName().toLowerCase(Locale.ROOT);
+        if (!forceReload && stageTextureCache.containsKey(key)) return;
+        if (forceReload) disposeCrop(key);
+
+        List<Texture> stageFrames = loadDailyStagesForCrop(crop.getName());
         if (!stageFrames.isEmpty()) {
-            cropStageTextureCache.put(cropKey, stageFrames);
-            crop.clearStageImagePaths();
-            int idx = 1;
-            for (Texture ignored : stageFrames) {
-                String effectiveFolder = lastSuccessfulStageFolder;
-                String effectiveBase = lastSuccessfulStageBase;
-                String storedPath = effectiveFolder + "/" + effectiveBase + "_Stage_" + idx + ".png";
-                crop.addStageImagePath(storedPath);
-                idx++;
-            }
+            stageTextureCache.put(key, stageFrames);
         }
-        Texture fruitTexture = loadFruitTexture(folderCandidates);
-        if (fruitTexture != null) {
-            fruitTextureCache.put(cropKey, fruitTexture);
-            crop.setFruitImagePath(lastSuccessfulFruitPathRelative);
+        Texture fruit = loadFruitTexture(crop.getName());
+        if (fruit != null) fruitTextureCache.put(key, fruit);
+        // Preload multi-harvest base if applicable
+        if (!crop.isOneTime()) getMultiHarvestBaseTexture(crop.getName());
+    }
+
+    /* --------------------------------------------------
+       Internal helpers
+       -------------------------------------------------- */
+
+    private void ensureCropStagesLoaded(String keyLower, String originalName) {
+        if (stageTextureCache.containsKey(keyLower)) return;
+        FruitsAndVegetables crop = FruitsAndVegetablesRepository.getCropByName(originalName);
+        if (crop != null) {
+            loadSingleCropGraphics(crop, false);
+        } else {
+            List<Texture> stageFrames = loadDailyStagesForCrop(originalName);
+            if (!stageFrames.isEmpty()) {
+                stageTextureCache.put(keyLower, stageFrames);
+            }
         }
     }
 
-    private String lastSuccessfulStageFolder = null;
-    private String lastSuccessfulStageBase = null;
-    private String lastSuccessfulFruitPathRelative = null;
-
-    private List<Texture> loadStageFrames(List<String> folderCandidates) {
+    private List<Texture> loadDailyStagesForCrop(String cropName) {
         List<Texture> frames = new ArrayList<>();
-        String[] stageRoots = {
-            "assets/Map/FruitsAndVegetables/Seed/",
-            "assets/Map/FruitsAndVegetables/"
-        };
+        if (cropName == null) return frames;
+        List<String> folderCandidates = buildNameVariants(cropName);
+        final String stagesRoot = "assets/Map/FruitsAndVegetables/Stages/";
 
-        for (String folderCandidate : folderCandidates) {
-            for (String root : stageRoots) {
-                FileHandle dir = Gdx.files.internal(root + folderCandidate);
-                if (!dir.exists() || !dir.isDirectory()) continue;
-                List<String> baseNameCandidates = buildBaseNameCandidates(folderCandidate);
-                for (String baseName : baseNameCandidates) {
-                    List<Texture> tmp = tryLoadSequentialStageFrames(root + folderCandidate + "/", baseName);
-                    if (!tmp.isEmpty()) {
-                        frames = tmp;
-                        lastSuccessfulStageFolder = root + folderCandidate;
-                        lastSuccessfulStageBase = baseName;
-                        return frames;
-                    }
-                }
+        for (String folder : folderCandidates) {
+            String folderPath = stagesRoot + folder;
+            FileHandle dir = Gdx.files.internal(folderPath);
+            if (!dir.exists() || !dir.isDirectory()) continue;
+            List<Texture> loaded = tryLoadSequential(folderPath + "/", folder + "_Stage_");
+            if (!loaded.isEmpty()) {
+                return loaded;
             }
         }
         return frames;
     }
 
-    private List<Texture> tryLoadSequentialStageFrames(String folderPath, String baseName) {
+    private List<Texture> tryLoadSequential(String prefixPath, String fileBase) {
         List<Texture> list = new ArrayList<>();
-        int maxFrames = 60;
-        boolean anyLoaded = false;
-        for (int i = 1; i <= maxFrames; i++) {
-            String filename = folderPath + baseName + "_Stage_" + i + ".png";
-            FileHandle fh = Gdx.files.internal(filename);
-            if (!fh.exists()) {
-                if (i == 1) {
-                    return new ArrayList<>();
-                }
-                else {
-                    break;
-                }
-            }
+        for (int i = 1; i <= 200; i++) {
+            String name = prefixPath + fileBase + i + ".png";
+            FileHandle fh = Gdx.files.internal(name);
+            if (!fh.exists()) break;
             try {
-                Texture t = new Texture(fh);
-                list.add(t);
-                anyLoaded = true;
+                list.add(new Texture(fh));
             } catch (Exception e) {
-                Gdx.app.error("CropManager", "Failed to load stage frame: " + filename, e);
+                Gdx.app.error("CropManager", "Failed to load stage texture: " + name, e);
+                break;
             }
-        }
-        if (!anyLoaded) {
-            list.clear();
         }
         return list;
     }
 
-    private Texture loadFruitTexture(List<String> folderCandidates) {
-        String fruitRoot = "assets/Map/FruitsAndVegetables/Crop/";
-        for (String folderCandidate : folderCandidates) {
-            String folderPath = fruitRoot + folderCandidate;
+    private Texture loadFruitTexture(String cropName) {
+        List<String> variants = buildNameVariants(cropName);
+        String root = "assets/Map/FruitsAndVegetables/Crop/";
+        for (String folder : variants) {
+            String folderPath = root + folder;
             FileHandle dir = Gdx.files.internal(folderPath);
             if (!dir.exists() || !dir.isDirectory()) continue;
-            List<String> fruitFileNames = new ArrayList<>();
-            fruitFileNames.add(folderCandidate + ".png");
-            fruitFileNames.add(folderCandidate + "_Fruit.png");
-            String noUnderscore = folderCandidate.replace("_", "");
-            fruitFileNames.add(noUnderscore + ".png");
-            for (String file : fruitFileNames) {
-                String fullPath = folderPath + "/" + file;
-                FileHandle fh = Gdx.files.internal(fullPath);
+
+            String base = folder;
+            String[] files = {
+                base + ".png",
+                base + "_Fruit.png",
+                base.replace("_", "") + ".png"
+            };
+            for (String f : files) {
+                FileHandle fh = Gdx.files.internal(folderPath + "/" + f);
                 if (fh.exists()) {
                     try {
-                        Texture t = new Texture(fh);
-                        lastSuccessfulFruitPathRelative = folderPath + "/" + file;
-                        return t;
+                        return new Texture(fh);
                     } catch (Exception e) {
-                        Gdx.app.error("CropManager", "Failed to load fruit texture: " + fullPath, e);
+                        Gdx.app.error("CropManager", "Failed to load fruit texture: " + fh.path(), e);
                     }
                 }
             }
@@ -188,53 +237,59 @@ public class CropManager {
         return null;
     }
 
-    private List<String> buildFolderNameCandidates(String cropName) {
+    private List<String> buildNameVariants(String name) {
         List<String> list = new ArrayList<>();
-        if (cropName == null) return list;
-        String trimmed = cropName.trim();
-        list.add(trimmed);
+        String trimmed = name.trim();
+        if (!list.contains(trimmed)) list.add(trimmed);
         String underscored = trimmed.replace(' ', '_');
         if (!list.contains(underscored)) list.add(underscored);
-        String simplified = trimmed.replaceAll("[^A-Za-z0-9 ]", "").replace(' ', '_');
-        if (!list.contains(simplified)) list.add(simplified);
+        String stripped = trimmed.replaceAll("[^A-Za-z0-9_]", "").replace(' ', '_');
+        if (!list.contains(stripped)) list.add(stripped);
         return list;
     }
 
-    private List<String> buildBaseNameCandidates(String folderCandidate) {
-        List<String> list = new ArrayList<>();
-        list.add(folderCandidate);
-        // Without underscores
-        String noUnderscore = folderCandidate.replace("_", "");
-        if (!list.contains(noUnderscore)) list.add(noUnderscore);
-        return list;
-    }
+    /* --------------------------------------------------
+       Disposal
+       -------------------------------------------------- */
 
     public void dispose() {
-        for (Texture t : seedTextureCache.values()) {
-            if (t != null) t.dispose();
-        }
+        for (Texture t : seedTextureCache.values()) if (t != null) t.dispose();
         seedTextureCache.clear();
-        for (Texture t : fruitTextureCache.values()) {
-            if (t != null) t.dispose();
-        }
-        fruitTextureCache.clear();
-        for (List<Texture> list : cropStageTextureCache.values()) {
-            for (Texture t : list) {
-                if (t != null) t.dispose();
-            }
-        }
-        cropStageTextureCache.clear();
-        cropsLoaded = false;
-    }
 
-    private void disposeCrop(String cropKey) {
-        Texture ft = fruitTextureCache.remove(cropKey);
-        if (ft != null) ft.dispose();
-        List<Texture> frames = cropStageTextureCache.remove(cropKey);
-        if (frames != null) {
-            for (Texture t : frames) {
-                if (t != null) t.dispose();
+        for (Texture t : fruitTextureCache.values()) if (t != null) t.dispose();
+        fruitTextureCache.clear();
+
+        for (List<Texture> list : stageTextureCache.values())
+            for (Texture t : list) if (t != null) t.dispose();
+        stageTextureCache.clear();
+
+        for (Texture t : multiHarvestBaseCache.values()) if (t != null) t.dispose();
+        multiHarvestBaseCache.clear();
+
+        for (Texture t : giantCropTextureCache.values()) if (t != null) t.dispose();
+        giantCropTextureCache.clear();
+
+        allLoaded = false;
+    }
+    public String resolveProduceInventoryPath(String cropName) {
+        if (cropName == null) return null;
+        List<String> variants = buildNameVariants(cropName);
+        final String root = "assets/Map/FruitsAndVegetables/Crop/";
+        for (String v : variants) {
+            String path = root + v + "/" + v + ".png";
+            if (Gdx.files.internal(path).exists()) {
+                return path;
             }
         }
+        return null;
+    }
+    private void disposeCrop(String key) {
+        List<Texture> frames = stageTextureCache.remove(key);
+        if (frames != null)
+            for (Texture t : frames) if (t != null) t.dispose();
+        Texture fruit = fruitTextureCache.remove(key);
+        if (fruit != null) fruit.dispose();
+        Texture base = multiHarvestBaseCache.remove(key);
+        if (base != null) base.dispose();
     }
 }

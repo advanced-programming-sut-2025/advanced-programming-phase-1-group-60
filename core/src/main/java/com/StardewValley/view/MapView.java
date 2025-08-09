@@ -9,6 +9,7 @@ import com.StardewValley.controller.HomeController;
 import com.StardewValley.models.*;
 import com.StardewValley.models.Tree;
 import com.StardewValley.repository.FishingRepository;
+import com.StardewValley.repository.FruitsAndVegetablesRepository;
 import com.StardewValley.repository.UserRepository;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -54,6 +55,7 @@ public class MapView implements Screen {
     private static final float MESSAGE_DISPLAY_TIME = 5f;
     private Texture fallbackTexture;
     private Texture playerTexture;
+    private static final boolean DEBUG_GIANT = false;
     private Vector2 playerPos;
     private Map<User, GamePlayController> playerControllers = new HashMap<>();
     private Map<User, Vector2> playerPositions = new HashMap<>();
@@ -73,6 +75,7 @@ public class MapView implements Screen {
     private Label currentSelectedItemQuantityLabel;
     private Item selectedInventoryItem; // To store the actual selected Item object
     // --- END NEW ---
+    private final Map<String, Texture> quickItemTextureCache = new HashMap<>();
     private static final float TILE_SIZE = 32f;
     private int currentFarmIndex = 0;
     private boolean inVillage = false;
@@ -95,6 +98,7 @@ public class MapView implements Screen {
     private ShapeRenderer shapeRenderer;
     private boolean craftInfoMode = false;
     // Player animation fields
+    private boolean wateringHintShown = false;
     private Texture shadowTexture;
     private Animation<TextureRegion> currentPlayerAnimation;
     private Animation<TextureRegion> lastWalkingAnimation;
@@ -343,6 +347,19 @@ public class MapView implements Screen {
             if ("Hoe".equals(tool.getName())) {
                 return handleHoeUsage(tool, clickPos);
             }
+            if ("Scythe".equalsIgnoreCase(tool.getName())) {
+                handleScytheUsage(clickPos, currentPlayer, tool);
+                return true;
+            }
+
+            if ("Watering Can".equalsIgnoreCase(tool.getName()) || "WateringCan".equalsIgnoreCase(tool.getName()) || "Watering_Can".equalsIgnoreCase(tool.getName())) {
+                if (!wateringHintShown) {
+                    showMessage("Watering Can: click a plowed tile to water it.", 2f);
+                    wateringHintShown = true;
+                }
+                waterTileAt(clickPos, currentPlayer, tool);
+                return true;
+            }
             else if ("Pickaxe".equals(tool.getName())) {
                 // Get the clicked tile
                 Tile clickedTile;
@@ -528,7 +545,155 @@ public class MapView implements Screen {
 
         return false; // No tool selected or not a tool
     }
+    private void handleScytheUsage(Vector3 clickPos, User player, Tools scythe) {
+        Vector2 farmTopLeft = inVillage ? new Vector2(0,0) : getFarmTopLeft(currentFarmIndex);
+        int tx = (int)((clickPos.x - farmTopLeft.x)/TILE_SIZE);
+        int ty = (int)((clickPos.y - farmTopLeft.y)/TILE_SIZE);
 
+        Tile tile;
+        if (inVillage) {
+            if (tx <0 || tx >=20 || ty <0 || ty >=20) return;
+            tile = gameMap.getVillage().getTile(tx, 20 - 1 - ty);
+        } else {
+            if (tx <0 || tx >= FarmTemplate.WIDTH || ty <0 || ty >= FarmTemplate.HEIGHT) return;
+            tile = gameMap.getFarm(currentFarmIndex).getTile(tx, FarmTemplate.HEIGHT -1 - ty);
+        }
+        if (tile == null) return;
+
+        // GIANT CROP HARVEST SUPPORT  /// PATCH
+        if (!inVillage && tile.isGiantCrop()) {
+            Farm farm = gameMap.getFarm(currentFarmIndex);
+            harvestGiantCropCluster(tile, farm, player);
+            return;
+        }
+
+        Seeds seed = tile.getPlantedSeed();
+        if (seed == null) {
+            showMessage("No crop to harvest.",1.2f);
+            return;
+        }
+        if (tile.getDaysGrown() < seed.getTotalHarvestTime()) {
+            showMessage("Crop not ready.",1.2f);
+            return;
+        }
+
+        FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(seed.getGrowsInto());
+        boolean oneTime = true;
+        int sellPrice = 0;
+        if (fv != null) {
+            oneTime = fv.isOneTime();
+            if (fv.getSellPrice() != 0) sellPrice = fv.getSellPrice();
+        }
+
+        String producePath = CropManager.getInstance().resolveProduceInventoryPath(seed.getGrowsInto());
+        Item produce = new Item(seed.getGrowsInto(), 1, producePath != null ? producePath : "");
+        produce.setSellPrice(sellPrice);
+        player.getInventory().addItem(produce);
+
+        if (oneTime) {
+            tile.setCrop(null);
+            tile.setPlantedSeed(null);
+            tile.setPlowed(true);
+            tile.setDaysGrown(0);
+            tile.setWatered(false);
+            showMessage("Harvested " + produce.getName() + ".", 1.5f);
+        } else {
+            int regrowDays = 5;
+            if (fv != null && fv.getRegrowthTime() != null && fv.getRegrowthTime() > 0) {
+                regrowDays = fv.getRegrowthTime();
+            }
+            tile.setDaysGrown(0);
+            tile.activateMultiHarvestBase(regrowDays);
+            showMessage("Harvested " + produce.getName() + ". Regrowing (" + regrowDays + "d)...", 1.8f);
+        }
+    }
+    private void harvestGiantCropCluster(Tile anyTileInCluster, Farm farm, User player) {
+        int ix = anyTileInCluster.getPositionX();
+        int iy = anyTileInCluster.getPositionY();
+
+        // Find origin (bottom-left in display = internal tile with no giant to left OR no giant below in display mapping)
+        // Using internal origin rule: origin has no giant left & no giant with y+1
+        int originX = ix;
+        int originY = iy;
+        // Move left while possible
+        while (originX > 0) {
+            Tile left = farm.getTile(originX -1, originY);
+            if (left == null || !left.isGiantCrop()) break;
+            originX--;
+        }
+        // Move "down" in display terms => internal y+1 while still giant
+        while (originY < FarmTemplate.HEIGHT -1) {
+            Tile below = farm.getTile(originX, originY +1);
+            if (below == null || !below.isGiantCrop()) break;
+            originY++;
+        }
+
+        // Verify 2x2 cluster
+        Tile t00 = farm.getTile(originX, originY);
+        Tile t10 = farm.getTile(originX+1, originY);
+        Tile t01 = farm.getTile(originX, originY-1);
+        Tile t11 = farm.getTile(originX+1, originY-1);
+        if (t00==null||t10==null||t01==null||t11==null) return;
+        if (!(t00.isGiantCrop() && t10.isGiantCrop() && t01.isGiantCrop() && t11.isGiantCrop())) return;
+
+        Seeds seed = t00.getPlantedSeed();
+        if (seed == null) {
+            showMessage("Giant crop missing seed data.",1.5f);
+            return;
+        }
+        FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(seed.getGrowsInto());
+        int sellPrice = (fv != null && fv.getSellPrice()!= 0) ? fv.getSellPrice() : 0;
+
+        String producePath = CropManager.getInstance().resolveProduceInventoryPath(seed.getGrowsInto());
+        Item produce = new Item(seed.getGrowsInto(), 4, producePath != null ? producePath : "");
+        produce.setSellPrice(sellPrice);
+        player.getInventory().addItem(produce);
+
+        // Clear all four tiles
+        Tile[] cluster = {t00,t10,t01,t11};
+        for (Tile t : cluster) {
+            t.setGiantCrop(false);
+            t.setCrop(null);
+            t.setPlantedSeed(null);
+            t.setPlowed(true);
+            t.setDaysGrown(0);
+            t.setWatered(false);
+        }
+        showMessage("Harvested GIANT " + seed.getGrowsInto() + " x4!", 2.5f);
+    }
+    private void waterTileAt(Vector3 clickPos, User player, Tools tool) {
+        if (inVillage) {
+            showMessage("Cannot water in village.",1.5f);
+            return;
+        }
+        Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+        int tx = (int)((clickPos.x - farmTopLeft.x)/TILE_SIZE);
+        int ty = (int)((clickPos.y - farmTopLeft.y)/TILE_SIZE);
+        if (tx <0||tx>=FarmTemplate.WIDTH||ty<0||ty>=FarmTemplate.HEIGHT) return;
+        Tile tile = gameMap.getFarm(currentFarmIndex).getTile(tx, FarmTemplate.HEIGHT -1 - ty);
+        if (tile == null) return;
+        if (!tile.isPlowed()) {
+            showMessage("Tile not plowed.",1.2f);
+            return;
+        }
+        if (tile.isWatered()) {
+            showMessage("Already watered today.",1.2f);
+            return;
+        }
+        // Energy check
+        int cost = tool.getEnergyCost();
+        if (!player.getEnergy().isUnlimited() && player.getEnergy().getCurrentEnergy()<cost) {
+            showMessage("Not enough energy.",1.5f);
+            return;
+        }
+        tile.setWatered(true);
+        tile.setLastWateredDay(TimeSystem.getInstance().getCurrentDay());
+        if (!player.getEnergy().isUnlimited()) {
+            player.getEnergy().decreaseEnergy(cost);
+            energyUsedThisTurn += cost;
+        }
+        showMessage("Watered tile.",1.2f);
+    }
     private void createUI() {
         createTravelDialog();
         createBackButton();
@@ -1052,9 +1217,8 @@ public class MapView implements Screen {
 
         renderOffset = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
         int waterBorderSize = 100;
-        int totalWidth = width + (waterBorderSize * 2);
-        int totalHeight = height + (waterBorderSize * 2);
 
+        // Water background
         for (int y = -waterBorderSize; y < height + waterBorderSize; y++) {
             for (int x = -waterBorderSize; x < width + waterBorderSize; x++) {
                 float posX = renderOffset.x + (x * TILE_SIZE);
@@ -1062,95 +1226,162 @@ public class MapView implements Screen {
                 batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
             }
         }
+
+        // Giant crop aggregation
+        class GiantRender {
+            final float x, y;
+            final Texture tex;
+            GiantRender(float x, float y, Texture tex) { this.x = x; this.y = y; this.tex = tex; }
+        }
+        boolean[][] giantPart = new boolean[width][height];
+        List<GiantRender> giantRenders = new ArrayList<>();
+
+        // Main tile pass
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
                 final int finalX = x;
                 final int finalY = y;
-                float tileX = renderOffset.x + (x * TILE_SIZE);
-                float tileY = renderOffset.y + ((height - 1 - y) * TILE_SIZE);
+
                 float posX = renderOffset.x + (x * TILE_SIZE);
                 float posY = renderOffset.y + (y * TILE_SIZE);
+
+                // Base ground
                 batch.draw(mapManager.getGrassTile(), posX, posY, TILE_SIZE, TILE_SIZE);
-                Tile tile;
-                if (inVillage) {
-                    tile = gameMap.getVillage().getTile(x, 20 - 1 - y);
-                } else {
-                    tile = gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - y);
-                }
+
+                Tile tile = inVillage
+                    ? gameMap.getVillage().getTile(x, 20 - 1 - y)
+                    : gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - y);
+
                 if (tile == null) continue;
+
+                // Plowed / watered overlay
                 if (tile.isPlowed()) {
-                    float plowedTileY = renderOffset.y + (y * TILE_SIZE);
-                    batch.draw(mapManager.getPlowedGroundTexture(), posX, plowedTileY, TILE_SIZE, TILE_SIZE);
+                    batch.draw(tile.isWatered()
+                            ? mapManager.getWateredGroundTexture()
+                            : mapManager.getPlowedGroundTexture(),
+                        posX, posY, TILE_SIZE, TILE_SIZE);
                 }
 
+                // Giant detection (farms only)
+                if (!inVillage && tile.isGiantCrop() && !giantPart[x][y]) {
+                    Tile tRight = (x + 1 < width) ? gameMap.getFarm(currentFarmIndex).getTile(x + 1, FarmTemplate.HEIGHT - 1 - y) : null;
+                    Tile tUp = (y + 1 < height) ? gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - (y + 1)) : null;
+                    Tile tUpRight = (x + 1 < width && y + 1 < height)
+                        ? gameMap.getFarm(currentFarmIndex).getTile(x + 1, FarmTemplate.HEIGHT - 1 - (y + 1))
+                        : null;
+
+                    boolean cluster = tRight != null && tUp != null && tUpRight != null
+                        && tRight.isGiantCrop() && tUp.isGiantCrop() && tUpRight.isGiantCrop();
+
+                    if (cluster) {
+                        giantPart[x][y] = true;
+                        giantPart[x + 1][y] = true;
+                        giantPart[x][y + 1] = true;
+                        giantPart[x + 1][y + 1] = true;
+
+                        Seeds s = tile.getPlantedSeed();
+                        if (s != null) {
+                            Texture gTex = CropManager.getInstance().getGiantCropTexture(s.getGrowsInto());
+                            if (gTex != null) {
+                                giantRenders.add(new GiantRender(posX, posY, gTex));
+                            } else if (DEBUG_GIANT) {
+                                Gdx.app.log("GIANT", "Missing texture for " + s.getGrowsInto());
+                            }
+                        }
+                    } else {
+                        // Mark anyway to suppress normal crop draw
+                        giantPart[x][y] = true;
+                        if (DEBUG_GIANT) {
+                            Gdx.app.log("GIANT", "Non-cluster giant tile at ("+x+","+y+")");
+                        }
+                    }
+                } else if (!inVillage && tile.isGiantCrop()) {
+                    giantPart[x][y] = true;
+                }
+
+                // Normal crop (skip if part of a giant)
+                if (!giantPart[x][y] && tile.getPlantedSeed() != null) {
+                    Seeds planted = tile.getPlantedSeed();
+                    String cropName = planted.getGrowsInto();
+                    if (tile.shouldShowMultiHarvestBase()) {
+                        Texture base = CropManager.getInstance().getMultiHarvestBaseTexture(cropName);
+                        if (base != null) {
+                            batch.draw(base, posX, posY, TILE_SIZE, TILE_SIZE);
+                        } else {
+                            batch.setColor(Color.SCARLET);
+                            batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
+                            batch.setColor(Color.WHITE);
+                        }
+                    } else {
+                        int day = Math.max(1, tile.getDaysGrown());
+                        Texture stageTex = CropManager.getInstance().getStageTextureForDay(cropName, day);
+                        if (stageTex != null) {
+                            batch.draw(stageTex, posX, posY, TILE_SIZE, TILE_SIZE);
+                        } else {
+                            batch.setColor(Color.FOREST);
+                            batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
+                            batch.setColor(Color.WHITE);
+                        }
+                    }
+                }
+
+                // Static elements
                 tile.getStaticElement().ifPresent(element -> {
                     if (element instanceof Cabin) {
                         if (isStructureOrigin(finalX, finalY, element, width, height)) {
                             structuresToRender.add(new StructureRenderData(
-                                mapManager.getCabinTexture(), posX, posY, 4, 4
-                            ));
+                                mapManager.getCabinTexture(), posX, posY, 4, 4));
                         }
                     } else if (element instanceof Greenhouse) {
                         if (isStructureOrigin(finalX, finalY, element, width, height)) {
                             structuresToRender.add(new StructureRenderData(
-                                mapManager.getGreenhouseTexture(), posX, posY, 5, 6
-                            ));
+                                mapManager.getGreenhouseTexture(), posX, posY, 5, 6));
                         }
                     } else if (element instanceof Lake) {
                         batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
-                        if(!fishInitialized){
+                        if (!fishInitialized) {
                             batch.draw(fishTexture, posX, posY, TILE_SIZE, TILE_SIZE);
                             fishInitialized = true;
                         }
-
                     } else if (element instanceof Quarry) {
                         batch.draw(mapManager.getQuarryTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
                     } else if (element instanceof CoopStaticElement) {
                         if (isStructureOrigin(finalX, finalY, element, width, height)) {
                             structuresToRender.add(new StructureRenderData(
-                                mapManager.getCoopTexture(), posX, posY, 6, 3
-                            ));
+                                mapManager.getCoopTexture(), posX, posY, 6, 3));
                         }
                     } else if (element instanceof BarnStaticElement) {
                         if (isStructureOrigin(finalX, finalY, element, width, height)) {
                             structuresToRender.add(new StructureRenderData(
-                                mapManager.getBarnTexture(), posX, posY, 7, 4
-                            ));
+                                mapManager.getBarnTexture(), posX, posY, 7, 4));
                         }
                     } else if (element instanceof Npc) {
                         Npc npc = (Npc) element;
-                        Texture texture = mapManager.getNpcTexture(npc.getName());
-                        if (texture != null) {
-                            batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
+                        Texture t = mapManager.getNpcTexture(npc.getName());
+                        if (t != null) {
+                            batch.draw(t, posX, posY, TILE_SIZE, TILE_SIZE);
                             if (npc.isDialogueReady()) {
                                 npcChatIconPositions.add(new Vector2(posX, posY));
                             }
                         }
                     } else if (element instanceof Store) {
-                        Texture texture = mapManager.getStoreTexture();
-                        if (texture != null) {
-                            batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
-                        }
+                        Texture t = mapManager.getStoreTexture();
+                        if (t != null) batch.draw(t, posX, posY, TILE_SIZE, TILE_SIZE);
                     } else if (element instanceof PlaceableGameBuilding) {
-                        PlaceableGameBuilding building = (PlaceableGameBuilding) element;
-                        // Assuming MapManager has a method like getBuildingTexture that takes the building's name
-                        Texture buildingTexture = mapManager.getBuildingTexture(building.getName());
-                        if (buildingTexture != null) {
-                            // Draw the building using its actual width and height (in tiles, scaled by TILE_SIZE)
-                            float buildingWidth = building.getWidth() * TILE_SIZE;
-                            float buildingHeight = building.getHeight() * TILE_SIZE;
-                            batch.draw(buildingTexture, posX, posY, buildingWidth, buildingHeight);
+                        PlaceableGameBuilding bld = (PlaceableGameBuilding) element;
+                        Texture t = mapManager.getBuildingTexture(bld.getName());
+                        if (t != null) {
+                            batch.draw(t, posX, posY,
+                                bld.getWidth() * TILE_SIZE,
+                                bld.getHeight() * TILE_SIZE);
                         } else {
-                            // Fallback: If texture is not found, draw a placeholder (e.g., magenta square)
                             batch.setColor(Color.MAGENTA);
                             batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
-                            batch.setColor(Color.WHITE); // Reset color
+                            batch.setColor(Color.WHITE);
                         }
                     } else if (element instanceof SellingBin) {
-                        Texture texture = mapManager.getSellingBinTexture();
-                        if (texture != null) {
-                            batch.draw(texture, posX, posY, TILE_SIZE, TILE_SIZE);
-                        }
+                        Texture t = mapManager.getSellingBinTexture();
+                        if (t != null) batch.draw(t, posX, posY, TILE_SIZE, TILE_SIZE);
                     } else {
                         batch.setColor(Color.BROWN);
                         batch.draw(mapManager.getPlaceholderTile(), posX, posY, TILE_SIZE, TILE_SIZE);
@@ -1158,122 +1389,101 @@ public class MapView implements Screen {
                     }
                 });
 
+                // Random elements
                 tile.getRandomElement().ifPresent(element -> {
                     if (element instanceof Stone) {
                         batch.draw(mapManager.getStoneTile(((Stone) element).getStoneVariant()), posX, posY, TILE_SIZE, TILE_SIZE);
                     } else if (element instanceof Tree) {
-                        Tree tree = (Tree) element;
-                        Texture treeTexture = mapManager.getTreeTexture(tree.getImagePath());
-                        if (treeTexture != null) {
-                            treesToRender.add(new TreeRenderData(treeTexture, posX, posY, false));
-                        }
+                        Texture tt = mapManager.getTreeTexture(((Tree) element).getImagePath());
+                        if (tt != null) treesToRender.add(new TreeRenderData(tt, posX, posY, false));
                     } else if (element instanceof ForagingTree) {
-                        ForagingTree foragingTree = (ForagingTree) element;
-                        Texture foragingTreeTexture = mapManager.getForagingTreeTexture(foragingTree.getImagePath());
-                        if (foragingTreeTexture != null) {
-                            treesToRender.add(new TreeRenderData(foragingTreeTexture, posX, posY, true));
-                        }
+                        Texture tt = mapManager.getForagingTreeTexture(((ForagingTree) element).getImagePath());
+                        if (tt != null) treesToRender.add(new TreeRenderData(tt, posX, posY, true));
                     } else if (element instanceof ForagingMineral) {
-                        ForagingMineral mineral = (ForagingMineral) element;
-                        Texture texture = mapManager.getForagingMineralTexture(mineral.getImagePath());
-                        float mineralSize = TILE_SIZE * 0.6f;
-                        float offsetX = (TILE_SIZE - mineralSize) / 2f;
-                        float offsetY = (TILE_SIZE - mineralSize) / 2f;
-                        batch.draw(texture, posX + offsetX, posY + offsetY, mineralSize, mineralSize);
+                        ForagingMineral m = (ForagingMineral) element;
+                        Texture tt = mapManager.getForagingMineralTexture(m.getImagePath());
+                        float size = TILE_SIZE * 0.6f;
+                        float ox = (TILE_SIZE - size) / 2f;
+                        float oy = (TILE_SIZE - size) / 2f;
+                        batch.draw(tt, posX + ox, posY + oy, size, size);
                     } else if (element instanceof ForagingCrop) {
-                        ForagingCrop crop = (ForagingCrop) element;
-                        Texture texture = mapManager.getForagingCropTexture(crop.getImagePath());
-                        float cropSize = TILE_SIZE * 0.7f;
-                        float offsetX = (TILE_SIZE - cropSize) / 2f;
-                        float offsetY = (TILE_SIZE - cropSize) / 2f;
-                        batch.draw(texture, posX + offsetX, posY + offsetY, cropSize, cropSize);
+                        ForagingCrop c = (ForagingCrop) element;
+                        Texture tt = mapManager.getForagingCropTexture(c.getImagePath());
+                        float size = TILE_SIZE * 0.7f;
+                        float ox = (TILE_SIZE - size) / 2f;
+                        float oy = (TILE_SIZE - size) / 2f;
+                        batch.draw(tt, posX + ox, posY + oy, size, size);
                     }
                 });
             }
         }
 
-        for (StructureRenderData structure : structuresToRender) {
-            renderStructure(structure.texture, structure.posX, structure.posY, structure.width, structure.height);
+        // DRAW GIANT CROPS (after ground & tile elements, before structures & trees for layering)
+        for (GiantRender gr : giantRenders) {
+            batch.draw(gr.tex, gr.x, gr.y, TILE_SIZE * 2f, TILE_SIZE * 2f);
         }
 
+        // Structures
+        for (StructureRenderData s : structuresToRender) {
+            renderStructure(s.texture, s.posX, s.posY, s.width, s.height);
+        }
+
+        // Trees
         for (TreeRenderData tree : treesToRender) {
             float treeWidth = TILE_SIZE * 1.8f;
             float treeHeight = TILE_SIZE * 2.5f;
             float treeX = tree.posX - (treeWidth - TILE_SIZE) / 2f;
-            float treeY = tree.posY;
-            batch.draw(tree.texture, treeX, treeY, treeWidth, treeHeight);
+            batch.draw(tree.texture, treeX, tree.posY, treeWidth, treeHeight);
         }
 
+        // NPC chat icons
         for (Vector2 pos : npcChatIconPositions) {
-            batch.draw(mapManager.getChatIconTexture(), pos.x + TILE_SIZE / 4, pos.y + TILE_SIZE, TILE_SIZE / 2, TILE_SIZE / 2);
+            batch.draw(mapManager.getChatIconTexture(),
+                pos.x + TILE_SIZE / 4f,
+                pos.y + TILE_SIZE,
+                TILE_SIZE / 2f,
+                TILE_SIZE / 2f);
         }
 
-        // --- NEW LOGIC: DRAW HIGHLIGHTS FOR BUILD MODE AND GHOST IMAGE ---
-        // Make sure gamePlayController and gameMap are correctly initialized in MapView's constructor
+        // Build mode highlights (unchanged)
         if (gamePlayController != null && gameMap != null &&
             gamePlayController.getCurrentGameState() == GamePlayController.GameState.BUILD_MODE) {
 
             StaticElement selectedBlueprint = gamePlayController.getSelectedBuildingBlueprint();
 
-            // 1. Draw highlights for valid placement spots
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    Tile tile;
-                    // Get the correct tile based on current view (village or farm)
-                    if (inVillage) {
-                        tile = gameMap.getVillage().getTile(x, 20 - 1 - y); // Adjust for origin (bottom-left vs top-left) if needed
-                    } else {
-                        tile = gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - y); // Adjust for origin
-                    }
-
-                    if (tile != null && tile.isAvailableForBuilding()) { // Use the new method from Tile class
-                        float posX = renderOffset.x + (x * TILE_SIZE);
-                        float posY = renderOffset.y + (y * TILE_SIZE);
-
-                        batch.setColor(new Color(0f, 1f, 0f, 0.4f)); // Semi-transparent green highlight
-                        // Assuming mapManager.getTexture("pixel_white") provides a 1x1 white pixel texture
-                        // which can be colored by batch.setColor()
-                        batch.draw(mapManager.getTexture("pixel_white"), posX, posY, TILE_SIZE, TILE_SIZE);
-                        batch.setColor(Color.WHITE); // Reset batch color
+                    Tile tile = inVillage
+                        ? gameMap.getVillage().getTile(x, 20 - 1 - y)
+                        : gameMap.getFarm(currentFarmIndex).getTile(x, FarmTemplate.HEIGHT - 1 - y);
+                    if (tile != null && tile.isAvailableForBuilding()) {
+                        float hx = renderOffset.x + x * TILE_SIZE;
+                        float hy = renderOffset.y + y * TILE_SIZE;
+                        batch.setColor(new Color(0f, 1f, 0f, 0.4f));
+                        batch.draw(mapManager.getTexture("pixel_white"), hx, hy, TILE_SIZE, TILE_SIZE);
+                        batch.setColor(Color.WHITE);
                     }
                 }
             }
 
-            // 2. Draw a "ghost" image of the selected building following the mouse cursor
             if (selectedBlueprint != null) {
-                // Convert mouse screen coordinates to world coordinates
-                Vector3 worldCoordinates = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
-
-                // Adjust for renderOffset to get the correct map-relative position for ghost drawing
-                float ghostDrawX = worldCoordinates.x - renderOffset.x;
-                float ghostDrawY = worldCoordinates.y - renderOffset.y;
-
-                // Snap the ghost image to the tile grid (optional, but usually desired for building)
-                int snappedTileX = (int) (ghostDrawX / TILE_SIZE);
-                int snappedTileY = (int) (ghostDrawY / TILE_SIZE);
-
-                // Calculate actual drawing position for the ghost
-                float finalGhostPosX = renderOffset.x + (snappedTileX * TILE_SIZE);
-                float finalGhostPosY = renderOffset.y + (snappedTileY * TILE_SIZE);
-
-                // Get the texture for the blueprint. Assuming StaticElement has a way to get its texture path.
-                // If your StaticElement/Building doesn't have `getTexturePath()`, you'll need to adapt this.
+                Vector3 world = camera.unproject(new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0));
+                float gx = world.x - renderOffset.x;
+                float gy = world.y - renderOffset.y;
+                int tx = (int)(gx / TILE_SIZE);
+                int ty = (int)(gy / TILE_SIZE);
+                float drawX = renderOffset.x + tx * TILE_SIZE;
+                float drawY = renderOffset.y + ty * TILE_SIZE;
                 Texture blueprintTexture = null;
-                // Example: try to get texture based on type
-                if (selectedBlueprint instanceof Cabin) {
-                    blueprintTexture = mapManager.getCabinTexture();
-                } else if (selectedBlueprint instanceof Greenhouse) {
-                    blueprintTexture = mapManager.getGreenhouseTexture();
-                } // ... add other building types here
-
+                if (selectedBlueprint instanceof Cabin) blueprintTexture = mapManager.getCabinTexture();
+                else if (selectedBlueprint instanceof Greenhouse) blueprintTexture = mapManager.getGreenhouseTexture();
                 if (blueprintTexture != null) {
-                    batch.setColor(new Color(1f, 1f, 1f, 0.6f)); // Semi-transparent ghost effect
-                    batch.draw(blueprintTexture, finalGhostPosX, finalGhostPosY, TILE_SIZE, TILE_SIZE); // Assuming 1x1 size for simplicity
-                    batch.setColor(Color.WHITE); // Reset color for subsequent draws
+                    batch.setColor(new Color(1f,1f,1f,0.6f));
+                    batch.draw(blueprintTexture, drawX, drawY, TILE_SIZE, TILE_SIZE);
+                    batch.setColor(Color.WHITE);
                 }
             }
         }
-        // --- END NEW LOGIC ---
     }
 
     private boolean isStructureOrigin(int x, int y, Object element, int mapWidth, int mapHeight) {
@@ -1415,35 +1625,58 @@ public class MapView implements Screen {
             // Draw item if present
             Item item = quickSlots[i];
             if (item != null) {
-                if (item instanceof Tools) {
-                    Tools tool = (Tools) item;
-                    // Use the tool's existing path from Tools.java
+                // ---- FARMING ADDITION: render seed or generic item texture if available ----
+                if (item instanceof Tools tool) {
                     Texture toolTexture = toolManager.getToolTexture(tool);
                     if (toolTexture != null) {
                         batch.draw(toolTexture, slotX + 5, slotY + 5, 45f, 45f);
                     } else {
-                        // Fallback to text if texture fails to load
                         font.setColor(Color.GREEN);
                         font.draw(batch, tool.getName().substring(0, Math.min(3, tool.getName().length())),
                             slotX + 10, slotY + 35);
                         font.setColor(Color.WHITE);
                     }
+                } else if (item instanceof Seeds seeds) {
+                    // Use CropManager seed textures (seed packet icon)
+                    Texture seedTex = CropManager.getInstance().getSeedTexture(seeds);
+                    if (seedTex != null) {
+                        batch.draw(seedTex, slotX + 5, slotY + 5, 45f, 45f);
+                    } else {
+                        font.setColor(Color.GREEN);
+                        font.draw(batch, seeds.getName().substring(0, Math.min(6, seeds.getName().length())),
+                            slotX + 5, slotY + 35);
+                        font.setColor(Color.WHITE);
+                    }
                 } else {
-                    // Regular item
-                    font.setColor(Color.GREEN);
-                    font.draw(batch, item.getName().substring(0, Math.min(8, item.getName().length())),
-                        slotX + 5, slotY + 35);
-                    font.setColor(Color.WHITE);
+                    // Generic item with path
+                    Texture tex = getOrLoadQuickItemTexture(item.getPath());
+                    if (tex != null) {
+                        batch.draw(tex, slotX + 5, slotY + 5, 45f, 45f);
+                    } else {
+                        font.setColor(Color.GREEN);
+                        font.draw(batch, item.getName().substring(0, Math.min(6, item.getName().length())),
+                            slotX + 5, slotY + 35);
+                        font.setColor(Color.WHITE);
+                    }
                 }
             }
 
-            // Draw slot number
             font.setColor(Color.CYAN);
             font.draw(batch, String.valueOf(i + 1), slotX + 2, slotY + 52);
             font.setColor(Color.WHITE);
         }
     }
-
+    private Texture getOrLoadQuickItemTexture(String path) {
+        if (path == null || path.isEmpty()) return null;
+        Texture cached = quickItemTextureCache.get(path);
+        if (cached != null) return cached;
+        if (Gdx.files.internal(path).exists()) {
+            Texture t = new Texture(Gdx.files.internal(path));
+            quickItemTextureCache.put(path, t);
+            return t;
+        }
+        return null;
+    }
     private void handleInput(float delta) {
         if (speechIsShowing) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
@@ -1462,6 +1695,24 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyJustPressed(Input.Keys.F8)) {
             craftInfoMode = !craftInfoMode;
             showMessage(craftInfoMode ? "Craft Info: Click a crop/tree/forage to inspect" : "Craft Info: Off", 2f);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
+            TimeSystem.getInstance().advanceDate(1);
+
+            // Per-player controller daily init
+            for (GamePlayController controller : playerControllers.values()) {
+                controller.initializeNextDay();
+            }
+
+            // Update all farms (exactly 4 as per Game.initializeGameMap())
+            for (int fi = 0; fi < 4; fi++) {
+                Farm farm = gameMap.getFarm(fi);
+                if (farm != null) {
+                    farm.updateDaily();
+                }
+            }
+
+            showMessage("A new day begins. Crops advanced.", 3f);
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.K)) {
             if (isMyTurn()) {
@@ -1706,6 +1957,50 @@ public class MapView implements Screen {
                 }
             }
 
+            if (clickedTile != null) {
+                Item[] qs = currentPlayer.getInventory().getQuickAccessSlots();
+                Item selected = qs[selectedQuickSlot];
+                if (selected instanceof Seeds seed) {
+                    if (inVillage) {
+                        showMessage("Cannot plant seeds in the village.", 2f);
+                        return;
+                    }
+                    if (!clickedTile.isPlowed()) {
+                        showMessage("Tile is not plowed.", 1.5f);
+                        return;
+                    }
+                    if (clickedTile.getPlantedSeed() != null) {
+                        showMessage("Tile already has a seed.", 1.5f);
+                        return;
+                    }
+                    if (!clickedTile.canPlant()) {
+                        showMessage("Cannot plant here.", 1.5f);
+                        return;
+                    }
+
+                    // Plant
+                    clickedTile.setPlantedSeed(seed);
+                    clickedTile.setDaysGrown(0);
+                    clickedTile.setWatered(true); // auto-water for now
+                    clickedTile.setLastWateredDay(TimeSystem.getInstance().getCurrentDay());
+
+                    // Reduce seed quantity in inventory (we only stored a reference; find actual stack)
+//                    boolean removed = (currentPlayer.getInventory().removeItemByName(seed.getName(), 1);
+//                    if (!removed) {
+//                        showMessage("Planted (cheat copy in quick slot).", 2f);
+//                    } else {
+//                        showMessage("Planted " + seed.getName(), 2f);
+//                    }
+                    // If quantity reaches zero in inventory, quick slot will still have stale reference; optional cleanup skipped for now.
+                    return;
+                }
+                if (selected != null && selected.getName() != null &&
+                    selected.getName().endsWith("_Fertilizer") && clickedTile != null) {
+                    applyFertilizerToTile(clickedTile, selected, currentPlayer);
+                    return;
+                }
+            }
+
             if (clickedTile != null && clickedTile.getStaticElement().isPresent()) {
                 StaticElement element = clickedTile.getStaticElement().get();
                 if (element instanceof Npc) {
@@ -1808,19 +2103,51 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) selectQuickAccessSlot(5);
         checkTravel();
     }
+    private void applyFertilizerToTile(Tile tile, Item fertilizer, User player) {
+        if (inVillage) {
+            showMessage("Cannot fertilize here.",1.2f);
+            return;
+        }
+        if (tile.getPlantedSeed()==null) {
+            showMessage("No crop planted.",1.2f);
+            return;
+        }
+        if (tile.hasFertilizer()) {
+            showMessage("Fertilizer already applied.",1.2f);
+            return;
+        }
+        String fertName = fertilizer.getName();
+        tile.setFertilizerType(fertName);
+        tile.setFertilizerApplied(false); // will give bonus on next growth update (or immediate)
+        // Immediate bonus model: add virtual days now:
+        int bonus = fertilizerGrowthBonus(fertName);
+        tile.setDaysGrown(Math.max(1, tile.getDaysGrown()+bonus));
+        tile.setFertilizerApplied(true); // since we applied instantly
+        // Consume one fertilizer unit
+        player.getInventory().removeItemByName(fertName,1);
+        showMessage("Applied " + fertName.replace("_"," "),1.5f);
+    }
+    private int fertilizerGrowthBonus(String fertName) {
+        if (fertName == null) return 0;
+        switch (fertName) {
+            case "Basic_Fertilizer": return 1;
+            case "Deluxe_Fertilizer": return 2;
+            case "Quality_Fertilizer": return 3;
+            default: return 0;
+        }
+    }
     private void openFarmingDialog() {
         if (farmingDialog == null) {
             farmingDialog = new FarmingDialog(skin, gameInstance.getCurrentPlayer());
             farmingDialog.setOnSeedSelected(seed -> {
-                // Remember selection; planting logic will be added next step
                 pendingSelectedSeed = seed;
-                showResultDialog("Selected: " + seed.getName() + "\n(Planting flow comes next.)");
-                // We also unblock here in case we keep the dialog open after selection in the future
+                showResultDialog("Selected: " + seed.getName() + " (Choose plowed tile to plant)");
                 uiBlockedByDialog = false;
             });
-            // Ensure we ALWAYS unblock gameplay input when the dialog closes for any reason
             farmingDialog.setOnClosed(() -> uiBlockedByDialog = false);
         }
+        // Update current user reference (fixes earlier bug using first user)
+        farmingDialog.setCurrentUser(gameInstance.getCurrentPlayer());
         farmingDialog.show(stage);
         uiBlockedByDialog = true;
     }
@@ -2816,6 +3143,10 @@ private void drawArtisanProductionProgressTextOnly() {
 
     @Override
     public void dispose() {
+        for (Texture t : quickItemTextureCache.values()) {
+            if (t != null) t.dispose();
+        }
+        quickItemTextureCache.clear();
         if (batch != null) batch.dispose();
         if (font != null) font.dispose();
         if (fallbackTexture != null) fallbackTexture.dispose();

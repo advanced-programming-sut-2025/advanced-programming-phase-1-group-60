@@ -1,4 +1,3 @@
-// StardewValley/models/Tile.java
 package com.StardewValley.models;
 
 import java.util.HashMap;
@@ -13,7 +12,7 @@ public class Tile {
     private RandomElement randomElement;
     private boolean passable = true;
     private String type;
-    private boolean isOccupied; // Existing field
+    private boolean isOccupied;
     private Seeds plantedSeed;
     private Item placedItem;
     private boolean isWatered;
@@ -27,130 +26,131 @@ public class Tile {
     private boolean harvested = false;
     private int regrowthCounter = 0;
     private Map<String, Object> properties = new HashMap<>();
+    private String fertilizerType;
+    private boolean fertilizerApplied;
 
-    // Added Field: The actual growing crop instance on the tile
+    // Multi-harvest regrowth support (new):
+    private int regrowthCooldownDays = 0; // >0 means in regrowth waiting period (show Stage_0)
+    private boolean showMultiHarvestBase = false;
+
     private Crop crop;
 
     public Tile(int x, int y) {
         this.positionX= x;
         this.positionY = y;
-        this.type = "G"; // Default type: Grass
+        this.type = "G";
+        this.fertilizerType = null;
+        this.fertilizerApplied = false;
     }
 
     public Optional<StaticElement> getStaticElement() { return Optional.ofNullable(staticElement); }
     public Optional<RandomElement> getRandomElement() { return Optional.ofNullable(randomElement); }
 
-    // Implemented / Modified: Checks passability based on all elements including crop
     public boolean isPassable() {
         if (staticElement != null && !staticElement.isPassable()) return false;
         if (randomElement != null && !randomElement.isPassable()) return false;
-        if (crop != null && !crop.isPassable()) return false; // Check crop's passability
-        if (plantedSeed != null) return false; // A tile with a planted seed is not passable
-        if (placedItem != null) return false; // An item on the tile might make it impassable (e.g., tool, furniture)
-
-        // Fallback to the tile's own passable property, updated by setters
+        if (crop != null && !crop.isPassable()) return false;
+        if (plantedSeed != null) return false;
+        if (placedItem != null) return false;
         return passable;
     }
 
-    // Modified: Updates passability based on the element, considering other contents
     public void setStaticElement(StaticElement e) {
         this.staticElement = e;
-        // If the new element is not passable, or if there's an existing crop/seed/item, set to false
         this.passable = (e == null || e.isPassable()) && (crop == null || crop.isPassable()) && plantedSeed == null && placedItem == null;
-        updateOccupiedStatus(); // Update occupied status
+        updateOccupiedStatus();
     }
 
-    // Modified: Updates passability and ensures no other major elements are present
     public void setRandomElement(RandomElement e) {
-        // Only set if currently empty of other major blocking elements (staticElement not null, but could be passable)
-        // Also ensure no crop, seed, or placed item is present before adding random element.
         if (this.staticElement == null && this.crop == null && this.plantedSeed == null && this.placedItem == null) {
             this.randomElement = e;
-            this.passable = (e == null || e.isPassable()); // Update passability based on new random element
+            this.passable = (e == null || e.isPassable());
             updateOccupiedStatus();
         }
     }
 
-    // Modified: Resets all dynamic elements and state
     public void setToNormalTile() {
         this.randomElement = null;
-        this.crop = null; // Clear crop
+        this.crop = null;
         this.plantedSeed = null;
         this.placedItem = null;
-        this.type = "G"; // Revert to default Grass type
-        this.passable = (staticElement == null) || staticElement.isPassable(); // Passable based on static element or default
+        this.type = "G";
+        this.passable = (staticElement == null) || staticElement.isPassable();
         updateOccupiedStatus();
-        resetCropFields(); // Reset all crop-related flags and counters
-        this.isPlowed = false; // Also unplow
+        resetCropFields();
+        this.isPlowed = false;
         this.isWatered = false;
         this.isFertilized = false;
         this.isGiantCrop = false;
+        this.regrowthCooldownDays = 0;
+        this.showMultiHarvestBase = false;
     }
 
-    // Getter and setter methods (unchanged signatures)
     public int getPositionX() { return positionX; }
     public int getPositionY() { return positionY; }
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
 
-    // Existing `isOccupied` and `setOccupied` are kept as is, but their usage might be derived via `updateOccupiedStatus()`
     public boolean isOccupied() { return isOccupied; }
-    public void setOccupied(boolean occupied) { this.isOccupied = occupied; } // This setter can be called externally
+    public void setOccupied(boolean occupied) { this.isOccupied = occupied; }
 
-    // Helper to keep isOccupied field consistent with content
     private void updateOccupiedStatus() {
         this.isOccupied = (staticElement != null || randomElement != null || plantedSeed != null || crop != null || placedItem != null);
     }
 
     public Seeds getPlantedSeed() { return plantedSeed; }
 
-    // Modified: Now correctly plants a seed and creates a Crop object
     public void setPlantedSeed(Seeds seed) {
         this.plantedSeed = seed;
         if (seed != null) {
-            this.type = "S"; // S for Seeded/Growing
-            this.crop = new Crop(seed); // Instantiate the actual Crop object
-            this.passable = false; // Planted tile is not passable
-            updateOccupiedStatus(); // It's now occupied
-            resetCropFields(); // Reset growth fields for the new crop
+            this.type = "S";
+            this.crop = new Crop(seed);
+            this.passable = false;
+            updateOccupiedStatus();
+            resetCropFields();
+            this.regrowthCooldownDays = 0;
+            this.showMultiHarvestBase = false;
         } else {
-            this.type = (isPlowed ? "P" : "G"); // Revert type if no seed
-            this.crop = null; // Clear the crop instance
-            this.passable = (staticElement == null || staticElement.isPassable()); // Revert passability based on static element
-            updateOccupiedStatus(); // Update occupied status
-            resetCropFields(); // Clear crop fields if seed is removed
+            this.type = (isPlowed ? "P" : "G");
+            this.crop = null;
+            this.passable = (staticElement == null || staticElement.isPassable());
+            updateOccupiedStatus();
+            resetCropFields();
+            this.regrowthCooldownDays = 0;
+            this.showMultiHarvestBase = false;
         }
     }
 
-    // Added Function: Getter for the actual Crop object
-    public Optional<Crop> getCrop() {
-        return Optional.ofNullable(crop);
-    }
+    // Fertilizer state
+    public boolean hasFertilizer() { return fertilizerType != null; }
+    public String getFertilizerType() { return fertilizerType; }
+    public void setFertilizerType(String fertilizerType) { this.fertilizerType = fertilizerType; }
+    public boolean isFertilizerApplied() { return fertilizerApplied; }
+    public void setFertilizerApplied(boolean fertilizerApplied) { this.fertilizerApplied = fertilizerApplied; }
 
-    // Added Function: Setter for the actual Crop object (for direct manipulation)
+    public Optional<Crop> getCrop() { return Optional.ofNullable(crop); }
     public void setCrop(Crop crop) {
         this.crop = crop;
         if (crop == null) {
-            this.plantedSeed = null; // If crop is removed, seed info is also cleared
-            this.type = (isPlowed ? "P" : "G"); // Revert type
-            this.passable = (staticElement == null || staticElement.isPassable()); // Revert passability
+            this.plantedSeed = null;
+            this.type = (isPlowed ? "P" : "G");
+            this.passable = (staticElement == null || staticElement.isPassable());
             updateOccupiedStatus();
             resetCropFields();
+            this.regrowthCooldownDays = 0;
+            this.showMultiHarvestBase = false;
         } else {
-            this.type = "C"; // 'C' for actively growing crop
-            this.passable = false; // Growing crop makes tile impassable
+            this.type = "C";
+            this.passable = false;
             updateOccupiedStatus();
-            // No resetCropFields here as setting a new crop implies new state
         }
     }
 
     public Item getPlacedItem() { return placedItem; }
-
-    // Modified: Updates occupied status
     public void setPlacedItem(Item placedItem) {
         this.placedItem = placedItem;
-        this.passable = (placedItem == null); // Assuming Item has isPassable
-        updateOccupiedStatus(); // Update occupied status
+        this.passable = (placedItem == null);
+        updateOccupiedStatus();
     }
 
     public boolean isWatered() { return isWatered; }
@@ -160,63 +160,55 @@ public class Tile {
     public void setFertilized(boolean fertilized) { this.isFertilized = fertilized; }
 
     public boolean isPlowed() { return isPlowed; }
-
-    // Modified: Updates type and passability when plowed
     public void setPlowed(boolean plowed) {
         this.isPlowed = plowed;
         if (plowed) {
-            this.type = "P"; // 'P' for Plowed soil
-            this.passable = true; // Plowed soil is usually passable
-        } else if (crop == null && plantedSeed == null) { // Only revert to grass if no crop/seed
-            this.type = "G"; // Revert to grass if unplowed
+            this.type = "P";
+            this.passable = true;
+        } else if (crop == null && plantedSeed == null) {
+            this.type = "G";
         }
         updateOccupiedStatus();
     }
 
-    // Implemented Function: Checks if the tile is truly empty (no dynamic elements)
     public boolean isEmpty() {
-        // A tile is truly empty if it has no random element, no planted seed,
-        // no current crop, and no placed item. Static elements like rocks/trees might persist.
         return randomElement == null && plantedSeed == null && crop == null && placedItem == null;
     }
 
-    // Implemented Function: Determines if a seed can be planted on this tile
     public boolean canPlant() {
-        return isPlowed() &&
-            isEmpty() && // Must be empty of other items/crops
-            isPassable() && // Should be passable for planting operations
-            !isGiantCrop(); // Cannot plant on a giant crop space
+        return isPlowed() && isEmpty() && isPassable() && !isGiantCrop();
     }
 
-    // Modified: Clears all dynamic elements and related states
     public void clearTile() {
         this.placedItem = null;
         this.randomElement = null;
-        this.crop = null; // Clear the crop
+        this.crop = null;
         this.plantedSeed = null;
         this.isWatered = false;
         this.isFertilized = false;
-        this.isPlowed = false; // Clear plowed status
+        this.isPlowed = false;
         this.isGiantCrop = false;
-        this.type = "G"; // Reset to default type (Grass)
-        this.passable = (staticElement == null) || staticElement.isPassable(); // Reset passability based on static element or default
+        this.type = "G";
+        this.passable = (staticElement == null) || staticElement.isPassable();
         updateOccupiedStatus();
-        resetCropFields(); // Reset all crop growth related fields
+        resetCropFields();
+        this.regrowthCooldownDays = 0;
+        this.showMultiHarvestBase = false;
     }
 
     public boolean isGiantCrop() { return isGiantCrop; }
     public void setGiantCrop(boolean giant) { this.isGiantCrop = giant; }
-    public void applyWeatherEffect(String effect) {
-        // Existing empty method - kept as is.
-    }
 
     public boolean isGreenHouseTile() { return isGreenHouseTile; }
     public void setGreenHouseTile(boolean greenHouseTile) { isGreenHouseTile = greenHouseTile; }
+
     public int getLastWateredDay() { return lastWateredDay; }
     public void setLastWateredDay(int day) { this.lastWateredDay = day; }
-    public void incrementDaysGrown() { daysGrown++; } // Days for the tile's crop
+
+    public void incrementDaysGrown() { daysGrown++; }
     public int getDaysGrown() { return daysGrown; }
-    public void setDaysGrown(int daysGrown) { this.daysGrown = daysGrown; } // For loading/saving
+    public void setDaysGrown(int daysGrown) { this.daysGrown = daysGrown; }
+
     public void setReadyToHarvest(boolean readyToHarvest) { this.readyToHarvest = readyToHarvest; }
     public boolean isHarvested() { return harvested; }
     public void setHarvested(boolean harvested) { this.harvested = harvested; }
@@ -233,89 +225,85 @@ public class Tile {
     }
 
     public void resetForRegrowth() {
-        // This method is called after a regrowing crop is harvested
-        daysGrown = 0; // Days grown resets for next growth cycle
-        readyToHarvest = false; // Not ready immediately after harvest
-        harvested = false; // Reset harvested flag
-        // regrowthCounter is handled by the Crop itself or within harvestCrop logic
+        daysGrown = 0;
+        readyToHarvest = false;
+        harvested = false;
     }
 
-    // Modified: Delegates to the Crop object to check if it's ready
     public boolean isReadyToHarvest() {
         return crop != null && crop.isReadyToHarvest();
     }
 
-    // Added Function: Performs the harvest operation on the crop on this tile
     public Optional<Item> harvestCrop() {
-        if (crop == null || !crop.isReadyToHarvest()) {
-            System.out.println("No crop or crop not ready to harvest at [" + positionX + "," + positionY + "]");
-            return Optional.empty();
-        }
-
-        List<Item> harvestedItems = crop.harvest(); // The Crop object handles its own harvest logic
-
-        if (harvestedItems.isEmpty()) {
-            System.out.println("Crop at [" + positionX + "," + positionY + "] yielded no items.");
-        }
-
+        if (crop == null || !crop.isReadyToHarvest()) return Optional.empty();
+        java.util.List<Item> harvestedItems = crop.harvest();
         if (crop.canRegrow()) {
-            resetForRegrowth(); // Reset tile flags for next growth cycle
-            incrementRegrowthCounter(); // Track number of regrowths
-            System.out.println("Crop at [" + positionX + "," + positionY + "] harvested. Will regrow.");
-            // The Crop object itself has been reset by its own `harvest()` method's call to `regrow()`.
+            resetForRegrowth();
+            incrementRegrowthCounter();
         } else {
-            this.setCrop(null); // Clear the Crop object from the tile (one-time harvest)
-            this.setPlantedSeed(null); // Clear the seed type
-            this.isPlowed = true; // Keep the tile plowed for next planting
-            this.type = "P"; // Set type to plowed soil
-            System.out.println("Crop at [" + positionX + "," + positionY + "] harvested. Tile is now empty plowed soil.");
+            this.setCrop(null);
+            this.setPlantedSeed(null);
+            this.isPlowed = true;
+            this.type = "P";
         }
-
         return harvestedItems.isEmpty() ? Optional.empty() : Optional.of(harvestedItems.get(0));
     }
 
-
-    // Added Function: Checks if the tile is truly empty of dynamic elements (same as isEmpty())
-    // This is redundant with isEmpty() but kept as per original user snippet.
-    public boolean isTrulyEmpty() {
-        return isEmpty();
-    }
-
-    // Added Function: Checks if the tile is available for placing a building
+    public boolean isTrulyEmpty() { return isEmpty(); }
     public boolean isAvailableForBuilding() {
-        // A tile must be truly empty and passable to be considered available for building.
-        // It also must not have a static element (e.g., rock, tree already there).
         return staticElement == null && isEmpty() && isPassable();
     }
 
-    // Modified: Updates toString to reflect the Crop's symbol if present
+    public boolean isInRegrowthCooldown() {
+        return regrowthCooldownDays > 0;
+    }
+
+    public int getRegrowthCooldownDays() {
+        return regrowthCooldownDays;
+    }
+
+    public void setRegrowthCooldownDays(int days) {
+        this.regrowthCooldownDays = Math.max(0, days);
+    }
+
+    public void decrementRegrowthCooldown() {
+        if (regrowthCooldownDays > 0) regrowthCooldownDays--;
+        if (regrowthCooldownDays == 0) {
+            showMultiHarvestBase = false;
+            // Instantly return to harvest-ready (last stage) for regrowable crops.
+            if (plantedSeed != null) {
+                // Set daysGrown directly to totalHarvestTime so rendering shows final stage
+                this.daysGrown = Math.max(1, plantedSeed.getTotalHarvestTime());
+                // Optionally mark watered false; player must re‑water if your logic requires it.
+                // this.isWatered = false;
+            }
+        }
+    }
+
+    public boolean shouldShowMultiHarvestBase() {
+        return showMultiHarvestBase && regrowthCooldownDays > 0;
+    }
+
+    public void activateMultiHarvestBase(int cooldownDays) {
+        this.showMultiHarvestBase = true;
+        this.regrowthCooldownDays = cooldownDays;
+        this.daysGrown = 0; // restart growth after cooldown finishes
+    }
+
     @Override
     public String toString() {
-        if (isGiantCrop()) return "G"; // Represent giant crop
-        if (crop != null) {
-            return String.valueOf(crop.getSymbol()); // Use crop's symbol for display
-        }
-        if (staticElement != null) {
-            return String.valueOf(staticElement.symbol()); // Use static element's symbol
-        }
-        if (randomElement != null) {
-            return String.valueOf(randomElement.symbol()); // Use random element's symbol
-        }
-        if (plantedSeed != null) {
-            return String.valueOf(plantedSeed.symbol()); // Use seed's symbol
-        }
-        if (placedItem != null) {
-            return "I"; // Generic symbol for an item placed
-        }
-        // Fallback to type if nothing else is present
+        if (isGiantCrop()) return "G";
+        if (crop != null) return String.valueOf(crop.getSymbol());
+        if (staticElement != null) return String.valueOf(staticElement.symbol());
+        if (randomElement != null) return String.valueOf(randomElement.symbol());
+        if (plantedSeed != null) return String.valueOf(plantedSeed.symbol());
+        if (placedItem != null) return "I";
         return type != null && !type.isEmpty() ? type : ".";
     }
-    public int getX(){
-        return this.positionX;
-    }
-    public int getY(){
-        return this.positionY;
-    }
+
+    public int getX(){ return this.positionX; }
+    public int getY(){ return this.positionY; }
+
     public void setProperty(String key, Object value) { properties.put(key, value); }
     public Object getProperty(String key) { return properties.get(key); }
 }

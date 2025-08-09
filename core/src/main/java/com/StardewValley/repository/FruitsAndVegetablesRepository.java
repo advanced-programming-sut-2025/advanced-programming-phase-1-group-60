@@ -459,7 +459,7 @@ public class FruitsAndVegetablesRepository {
         broccoli.setSource("Broccoli Seeds");
         broccoli.setGrowthStages(new int[]{2, 2, 2, 2});
         broccoli.setTotalHarvestTime(8);
-        broccoli.setOneTime(false);
+        broccoli.setOneTime(true);
         broccoli.setRegrowthTime(4);
         broccoli.setSellPrice(70);
         broccoli.setEdible(true);

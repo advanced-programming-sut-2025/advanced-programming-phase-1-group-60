@@ -7,6 +7,8 @@ import com.StardewValley.models.User;
 import com.StardewValley.repository.FruitsAndVegetablesRepository;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -21,7 +23,10 @@ public class FarmingDialog extends Dialog {
         void onSeedSelected(Seeds seed);
     }
 
-    private final User user;
+    private User currentUser; // replaces 'user'
+    private static final List<String> FERTILIZER_NAMES = List.of(
+        "Basic_Fertilizer","Deluxe_Fertilizer","Quality_Fertilizer"
+    );
     private OnSeedSelected onSeedSelected;
 
     private final Table listTable;
@@ -34,7 +39,7 @@ public class FarmingDialog extends Dialog {
 
     public FarmingDialog(Skin skin, User user) {
         super("Farming - Seeds", skin);
-        this.user = user;
+        this.currentUser = user;
 
         setModal(true);
         setResizable(true);
@@ -78,7 +83,9 @@ public class FarmingDialog extends Dialog {
 
         refreshSeedList();
     }
-
+    public void setCurrentUser(User user) {
+        this.currentUser = user;
+    }
     public void setOnSeedSelected(OnSeedSelected onSeedSelected) {
         this.onSeedSelected = onSeedSelected;
     }
@@ -96,14 +103,69 @@ public class FarmingDialog extends Dialog {
 
     private void refreshSeedList() {
         listTable.clear();
-
+        // Section: Seeds
+        Label seedsHeader = new Label("Seeds", getSkin());
+        seedsHeader.setColor(Color.CYAN);
+        listTable.add(seedsHeader).left().pad(4).row();
         List<Seeds> seeds = FruitsAndVegetablesRepository.seeds;
         for (Seeds s : seeds) {
             Table row = makeSeedRow(s);
             listTable.add(row).growX().pad(4).row();
         }
+        // Section: Fertilizers
+        Label fertHeader = new Label("Fertilizers", getSkin());
+        fertHeader.setColor(Color.GOLD);
+        listTable.add(fertHeader).left().padTop(10).row();
+        for (String fert : FERTILIZER_NAMES) {
+            Table fertRow = makeFertilizerRow(fert);
+            listTable.add(fertRow).growX().pad(4).row();
+        }
     }
+    private Table makeFertilizerRow(String fertName) {
+        Table row = new Table(getSkin());
+        row.left().pad(6);
+        // icon
+        Image icon = new Image();
+        String path = "assets/Map/FruitsAndVegetables/Fertilizer/" + fertName + ".png";
+        if (Gdx.files.internal(path).exists()) {
+            icon.setDrawable(new Image(new Texture(Gdx.files.internal(path))).getDrawable());
+        }
+        icon.setSize(32,32);
+        Label nameLabel = new Label(fertName, getSkin());
+        row.add(icon).size(32,32).padRight(10);
+        row.add(nameLabel).left().expandX();
 
+        if (cheatActive) {
+            TextButton addBtn = new TextButton("Add", getSkin());
+            row.add(addBtn).right();
+            addBtn.addListener(new ClickListener(){
+                @Override public void clicked(InputEvent event, float x, float y){
+                    addFertilizerToInventory(fertName);
+                }
+            });
+        }
+        row.addListener(new ClickListener(){
+            @Override public void clicked(InputEvent event, float x, float y){
+                if (cheatActive) {
+                    addFertilizerToInventory(fertName);
+                } else {
+                    // Just feedback; fertilizer application happens from MapView via quick slot.
+                    feedbackLabel.setText("Select and place fertilizer from quick bar.");
+                }
+            }
+        });
+        return row;
+    }
+    private void addFertilizerToInventory(String fertName) {
+        if (currentUser == null || currentUser.getInventory() == null) {
+            feedbackLabel.setText("No player inventory found.");
+            pack(); return;
+        }
+        Item fert = new Item(fertName, 1, "assets/Map/FruitsAndVegetables/Fertilizer/" + fertName + ".png");
+        boolean added = currentUser.getInventory().tryAddItem(fert);
+        feedbackLabel.setText(added ? "Added 1x " + fertName : "Inventory full for " + fertName);
+        pack();
+    }
     private Table makeSeedRow(Seeds seed) {
         Table row = new Table(getSkin());
         // SAFE background: only set if exists in Skin to avoid runtime error
@@ -190,7 +252,7 @@ public class FarmingDialog extends Dialog {
     }
 
     private void addSeedToInventory(Seeds src) {
-        if (user == null || user.getInventory() == null) {
+        if (currentUser == null || currentUser.getInventory() == null) {
             feedbackLabel.setText("No player inventory found.");
             pack();
             return;
@@ -210,7 +272,7 @@ public class FarmingDialog extends Dialog {
             copy.setPath(fullPath);
         }
 
-        boolean added = user.getInventory().tryAddItem(copy);
+        boolean added = currentUser.getInventory().tryAddItem(copy);
         if (added) {
             feedbackLabel.setText("Added 1x " + src.getName() + " to inventory.");
         } else {

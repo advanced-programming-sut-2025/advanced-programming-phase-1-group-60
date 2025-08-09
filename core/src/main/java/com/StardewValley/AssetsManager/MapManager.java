@@ -26,6 +26,9 @@ public class MapManager {
     private Texture pixelWhiteTexture; // For drawing highlights (e.g., a 1x1 white pixel)
     private Map<String, Texture> buildingTextures = new HashMap<>();
     private Texture plowedGroundTexture;
+    private Texture wateredGroundTexture;
+    private final Map<String, Texture> fertilizerTextures = new HashMap<>();
+
     // Stone textures
     private Texture[] stoneTiles;
     //Fish:
@@ -280,7 +283,7 @@ public class MapManager {
         grassTile = new Texture(Gdx.files.internal("Map/Floor/Grass.png"));
         placeholderTile = new Texture(Gdx.files.internal("placeholder.png"));
         chatIconTexture = new Texture(Gdx.files.internal("assets/Village/chat_icon.png"));
-
+        wateredGroundTexture = new Texture(Gdx.files.internal("assets/Map/Floor/Watered.png"));
         // Structure textures
         cabinTexture = new Texture(Gdx.files.internal("Map/Floor/Cabin.png"));
         greenhouseTexture = new Texture(Gdx.files.internal("Map/Floor/Greenhouse.png"));
@@ -293,7 +296,7 @@ public class MapManager {
         for (int i = 0; i < 8; i++) {
             stoneTiles[i] = new Texture(Gdx.files.internal("Map/Stone/Stone_" + (i + 1) + ".png"));
         }
-
+        loadFertilizerTextures();
         // Load NPC textures
         npcTextures.put("sebastian", new Texture(Gdx.files.internal("assets/Village/sebastian.png")));
         npcTextures.put("abigail", new Texture(Gdx.files.internal("assets/Village/abigail.png")));
@@ -307,7 +310,23 @@ public class MapManager {
         coopTexture = new Texture(Gdx.files.internal("assets/Inventory/AnimalPlaces/Coop.png"));
         barnTexture = new Texture(Gdx.files.internal("assets/Inventory/AnimalPlaces/Barn.png"));
     }
-
+    private void loadFertilizerTextures() {
+        loadFertilizerTexture("Basic_Fertilizer");
+        loadFertilizerTexture("Deluxe_Fertilizer");
+        loadFertilizerTexture("Quality_Fertilizer");
+    }
+    private void loadFertilizerTexture(String name) {
+        String path = "assets/Map/FruitsAndVegetables/Fertilizer/" + name + ".png";
+        if (Gdx.files.internal(path).exists()) {
+            fertilizerTextures.put(name, new Texture(Gdx.files.internal(path)));
+        }
+    }
+    public Texture getWateredGroundTexture() {
+        return wateredGroundTexture;
+    }
+    public Texture getFertilizerTexture(String fertName) {
+        return fertilizerTextures.get(fertName);
+    }
     // Basic texture getters
     public Texture getGrassTile() {
         return grassTile;
@@ -529,7 +548,9 @@ public class MapManager {
         grassTile.dispose();
         placeholderTile.dispose();
         chatIconTexture.dispose();
-
+        if (wateredGroundTexture != null) wateredGroundTexture.dispose();
+        for (Texture t : fertilizerTextures.values()) if (t != null) t.dispose();
+        fertilizerTextures.clear();
         // Dispose structure textures
         if (cabinTexture != null) cabinTexture.dispose();
         if (greenhouseTexture != null) greenhouseTexture.dispose();

@@ -366,7 +366,33 @@ public class Farm {
 
 
     public void updateDaily() {
-        // Existing empty method - kept as is.
+        for (int y = 0; y < FarmTemplate.HEIGHT; y++) {
+            for (int x = 0; x < FarmTemplate.WIDTH; x++) {
+                Tile t = tiles[y][x];
+                if (t == null) continue;
+
+                // No seed planted -> nothing to do
+                Seeds seed = t.getPlantedSeed();
+                if (seed == null) continue;
+
+                // If in regrowth cooldown: just tick it down
+                if (t.isInRegrowthCooldown()) {
+                    t.decrementRegrowthCooldown();
+                    // Skip normal growth while cooling down
+                    continue;
+                }
+
+                // Normal growth (pre-first-harvest OR after just finishing regrowth)
+                int total = seed.getTotalHarvestTime();
+                if (t.getDaysGrown() < total) {
+                    if (t.isWatered()) {
+                        t.incrementDaysGrown();
+                    }
+                }
+                // Reset watered status daily (standard farming loop)
+                t.setWatered(false);
+            }
+        }
     }
 
 
