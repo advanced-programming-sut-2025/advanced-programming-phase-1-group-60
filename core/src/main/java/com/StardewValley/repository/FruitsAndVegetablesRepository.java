@@ -315,7 +315,7 @@ public class FruitsAndVegetablesRepository {
         crops.add(redCabbage);
 
         FruitsAndVegetables starfruit = new FruitsAndVegetables();
-        starfruit.setName("Starfuit");
+        starfruit.setName("Starfruit");
         starfruit.setSource("Starfruit Seeds");
         starfruit.setGrowthStages(new int[]{2, 3, 2, 3, 3});
         starfruit.setTotalHarvestTime(13);
@@ -468,19 +468,19 @@ public class FruitsAndVegetablesRepository {
         broccoli.setCanBeGiant(false);
         crops.add(broccoli);
 
-        FruitsAndVegetables cranberries = new FruitsAndVegetables();
-        cranberries.setName("Cranberries");
-        cranberries.setSource("Cranberry Seeds");
-        cranberries.setGrowthStages(new int[]{1, 2, 1, 1 ,2});
-        cranberries.setTotalHarvestTime(7);
-        cranberries.setOneTime(false);
-        cranberries.setRegrowthTime(5);
-        cranberries.setSellPrice(75);
-        cranberries.setEdible(true);
-        cranberries.setBaseEnergy(38);
-        cranberries.setSuitableSeasons(List.of("Fall"));
-        cranberries.setCanBeGiant(false);
-        crops.add(cranberries);
+        FruitsAndVegetables cranberry = new FruitsAndVegetables();
+        cranberry.setName("Cranberry");
+        cranberry.setSource("Cranberry Seeds");
+        cranberry.setGrowthStages(new int[]{1, 2, 1, 1 ,2});
+        cranberry.setTotalHarvestTime(7);
+        cranberry.setOneTime(false);
+        cranberry.setRegrowthTime(5);
+        cranberry.setSellPrice(75);
+        cranberry.setEdible(true);
+        cranberry.setBaseEnergy(38);
+        cranberry.setSuitableSeasons(List.of("Fall"));
+        cranberry.setCanBeGiant(false);
+        crops.add(cranberry);
 
         FruitsAndVegetables eggplant = new FruitsAndVegetables();
         eggplant.setName("Eggplant");
@@ -600,6 +600,7 @@ public class FruitsAndVegetablesRepository {
         blueJazzSeeds.setGrowsInto("Blue Jazz");
         blueJazzSeeds.setSuitableSeasons(List.of("Spring"));
         blueJazzSeeds.setTotalHarvestTime(7);
+        blueJazzSeeds.setImagePath("Jazz_Seeds.png");
         seeds.add(blueJazzSeeds);
 
         Seeds carrotSeeds = new Seeds();
@@ -607,6 +608,7 @@ public class FruitsAndVegetablesRepository {
         carrotSeeds.setGrowsInto("Carrot");
         carrotSeeds.setSuitableSeasons(List.of("Spring"));
         carrotSeeds.setTotalHarvestTime(3);
+        carrotSeeds.setImagePath("Carrot_Seeds.png");
         seeds.add(carrotSeeds);
 
         Seeds cauliflowerSeeds = new Seeds();
@@ -614,6 +616,7 @@ public class FruitsAndVegetablesRepository {
         cauliflowerSeeds.setGrowsInto("Cauliflower");
         cauliflowerSeeds.setSuitableSeasons(List.of("Spring"));
         cauliflowerSeeds.setTotalHarvestTime(12);
+        cauliflowerSeeds.setImagePath("Cauliflower_Seeds.png");
         seeds.add(cauliflowerSeeds);
 
         Seeds coffeeBeans = new Seeds();
@@ -621,6 +624,7 @@ public class FruitsAndVegetablesRepository {
         coffeeBeans.setGrowsInto("Coffee Bean");
         coffeeBeans.setSuitableSeasons(List.of("Spring","Summer"));
         coffeeBeans.setTotalHarvestTime(10);
+        coffeeBeans.setImagePath("Coffee_Bean.png");
         seeds.add(coffeeBeans);
 
         Seeds garlicSeeds = new Seeds();
@@ -628,6 +632,7 @@ public class FruitsAndVegetablesRepository {
         garlicSeeds.setGrowsInto("Garlic");
         garlicSeeds.setSuitableSeasons(List.of("Spring"));
         garlicSeeds.setTotalHarvestTime(4);
+        garlicSeeds.setImagePath("Garlic_Seeds.png");
         seeds.add(garlicSeeds);
 
         Seeds beanStarter = new Seeds();
@@ -635,6 +640,7 @@ public class FruitsAndVegetablesRepository {
         beanStarter.setGrowsInto("Green Bean");
         beanStarter.setSuitableSeasons(List.of("Spring"));
         beanStarter.setTotalHarvestTime(10);
+        beanStarter.setImagePath("Bean_Starter.png");
         seeds.add(beanStarter);
 
         Seeds kaleSeeds = new Seeds();
@@ -642,6 +648,7 @@ public class FruitsAndVegetablesRepository {
         kaleSeeds.setGrowsInto("Kale");
         kaleSeeds.setSuitableSeasons(List.of("Spring"));
         kaleSeeds.setTotalHarvestTime(6);
+        kaleSeeds.setImagePath("Kale_Seeds.png");
         seeds.add(kaleSeeds);
 
         Seeds parsnipSeeds = new Seeds();
@@ -649,6 +656,7 @@ public class FruitsAndVegetablesRepository {
         parsnipSeeds.setGrowsInto("Parsnip");
         parsnipSeeds.setSuitableSeasons(List.of("Spring"));
         parsnipSeeds.setTotalHarvestTime(4);
+        parsnipSeeds.setImagePath("Parsnip_Seeds.png");
         seeds.add(parsnipSeeds);
 
         Seeds potatoSeeds = new Seeds();
@@ -656,6 +664,7 @@ public class FruitsAndVegetablesRepository {
         potatoSeeds.setGrowsInto("Potato");
         potatoSeeds.setSuitableSeasons(List.of("Spring"));
         potatoSeeds.setTotalHarvestTime(6);
+        potatoSeeds.setImagePath("Potato_Seeds.png");
         seeds.add(potatoSeeds);
 
         Seeds rhubarbSeeds = new Seeds();
@@ -663,6 +672,7 @@ public class FruitsAndVegetablesRepository {
         rhubarbSeeds.setGrowsInto("Rhubarb");
         rhubarbSeeds.setSuitableSeasons(List.of("Spring"));
         rhubarbSeeds.setTotalHarvestTime(13);
+        rhubarbSeeds.setImagePath("Rhubarb_Seeds.png");
         seeds.add(rhubarbSeeds);
 
         Seeds strawberrySeeds = new Seeds();
@@ -670,6 +680,7 @@ public class FruitsAndVegetablesRepository {
         strawberrySeeds.setGrowsInto("Strawberry");
         strawberrySeeds.setSuitableSeasons(List.of("Spring"));
         strawberrySeeds.setTotalHarvestTime(8);
+        strawberrySeeds.setImagePath("Strawberry_Seeds.png");
         seeds.add(strawberrySeeds);
 
         Seeds tulipBulb = new Seeds();
@@ -677,6 +688,7 @@ public class FruitsAndVegetablesRepository {
         tulipBulb.setGrowsInto("Tulip");
         tulipBulb.setSuitableSeasons(List.of("Spring"));
         tulipBulb.setTotalHarvestTime(6);
+        tulipBulb.setImagePath("Tulip_Bulb.png");
         seeds.add(tulipBulb);
 
         Seeds riceShoot = new Seeds();
@@ -684,6 +696,7 @@ public class FruitsAndVegetablesRepository {
         riceShoot.setGrowsInto("Unmilled Rice");
         riceShoot.setSuitableSeasons(List.of("Spring"));
         riceShoot.setTotalHarvestTime(8);
+        riceShoot.setImagePath("Rice_Shoot.png");
         seeds.add(riceShoot);
 
         Seeds blueberrySeeds = new Seeds();
@@ -691,6 +704,7 @@ public class FruitsAndVegetablesRepository {
         blueberrySeeds.setGrowsInto("Blueberry");
         blueberrySeeds.setSuitableSeasons(List.of("Summer"));
         blueberrySeeds.setTotalHarvestTime(13);
+        blueberrySeeds.setImagePath("Blueberry_Seeds.png");
         seeds.add(blueberrySeeds);
 
         Seeds cornSeeds = new Seeds();
@@ -698,6 +712,7 @@ public class FruitsAndVegetablesRepository {
         cornSeeds.setGrowsInto("Corn");
         cornSeeds.setSuitableSeasons(List.of("Summer","Fall"));
         cornSeeds.setTotalHarvestTime(14);
+        cornSeeds.setImagePath("Corn_Seeds.png");
         seeds.add(cornSeeds);
 
         Seeds hopsStarter = new Seeds();
@@ -705,6 +720,7 @@ public class FruitsAndVegetablesRepository {
         hopsStarter.setGrowsInto("Hops");
         hopsStarter.setSuitableSeasons(List.of("Summer"));
         hopsStarter.setTotalHarvestTime(11);
+        hopsStarter.setImagePath("Hops_Starter.png");
         seeds.add(hopsStarter);
 
         Seeds pepperSeeds = new Seeds();
@@ -712,6 +728,7 @@ public class FruitsAndVegetablesRepository {
         pepperSeeds.setGrowsInto("Hot Pepper");
         pepperSeeds.setSuitableSeasons(List.of("Summer"));
         pepperSeeds.setTotalHarvestTime(5);
+        pepperSeeds.setImagePath("Pepper_Seeds.png");
         seeds.add(pepperSeeds);
 
         Seeds melonSeeds = new Seeds();
@@ -719,6 +736,7 @@ public class FruitsAndVegetablesRepository {
         melonSeeds.setGrowsInto("Melon");
         melonSeeds.setSuitableSeasons(List.of("Summer"));
         melonSeeds.setTotalHarvestTime(12);
+        melonSeeds.setImagePath("Melon_Seeds.png");
         seeds.add(melonSeeds);
 
         Seeds poppySeeds = new Seeds();
@@ -726,6 +744,7 @@ public class FruitsAndVegetablesRepository {
         poppySeeds.setGrowsInto("Poppy");
         poppySeeds.setSuitableSeasons(List.of("Summer"));
         poppySeeds.setTotalHarvestTime(7);
+        poppySeeds.setImagePath("Poppy_Seeds.png");
         seeds.add(poppySeeds);
 
         Seeds radishSeeds = new Seeds();
@@ -733,6 +752,7 @@ public class FruitsAndVegetablesRepository {
         radishSeeds.setGrowsInto("Radish");
         radishSeeds.setSuitableSeasons(List.of("Summer"));
         radishSeeds.setTotalHarvestTime(6);
+        radishSeeds.setImagePath("Radish_Seeds.png");
         seeds.add(radishSeeds);
 
         Seeds redCabbageSeeds = new Seeds();
@@ -740,6 +760,7 @@ public class FruitsAndVegetablesRepository {
         redCabbageSeeds.setGrowsInto("Red Cabbage");
         redCabbageSeeds.setSuitableSeasons(List.of("Summer"));
         redCabbageSeeds.setTotalHarvestTime(9);
+        redCabbageSeeds.setImagePath("Red_Cabbage_Seeds.png");
         seeds.add(redCabbageSeeds);
 
         Seeds starfruitSeeds = new Seeds();
@@ -747,6 +768,7 @@ public class FruitsAndVegetablesRepository {
         starfruitSeeds.setGrowsInto("Starfruit");
         starfruitSeeds.setSuitableSeasons(List.of("Summer"));
         starfruitSeeds.setTotalHarvestTime(13);
+        starfruitSeeds.setImagePath("Starfruit_Seeds.png");
         seeds.add(starfruitSeeds);
 
         Seeds spangleSeeds = new Seeds();
@@ -754,6 +776,7 @@ public class FruitsAndVegetablesRepository {
         spangleSeeds.setGrowsInto("Summer Spangle");
         spangleSeeds.setSuitableSeasons(List.of("Summer"));
         spangleSeeds.setTotalHarvestTime(8);
+        spangleSeeds.setImagePath("Spangle_Seeds.png");
         seeds.add(spangleSeeds);
 
         Seeds summerSquashSeeds = new Seeds();
@@ -761,6 +784,7 @@ public class FruitsAndVegetablesRepository {
         summerSquashSeeds.setGrowsInto("Summer Squash");
         summerSquashSeeds.setSuitableSeasons(List.of("Summer"));
         summerSquashSeeds.setTotalHarvestTime(6);
+        summerSquashSeeds.setImagePath("Summer_Squash_Seeds.png");
         seeds.add(summerSquashSeeds);
 
         Seeds sunflowerSeeds = new Seeds();
@@ -768,6 +792,7 @@ public class FruitsAndVegetablesRepository {
         sunflowerSeeds.setGrowsInto("Sunflower");
         sunflowerSeeds.setSuitableSeasons(List.of("Summer","Fall"));
         sunflowerSeeds.setTotalHarvestTime(8);
+        sunflowerSeeds.setImagePath("Sunflower_Seeds.png");
         seeds.add(sunflowerSeeds);
 
         Seeds tomatoSeeds = new Seeds();
@@ -775,6 +800,7 @@ public class FruitsAndVegetablesRepository {
         tomatoSeeds.setGrowsInto("Tomato");
         tomatoSeeds.setSuitableSeasons(List.of("Summer"));
         tomatoSeeds.setTotalHarvestTime(11);
+        tomatoSeeds.setImagePath("Tomato_Seeds.png");
         seeds.add(tomatoSeeds);
 
         Seeds wheatSeeds = new Seeds();
@@ -782,6 +808,7 @@ public class FruitsAndVegetablesRepository {
         wheatSeeds.setGrowsInto("Wheat");
         wheatSeeds.setSuitableSeasons(List.of("Summer","Fall"));
         wheatSeeds.setTotalHarvestTime(4);
+        wheatSeeds.setImagePath("Wheat_Seeds.png");
         seeds.add(wheatSeeds);
 
         Seeds amaranthSeeds = new Seeds();
@@ -789,6 +816,7 @@ public class FruitsAndVegetablesRepository {
         amaranthSeeds.setGrowsInto("Amaranth");
         amaranthSeeds.setSuitableSeasons(List.of("Fall"));
         amaranthSeeds.setTotalHarvestTime(7);
+        amaranthSeeds.setImagePath("Amaranth_Seeds.png");
         seeds.add(amaranthSeeds);
 
         Seeds artichokeSeeds = new Seeds();
@@ -796,6 +824,7 @@ public class FruitsAndVegetablesRepository {
         artichokeSeeds.setGrowsInto("Artichoke");
         artichokeSeeds.setSuitableSeasons(List.of("Fall"));
         artichokeSeeds.setTotalHarvestTime(8);
+        artichokeSeeds.setImagePath("Artichoke_Seeds.png");
         seeds.add(artichokeSeeds);
 
         Seeds beetSeeds = new Seeds();
@@ -803,6 +832,7 @@ public class FruitsAndVegetablesRepository {
         beetSeeds.setGrowsInto("Beet");
         beetSeeds.setSuitableSeasons(List.of("Fall"));
         beetSeeds.setTotalHarvestTime(6);
+        beetSeeds.setImagePath("Beet_Seeds.png");
         seeds.add(beetSeeds);
 
         Seeds bokChoySeeds = new Seeds();
@@ -810,6 +840,7 @@ public class FruitsAndVegetablesRepository {
         bokChoySeeds.setGrowsInto("Bok Choy");
         bokChoySeeds.setSuitableSeasons(List.of("Fall"));
         bokChoySeeds.setTotalHarvestTime(4);
+        bokChoySeeds.setImagePath("Bok_Choy_Seeds.png");
         seeds.add(bokChoySeeds);
 
         Seeds broccoliSeeds = new Seeds();
@@ -817,6 +848,7 @@ public class FruitsAndVegetablesRepository {
         broccoliSeeds.setGrowsInto("Broccoli");
         broccoliSeeds.setSuitableSeasons(List.of("Fall"));
         broccoliSeeds.setTotalHarvestTime(8);
+        broccoliSeeds.setImagePath("Broccoli_Seeds.png");
         seeds.add(broccoliSeeds);
 
         Seeds cranberrySeeds = new Seeds();
@@ -824,6 +856,7 @@ public class FruitsAndVegetablesRepository {
         cranberrySeeds.setGrowsInto("Cranberries");
         cranberrySeeds.setSuitableSeasons(List.of("Fall"));
         cranberrySeeds.setTotalHarvestTime(7);
+        cranberrySeeds.setImagePath("Cranberry_Seeds.png");
         seeds.add(cranberrySeeds);
 
         Seeds eggplantSeeds = new Seeds();
@@ -831,6 +864,7 @@ public class FruitsAndVegetablesRepository {
         eggplantSeeds.setGrowsInto("Eggplant");
         eggplantSeeds.setSuitableSeasons(List.of("Fall"));
         eggplantSeeds.setTotalHarvestTime(5);
+        eggplantSeeds.setImagePath("Eggplant_Seeds.png");
         seeds.add(eggplantSeeds);
 
         Seeds fairySeeds = new Seeds();
@@ -838,6 +872,7 @@ public class FruitsAndVegetablesRepository {
         fairySeeds.setGrowsInto("Fairy Rose");
         fairySeeds.setSuitableSeasons(List.of("Fall"));
         fairySeeds.setTotalHarvestTime(12);
+        fairySeeds.setImagePath("Fairy_Seeds.png");
         seeds.add(fairySeeds);
 
         Seeds grapeStarter = new Seeds();
@@ -845,6 +880,7 @@ public class FruitsAndVegetablesRepository {
         grapeStarter.setGrowsInto("Grape");
         grapeStarter.setSuitableSeasons(List.of("Fall"));
         grapeStarter.setTotalHarvestTime(10);
+        grapeStarter.setImagePath("Grape_Starter.png");
         seeds.add(grapeStarter);
 
         Seeds pumpkinSeeds = new Seeds();
@@ -852,6 +888,7 @@ public class FruitsAndVegetablesRepository {
         pumpkinSeeds.setGrowsInto("Pumpkin");
         pumpkinSeeds.setSuitableSeasons(List.of("Fall"));
         pumpkinSeeds.setTotalHarvestTime(13);
+        pumpkinSeeds.setImagePath("Pumpkin_Seeds.png");
         seeds.add(pumpkinSeeds);
 
         Seeds yamSeeds = new Seeds();
@@ -859,6 +896,7 @@ public class FruitsAndVegetablesRepository {
         yamSeeds.setGrowsInto("Yam");
         yamSeeds.setSuitableSeasons(List.of("Fall"));
         yamSeeds.setTotalHarvestTime(10);
+        yamSeeds.setImagePath("Yam_Seeds.png");
         seeds.add(yamSeeds);
 
         Seeds rareSeed = new Seeds();
@@ -866,6 +904,7 @@ public class FruitsAndVegetablesRepository {
         rareSeed.setGrowsInto("Sweet Gem Berry");
         rareSeed.setSuitableSeasons(List.of("Fall"));
         rareSeed.setTotalHarvestTime(24);
+        rareSeed.setImagePath("Rare_Seed.png");
         seeds.add(rareSeed);
 
         Seeds powermelonSeeds = new Seeds();
@@ -873,6 +912,7 @@ public class FruitsAndVegetablesRepository {
         powermelonSeeds.setGrowsInto("Powdermelon");
         powermelonSeeds.setSuitableSeasons(List.of("Winter"));
         powermelonSeeds.setTotalHarvestTime(7);
+        powermelonSeeds.setImagePath("Powdermelon_Seeds.png");
         seeds.add(powermelonSeeds);
 
         Seeds ancientSeeds = new Seeds();
@@ -880,6 +920,7 @@ public class FruitsAndVegetablesRepository {
         ancientSeeds.setGrowsInto("Ancient Fruit");
         ancientSeeds.setSuitableSeasons(List.of("Spring","Summer","Fall"));
         ancientSeeds.setTotalHarvestTime(28);
+        ancientSeeds.setImagePath("Ancient_Seeds.png");
         seeds.add(ancientSeeds);
 
         Seeds mixedSeeds = new Seeds();
@@ -887,6 +928,7 @@ public class FruitsAndVegetablesRepository {
         mixedSeeds.setGrowsInto("Mixed");
         mixedSeeds.setSuitableSeasons(List.of("Spring", "Summer", "Fall", "Winter"));
         mixedSeeds.setTotalHarvestTime(0);
+        mixedSeeds.setImagePath("Mixed_Seeds.png");
         seeds.add(mixedSeeds);
     }
 }

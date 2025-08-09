@@ -82,7 +82,7 @@ public class MapManager {
     private Animation<TextureRegion> walkUpAnimation;
     private Animation<TextureRegion> walkLeftAnimation;
     private Animation<TextureRegion> idleDownAnimation;
-
+    private Texture[] playerTextures;
     // Animals
     private Map<String, Texture> animalTextures = new HashMap<>();
     private Map<String, Map<String, Animation<TextureRegion>>> animalAnimations = new HashMap<>();
@@ -105,41 +105,72 @@ public class MapManager {
         return instance;
     }
     private void loadPlayerAnimations() {
-        playerSpriteSheet = new Texture(Gdx.files.internal("Map/Character/Alex.png"));
-        TextureRegion[][] frames = TextureRegion.split(playerSpriteSheet,
-            playerSpriteSheet.getWidth() / 4, playerSpriteSheet.getHeight() / 4);
+        // Load separate sprite sheets for each direction
+        Texture walkDownSheet = new Texture(Gdx.files.internal("assets/Character/Walk/Walk_1.png"));
+        Texture walkLeftSheet = new Texture(Gdx.files.internal("assets/Character/Walk/Walk_2.png"));
+        Texture walkRightSheet = new Texture(Gdx.files.internal("assets/Character/Walk/Walk_3.png"));
+        Texture walkUpSheet = new Texture(Gdx.files.internal("assets/Character/Walk/Walk_4.png"));
 
-        // Create animations for each direction (4 frames each)
-        TextureRegion[] walkDownFrames = new TextureRegion[4];
-        TextureRegion[] walkRightFrames = new TextureRegion[4];
-        TextureRegion[] walkUpFrames = new TextureRegion[4];
-        TextureRegion[] walkLeftFrames = new TextureRegion[4];
+        // Store textures to dispose of them later
+        playerTextures = new Texture[]{walkDownSheet, walkLeftSheet, walkRightSheet, walkUpSheet};
 
-        // Extract frames for each direction
-        for (int i = 0; i < 4; i++) {
-            walkDownFrames[i] = frames[0][i];  // First row - walking down
-            walkRightFrames[i] = frames[1][i]; // Second row - walking right
-            walkUpFrames[i] = frames[2][i];    // Third row - walking up
-            walkLeftFrames[i] = frames[3][i];  // Fourth row - walking left
+        // Calculate frame width and height for each direction
+        int frameWidth = walkDownSheet.getWidth() / 5;
+        int frameHeight = walkDownSheet.getHeight();
+
+        // Extract frames from each direction's sprite sheet (each has 5 frames)
+        TextureRegion[][] walkDownFrames = TextureRegion.split(walkDownSheet, frameWidth, frameHeight);
+        TextureRegion[][] walkLeftFrames = TextureRegion.split(walkLeftSheet, frameWidth, frameHeight);
+        TextureRegion[][] walkRightFrames = TextureRegion.split(walkRightSheet, frameWidth, frameHeight);
+        TextureRegion[][] walkUpFrames = TextureRegion.split(walkUpSheet, frameWidth, frameHeight);
+
+        // Create animation arrays for each direction
+        TextureRegion[] walkDown = new TextureRegion[5];
+        TextureRegion[] walkLeft = new TextureRegion[5];
+        TextureRegion[] walkRight = new TextureRegion[5];
+        TextureRegion[] walkUp = new TextureRegion[5];
+
+        // Extract frames for each direction and trim problematic pixels if needed
+        for (int i = 0; i < 5; i++) {
+            // Normal frames for down and right (no artifacts)
+            walkDown[i] = walkDownFrames[0][i];
+            walkRight[i] = walkRightFrames[0][i];
+
+            // For left and up animations, trim 1 pixel from edges to remove artifacts
+            walkLeft[i] = new TextureRegion(walkLeftFrames[0][i]);
+            walkLeft[i].setRegion(
+                walkLeft[i].getRegionX() + 1,  // Trim left edge
+                walkLeft[i].getRegionY(),
+                walkLeft[i].getRegionWidth() - 2,  // Trim right edge
+                walkLeft[i].getRegionHeight()
+            );
+
+            walkUp[i] = new TextureRegion(walkUpFrames[0][i]);
+            walkUp[i].setRegion(
+                walkUp[i].getRegionX() + 1,  // Trim left edge
+                walkUp[i].getRegionY(),
+                walkUp[i].getRegionWidth() - 2,  // Trim right edge
+                walkUp[i].getRegionHeight()
+            );
         }
 
-        // Create animations with 0.15f frame duration
-        float frameDuration = 0.15f;
-        walkDownAnimation = new Animation<>(frameDuration, new TextureRegion[]{frames[0][0], frames[0][1], frames[0][2], frames[0][3]});
-        walkRightAnimation = new Animation<>(frameDuration, new TextureRegion[]{frames[1][0], frames[1][1], frames[1][2], frames[1][3]});
-        walkUpAnimation = new Animation<>(frameDuration, new TextureRegion[]{frames[2][0], frames[2][1], frames[2][2], frames[2][3]});
-        walkLeftAnimation = new Animation<>(frameDuration, new TextureRegion[]{frames[3][0], frames[3][1], frames[3][2], frames[3][3]});
-        idleDownAnimation = new Animation<>(frameDuration, frames[0][0]);
+        // Create animations with optimized frame duration
+        float frameDuration = 0.12f; // Slightly faster for smoother animation
 
-        // Idle animation uses first frame of walking down
-        idleDownAnimation = new Animation<>(frameDuration, walkDownFrames[0]);
+        walkDownAnimation = new Animation<>(frameDuration, walkDown);
+        walkLeftAnimation = new Animation<>(frameDuration, walkLeft);
+        walkRightAnimation = new Animation<>(frameDuration, walkRight);
+        walkUpAnimation = new Animation<>(frameDuration, walkUp);
 
-        // Set all animations to loop
+        // Create idle animations using first frame of each walk animation
+        idleDownAnimation = new Animation<>(frameDuration, walkDown[0]);
+
+        // Explicitly set all animations to loop
         walkDownAnimation.setPlayMode(Animation.PlayMode.LOOP);
+        walkLeftAnimation.setPlayMode(Animation.PlayMode.LOOP);
         walkRightAnimation.setPlayMode(Animation.PlayMode.LOOP);
         walkUpAnimation.setPlayMode(Animation.PlayMode.LOOP);
-        walkLeftAnimation.setPlayMode(Animation.PlayMode.LOOP);
-        idleDownAnimation.setPlayMode(Animation.PlayMode.LOOP);
+        idleDownAnimation.setPlayMode(Animation.PlayMode.NORMAL); // Idle doesn't need to loop
     }
 
     private void loadAnimalAnimations() {
@@ -519,7 +550,11 @@ public class MapManager {
         if (barnTexture != null) barnTexture.dispose();
         disposeTextureMap(animalTextures);
         storeTexture.dispose();
-
+        if (playerTextures != null) {
+            for (Texture texture : playerTextures) {
+                if (texture != null) texture.dispose();
+            }
+        }
         // Dispose all texture maps
         disposeTextureMap(treeTextures);
         disposeTextureMap(foragingMineralTextures);

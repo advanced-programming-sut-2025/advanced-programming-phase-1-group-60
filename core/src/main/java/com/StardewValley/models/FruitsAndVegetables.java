@@ -1,5 +1,6 @@
 package com.StardewValley.models;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class FruitsAndVegetables extends Item {
@@ -14,7 +15,8 @@ public class FruitsAndVegetables extends Item {
     private int baseEnergy;
     private List<String> suitableSeasons;
     private boolean canBeGiant;
-
+    private String fruitImagePath;                // Path to final produce image
+    private final List<String> stageImagePaths = new ArrayList<>(); // Ordered growth/ daily stage textures
 
 
     public String getSource() {
@@ -100,8 +102,30 @@ public class FruitsAndVegetables extends Item {
     private int calculateTotalHarvestTime() {
         return 0;
     }
-
-
+    public String getFruitImagePath() {
+        return fruitImagePath;
+    }
+    public void setFruitImagePath(String fruitImagePath) {
+        this.fruitImagePath = fruitImagePath;
+    }
+    public List<String> getStageImagePaths() {
+        return stageImagePaths;
+    }
+    public void clearStageImagePaths() {
+        stageImagePaths.clear();
+    }
+    public String getStageFrame(int index) {
+        if (index < 0 || index >= stageImagePaths.size()) return null;
+        return stageImagePaths.get(index);
+    }
+    public int getLoadedStageFrameCount() {
+        return stageImagePaths.size();
+    }
+    public void addStageImagePath(String path) {
+        if (path != null && !path.isEmpty()) {
+            stageImagePaths.add(path);
+        }
+    }
     @Override
     public void use() {
     }

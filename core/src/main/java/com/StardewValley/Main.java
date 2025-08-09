@@ -11,6 +11,8 @@ public class Main extends Game {
         RegisterController registerController = new RegisterController();
         registerController.register("kian","Kiangh84@","Kiangh84@","kgh","kk@kk.com","male");
         registerController.register("reza","Rezagh84@","Rezagh84@","rez","kk@kk.com","male");
+        registerController.register("Amirreza","Test123@","Test123@","amir","amir@gmail.com","male");
+        registerController.register("Mehrshad","Test123@","Test123@","mehrshad","mehrshad@gmail.com","male");
         setScreen(new PreMenuView(this));
     }
 

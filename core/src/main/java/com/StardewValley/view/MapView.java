@@ -1,5 +1,6 @@
 package com.StardewValley.view;
 
+import com.StardewValley.AssetsManager.CropManager;
 import com.StardewValley.AssetsManager.MapManager;
 import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.AssetsManager.ToolManager;
@@ -92,8 +93,13 @@ public class MapView implements Screen {
     private Label messageLabel;
     private String lastTurnMessage = "";
     private ShapeRenderer shapeRenderer;
+    private boolean craftInfoMode = false;
     // Player animation fields
+    private Texture shadowTexture;
     private Animation<TextureRegion> currentPlayerAnimation;
+    private Animation<TextureRegion> lastWalkingAnimation;
+    private float animationCooldown = 0f;
+    private static final float ANIMATION_PERSIST_TIME = 0.15f;
     private float animationTime = 0f;
     private int lastDirection = 0; // 0=down, 1=right, 2=up, 3=left
     private boolean isMoving = false;
@@ -108,7 +114,9 @@ public class MapView implements Screen {
     };
     private BuildingDetailsDialog buildingContextMenu;
     private PlaceableGameBuilding selectedBuilding;
-
+    private FarmingDialog farmingDialog;
+    private boolean uiBlockedByDialog = false;
+    private Seeds pendingSelectedSeed;
 
     //Gift players
     private Label notificationLabel;
@@ -134,7 +142,8 @@ public class MapView implements Screen {
         for (GamePlayController controller : playerControllers.values()) {
             controller.setMapViewControlled(true);
         }
-
+        CropManager.getInstance().loadAllCropGraphics();
+        shadowTexture = new Texture(Gdx.files.internal("assets/Character/Shadow.png"));
         for (User player : gameInstance.getPlayers()) {
             GamePlayController controller = new GamePlayController(player.getFarm(), player, null, gameInstance);
             playerControllers.put(player, controller);
@@ -211,33 +220,47 @@ public class MapView implements Screen {
         float speed = 200 * delta;
         Vector2 velocity = new Vector2();
 
+        boolean wasMoving = isMoving;
         isMoving = false;
         if (Gdx.input.isKeyPressed(Input.Keys.A)) {
             velocity.x -= 1;
             lastDirection = 3; // Left
             isMoving = true;
-            currentPlayerAnimation = MapManager.getInstance().getWalkLeftAnimation();
+            lastWalkingAnimation = MapManager.getInstance().getWalkLeftAnimation();
+            currentPlayerAnimation = lastWalkingAnimation;
+            animationCooldown = ANIMATION_PERSIST_TIME;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.D)) {
             velocity.x += 1;
             lastDirection = 1; // Right
             isMoving = true;
-            currentPlayerAnimation = MapManager.getInstance().getWalkRightAnimation();
+            lastWalkingAnimation = MapManager.getInstance().getWalkRightAnimation();
+            currentPlayerAnimation = lastWalkingAnimation;
+            animationCooldown = ANIMATION_PERSIST_TIME;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.W)) {
             velocity.y += 1;
             lastDirection = 2; // Up
             isMoving = true;
-            currentPlayerAnimation = MapManager.getInstance().getWalkUpAnimation();
+            lastWalkingAnimation = MapManager.getInstance().getWalkUpAnimation();
+            currentPlayerAnimation = lastWalkingAnimation;
+            animationCooldown = ANIMATION_PERSIST_TIME;
         }
         if (Gdx.input.isKeyPressed(Input.Keys.S)) {
             velocity.y -= 1;
             lastDirection = 0; // Down
             isMoving = true;
-            currentPlayerAnimation = MapManager.getInstance().getWalkDownAnimation();
+            lastWalkingAnimation = MapManager.getInstance().getWalkDownAnimation();
+            currentPlayerAnimation = lastWalkingAnimation;
+            animationCooldown = ANIMATION_PERSIST_TIME;
         }
         if (!isMoving) {
-            currentPlayerAnimation = MapManager.getInstance().getIdleAnimation();
+            if (animationCooldown > 0) {
+                animationCooldown -= delta;
+                currentPlayerAnimation = lastWalkingAnimation;
+            } else {
+                currentPlayerAnimation = MapManager.getInstance().getIdleAnimation();
+            }
         }
         velocity.nor().scl(speed);
 
@@ -300,12 +323,8 @@ public class MapView implements Screen {
         Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
         Item selectedItem = quickSlots[selectedQuickSlot];
 
-        System.out.println("Selected quick slot: " + selectedQuickSlot);
-        System.out.println("Selected item: " + (selectedItem != null ? selectedItem.getName() : "null"));
-
         if (selectedItem instanceof Tools) {
             Tools tool = (Tools) selectedItem;
-            System.out.println("Tool found: " + tool.getName());
 
             // Check if tool is already swinging (prevent spam clicking)
             if (toolManager.isSwinging()) {
@@ -314,17 +333,197 @@ public class MapView implements Screen {
 
             // Start tool swing animation
             toolManager.startToolSwing(tool);
-            System.out.println("Started tool swing animation");
+
+            // Convert click position to tile coordinates
+            Vector2 farmTopLeft = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
+            int clickedTileX = (int) ((clickPos.x - farmTopLeft.x) / TILE_SIZE);
+            int clickedTileY = (int) ((clickPos.y - farmTopLeft.y) / TILE_SIZE);
 
             // Handle different tool types
             if ("Hoe".equals(tool.getName())) {
                 return handleHoeUsage(tool, clickPos);
             }
-            // TODO: Add other tools here (Pickaxe, Axe, etc.)
+            else if ("Pickaxe".equals(tool.getName())) {
+                // Get the clicked tile
+                Tile clickedTile;
+                if (inVillage) {
+                    clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
+                } else {
+                    clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
+                }
+
+                if (clickedTile != null) {
+                    // Check if the clicked tile has a stone
+                    if (clickedTile.getRandomElement().isPresent() && clickedTile.getRandomElement().get() instanceof Stone) {
+                        Stone stone = (Stone) clickedTile.getRandomElement().get();
+
+                        // Check if player has enough energy
+                        int energyCost = tool.getEnergyCost();
+                        if (currentPlayer.getEnergy().getCurrentEnergy() < energyCost && !currentPlayer.getEnergy().isUnlimited()) {
+                            showMessage("Not enough energy to use the pickaxe", 2);
+                            return true;
+                        }
+
+                        // Get the mineral from the stone
+                        ForagingMineral mineral = stone.getMineral();
+                        if (mineral != null) {
+                            // Determine quantity (level 2+ mining gives double minerals)
+                            int quantity = 1;
+                            if (currentPlayer.getSkill("Mining").getLevel() >= 2) {
+                                quantity = 2;
+                            }
+
+                            // Get the image path directly from the mineral object
+                            String imagePath = mineral.getImagePath();
+
+                            // Create the inventory item with the proper path for InventoryView
+                            Item mineralItem = new Item(mineral.getName(), quantity, "Map/ForagingMineral/" + imagePath);
+                            mineralItem.setSellPrice(mineral.getBaseSellPrice());
+
+                            // Add the item to player's inventory
+                            currentPlayer.getInventory().addItem(mineralItem);
+
+                            // Remove the stone from the tile
+                            clickedTile.setToNormalTile();
+                            clickedTile.setType(".");
+
+                            // Consume energy
+                            if (!currentPlayer.getEnergy().isUnlimited()) {
+                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                                energyUsedThisTurn += energyCost;
+                            }
+
+                            // Give mining XP
+                            currentPlayer.getSkill("Mining").gainExperience(10);
+
+                            showMessage("Mined " + quantity + " " + mineral.getName(), 2);
+                        }
+                        return true;
+                    }
+                    // Check if we're removing the hoe effect (plowed ground)
+                    else if (clickedTile.isPlowed()) {
+                        clickedTile.setPlowed(false);
+                        showMessage("Removed plowed ground", 2);
+                        return true;
+                    }
+                    else {
+                        showMessage("Nothing to mine here", 2);
+                        return true;
+                    }
+                }
+                return true;
+            }
+            else if ("Axe".equals(tool.getName())) {
+                // Get the clicked tile
+                Tile clickedTile;
+                if (inVillage) {
+                    clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
+                } else {
+                    clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
+                }
+
+                if (clickedTile != null) {
+                    // Check if the clicked tile has a tree or foraging crop
+                    if (clickedTile.getRandomElement().isPresent()) {
+                        Object element = clickedTile.getRandomElement().get();
+
+                        // Check if player has enough energy
+                        int energyCost = tool.getEnergyCost();
+                        if (currentPlayer.getEnergy().getCurrentEnergy() < energyCost && !currentPlayer.getEnergy().isUnlimited()) {
+                            showMessage("Not enough energy to use the axe", 2);
+                            return true;
+                        }
+
+                        if (element instanceof Tree) {
+                            Tree tree = (Tree) element;
+
+                            // Remove the tree from the tile
+                            clickedTile.setToNormalTile();
+                            clickedTile.setType(".");
+
+                            // Consume energy
+                            if (!currentPlayer.getEnergy().isUnlimited()) {
+                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                                energyUsedThisTurn += energyCost;
+                            }
+
+                            // Give foraging XP
+                            currentPlayer.getSkill("Foraging").gainExperience(10);
+
+                            showMessage("Chopped down a tree", 2);
+                            return true;
+                        }
+                        else if (element instanceof ForagingTree) {
+                            ForagingTree tree = (ForagingTree) element;
+
+                            // Remove the foraging tree from the tile
+                            clickedTile.setToNormalTile();
+                            clickedTile.setType(".");
+
+                            // Consume energy
+                            if (!currentPlayer.getEnergy().isUnlimited()) {
+                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                                energyUsedThisTurn += energyCost;
+                            }
+
+                            // Give foraging XP
+                            currentPlayer.getSkill("Foraging").gainExperience(10);
+
+                            showMessage("Chopped down a " + tree.getName(), 2);
+                            return true;
+                        }
+                        else if (element instanceof ForagingCrop) {
+                            ForagingCrop crop = (ForagingCrop) element;
+
+                            // Remove the foraging crop from the tile
+                            clickedTile.setToNormalTile();
+                            clickedTile.setType(".");
+
+                            // Consume energy
+                            if (!currentPlayer.getEnergy().isUnlimited()) {
+                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                                energyUsedThisTurn += energyCost;
+                            }
+
+                            // Give foraging XP
+                            currentPlayer.getSkill("Foraging").gainExperience(10);
+
+                            showMessage("Collected " + crop.getName(), 2);
+                            return true;
+                        }
+                        else if (element instanceof ForagingMineral) {
+                            ForagingMineral mineral = (ForagingMineral) element;
+
+                            // Remove the foraging mineral from the tile
+                            clickedTile.setToNormalTile();
+                            clickedTile.setType(".");
+
+                            // Consume energy
+                            if (!currentPlayer.getEnergy().isUnlimited()) {
+                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                                energyUsedThisTurn += energyCost;
+                            }
+
+                            // Give foraging XP
+                            currentPlayer.getSkill("Mining").gainExperience(10);
+
+                            showMessage("Collected " + mineral.getName(), 2);
+                            return true;
+                        }
+                        else {
+                            showMessage("Can't use axe on this", 2);
+                            return true;
+                        }
+                    }
+                    else {
+                        showMessage("Nothing to chop here", 2);
+                        return true;
+                    }
+                }
+                return true;
+            }
 
             return true; // Tool usage handled
-        } else {
-            System.out.println("Selected item is not a tool or is null");
         }
 
         return false; // No tool selected or not a tool
@@ -774,6 +973,17 @@ public class MapView implements Screen {
         // Adjust Y position so character stands on ground properly
         float adjustedY = playerPos.y - (playerHeight - TILE_SIZE) * 0.5f;
 
+        // Draw shadow under player's feet - pushed further down
+        float shadowWidth = TILE_SIZE * 0.8f;
+        float shadowHeight = TILE_SIZE * 0.4f;
+        float shadowX = playerPos.x + (playerWidth - shadowWidth) * 0.5f;
+        // Position shadow lower than originally suggested - pushed down by 5 pixels
+        float shadowY = playerPos.y - shadowHeight * 0.9f;
+
+        // Draw shadow first so it appears under the player
+        batch.draw(shadowTexture, shadowX, shadowY, shadowWidth, shadowHeight);
+
+        // Draw player
         batch.draw(currentFrame, playerPos.x, adjustedY, playerWidth, playerHeight);
     }
 
@@ -795,8 +1005,9 @@ public class MapView implements Screen {
         batch.begin(); // BEGIN MAIN BATCH
         renderMap();
         renderAnimals();
-        renderPlayer();
         renderToolSwing();
+        renderPlayer();
+
         // Draw all text for progress bars while batch is active
         // If renderUI draws with the main batch (world-space UI), keep it here.
         // If it draws screen-space UI or uses its own batch/stage, it should be moved.
@@ -1238,10 +1449,20 @@ public class MapView implements Screen {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
         }
+        if (uiBlockedByDialog) {
+            return;
+        }
 
         User currentPlayer = Game.getInstance().getCurrentPlayer();
         handleGameplayMechanics(delta);
-
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F)) {
+            openFarmingDialog();
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F8)) {
+            craftInfoMode = !craftInfoMode;
+            showMessage(craftInfoMode ? "Craft Info: Click a crop/tree/forage to inspect" : "Craft Info: Off", 2f);
+        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.K)) {
             if (isMyTurn()) {
                 playerPositions.put(currentPlayer, new Vector2(playerPos));
@@ -1433,6 +1654,14 @@ public class MapView implements Screen {
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
+            if (craftInfoMode) {
+                if (tryShowCraftInfoAt(clickPos)) {
+                    // After one inspection, keep mode on or turn it off based on preference; here we keep it on
+                } else {
+                    showMessage("Nothing inspectable here", 1.2f);
+                }
+                return;
+            }
             if (handleToolUsage(clickPos)) {
                 return;
             }
@@ -1579,7 +1808,77 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) selectQuickAccessSlot(5);
         checkTravel();
     }
+    private void openFarmingDialog() {
+        if (farmingDialog == null) {
+            farmingDialog = new FarmingDialog(skin, gameInstance.getCurrentPlayer());
+            farmingDialog.setOnSeedSelected(seed -> {
+                // Remember selection; planting logic will be added next step
+                pendingSelectedSeed = seed;
+                showResultDialog("Selected: " + seed.getName() + "\n(Planting flow comes next.)");
+                // We also unblock here in case we keep the dialog open after selection in the future
+                uiBlockedByDialog = false;
+            });
+            // Ensure we ALWAYS unblock gameplay input when the dialog closes for any reason
+            farmingDialog.setOnClosed(() -> uiBlockedByDialog = false);
+        }
+        farmingDialog.show(stage);
+        uiBlockedByDialog = true;
+    }
+    private boolean tryShowCraftInfoAt(Vector3 worldClick) {
+        int clickedTileX, clickedTileY;
 
+        if (inVillage) {
+            clickedTileX = (int) (worldClick.x / TILE_SIZE);
+            clickedTileY = (int) (worldClick.y / TILE_SIZE);
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            clickedTileX = (int) ((worldClick.x - farmTopLeft.x) / TILE_SIZE);
+            clickedTileY = (int) ((worldClick.y - farmTopLeft.y) / TILE_SIZE);
+        }
+
+        Tile clickedTile;
+        if (inVillage) {
+            if (clickedTileX < 0 || clickedTileX >= 20 || clickedTileY < 0 || clickedTileY >= 20) return false;
+            clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
+        } else {
+            if (clickedTileX < 0 || clickedTileX >= FarmTemplate.WIDTH ||
+                clickedTileY < 0 || clickedTileY >= FarmTemplate.HEIGHT) return false;
+            clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
+        }
+        if (clickedTile == null) return false;
+
+        // 1) Planted seed/crop on this tile?
+        if (clickedTile.getPlantedSeed() != null) {
+            CraftInfoDialog dialog = CraftInfoDialog.forPlantedSeed(clickedTile, skin);
+            dialog.show(stage);
+            return true;
+        }
+
+        // 2) Random element (foraging crops, trees, minerals, stones)?
+        if (clickedTile.getRandomElement().isPresent()) {
+            Object element = clickedTile.getRandomElement().get();
+            CraftInfoDialog dialog = null;
+
+            if (element instanceof Tree) {
+                dialog = CraftInfoDialog.forTree((Tree) element, skin);
+            } else if (element instanceof ForagingCrop) {
+                dialog = CraftInfoDialog.forForagingCrop((ForagingCrop) element, skin);
+            } else if (element instanceof ForagingTree) {
+                dialog = CraftInfoDialog.forForagingTree((ForagingTree) element, skin);
+            } else if (element instanceof ForagingMineral) {
+                dialog = CraftInfoDialog.forForagingMineral((ForagingMineral) element, skin);
+            } else if (element instanceof Stone) {
+                dialog = CraftInfoDialog.forStone((Stone) element, skin);
+            }
+
+            if (dialog != null) {
+                dialog.show(stage);
+                return true;
+            }
+        }
+
+        return false;
+    }
     private void selectQuickAccessSlot(int slotIndex) {
         if (slotIndex >= 0 && slotIndex < 6) {
             selectedQuickSlot = slotIndex;
@@ -1845,48 +2144,36 @@ public class MapView implements Screen {
     }
     private void renderToolSwing() {
         if (toolManager.isSwinging()) {
-            // Get the current tool texture from ToolManager
             Texture toolTexture = toolManager.getCurrentToolTexture();
 
             if (toolTexture != null) {
-                // Get swing angle from ToolManager
                 float swingAngle = toolManager.getSwingAngle();
 
-                // Calculate position to render the tool - centered on player
-                float toolX = playerPos.x + TILE_SIZE * 0.6f; // Push 1 tile to the right
+                // Calculate position based on the player's position
+                float toolX = playerPos.x;
                 float toolY = playerPos.y;
+                // Make tool smaller
+                float toolWidth = TILE_SIZE * 1.0f;  // Reduced from 1.2f
+                float toolHeight = TILE_SIZE * 1.0f; // Reduced from 1.2f
 
-                // Adjust tool position based on player direction
-                float offsetDistance = TILE_SIZE * 0.6f;
+                // FIXED: Always position the tool as if facing right direction
+                // This makes the tool animation consistent regardless of player direction
+                toolX += TILE_SIZE * 0.4f;
 
-                switch (lastDirection) {
-                    case 0: // Down
-                        toolX -= offsetDistance;
-                        swingAngle += 270; // Adjust for left direction
-                        break;
-                    case 1: // Right
-                        toolX -= offsetDistance;
-                        swingAngle += 270; // Adjust for left direction
-                        break;
-                    case 2: // Up
-                        toolX -= offsetDistance;
-                        swingAngle += 270; // Adjust for left direction
-                        break;
-                    case 3: // Left
-                        toolX -= offsetDistance;
-                        swingAngle += 270; // Adjust for left direction
-                        break;
-                }
+                // Get rotation origin from ToolManager (where the handle is)
+                float[] origin = toolManager.getToolRotationOrigin();
+                float originX = toolWidth * origin[0];
+                float originY = toolHeight * origin[1];
 
-                // Render the tool with rotation and proper positioning
+                // Draw the tool with rotation around the handle
                 batch.draw(
                     toolTexture,
-                    toolX - (TILE_SIZE / 2), // Center horizontally
-                    toolY - (TILE_SIZE / 2), // Center vertically
-                    TILE_SIZE / 2, // Origin X (center of texture)
-                    TILE_SIZE / 2, // Origin Y (center of texture)
-                    TILE_SIZE, // Width
-                    TILE_SIZE, // Height
+                    toolX, // X position
+                    toolY, // Y position
+                    originX, // Origin X (point of rotation)
+                    originY, // Origin Y (point of rotation)
+                    toolWidth, // Width
+                    toolHeight, // Height
                     1, 1, // Scale X, Y
                     swingAngle, // Rotation from ToolManager
                     0, 0, // Source X, Y

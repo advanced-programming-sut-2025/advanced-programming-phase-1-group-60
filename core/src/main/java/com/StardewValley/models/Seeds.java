@@ -12,6 +12,7 @@ public class Seeds extends Item implements RandomElement {
     private boolean oneTime;
     private Integer regrowthTime;
     private FruitsAndVegetables crop; // Existing field
+    private String imagePath;
 
     public Seeds(){
         this.growsInto = "";
@@ -50,7 +51,13 @@ public class Seeds extends Item implements RandomElement {
     }
     public void setOneTime(boolean oneTime) { this.oneTime = oneTime; }
     public void setRegrowthTime(int regrowthTime) { this.regrowthTime = regrowthTime; }
+    public String getImagePath() {
+        return imagePath;
+    }
 
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
+    }
     // Added Function: Allows direct access to the associated FruitsAndVegetables object
     public FruitsAndVegetables getAssociatedProduceInfo() {
         return this.crop;

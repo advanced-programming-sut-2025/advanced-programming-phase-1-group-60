@@ -673,7 +673,24 @@ public class InventoryView implements Screen {
 
         return stack;
     }
-
+    private void loadNewItemTextures() {
+        for (Item item : player.getInventory().getItems()) {
+            String path = item.getPath();
+            if (path != null && !path.isEmpty() && !textureCache.containsKey(path)) {
+                try {
+                    if (Gdx.files.internal(path).exists()) {
+                        textureCache.put(path, new Texture(Gdx.files.internal(path)));
+                    }
+                    else {
+                        System.out.println("File not found for item " + item.getName() + ": " + path);
+                    }
+                }
+                catch (Exception e) {
+                    System.out.println("Failed to load texture for " + item.getName() + ": " + e.getMessage());
+                }
+            }
+        }
+    }
     private void updateTrashCanTexture() {
         Texture currentTrashCanTexture;
         Tools.TrashbinStage stage = player.getInventory().getTrashCanStage();
@@ -902,6 +919,7 @@ public class InventoryView implements Screen {
     public void show() {
         Gdx.input.setInputProcessor(stage);
         preloadAllTextures();
+        loadNewItemTextures();
         showItems();
         updateTrashCanTexture();
         refreshQuickAccessSlots();
