@@ -34,6 +34,7 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.Timer;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
+import com.StardewValley.view.ChatView; // NEW ADDITION
 
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -880,6 +881,7 @@ public class MapView implements Screen {
     }
 
     public void showNotification(String message) {
+        createNotificationLabel();
         notificationLabel.setText(message);
         notificationLabel.setVisible(true);
         notificationTimer = 5f; // Show for 5 seconds
@@ -1507,7 +1509,10 @@ public class MapView implements Screen {
                 lastEnergyTile.set(-1, -1);
             }
         }
-
+        if (Gdx.input.isKeyJustPressed(Input.Keys.Y)) {
+            // Instantiate ChatView and pass the game and lobbyController
+            gameView.showChatMenu();
+        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.C)) {
             int playerTileX, playerTileY;
             if (inVillage) {

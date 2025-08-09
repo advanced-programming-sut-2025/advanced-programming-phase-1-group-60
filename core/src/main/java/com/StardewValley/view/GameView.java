@@ -34,7 +34,7 @@ public class GameView implements Screen {
     private final SpriteBatch batch;
     private final LoginMenuController loginController;
     private final GameController gameController;
-
+    private LobbyController lobbyController;
     // References to the other screens
     private MapView mapView;
     private InventoryView inventoryView;
@@ -65,6 +65,7 @@ public class GameView implements Screen {
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController, Lobby lobby) {
         this.game = game;
         this.loginController = loginController;
+        this.lobbyController = new LobbyController(game, loginController);
         this.lobby = lobby;
         this.stage = new Stage(new ScreenViewport());
         this.menuManager = MenuManager.getInstance();
@@ -662,7 +663,22 @@ public class GameView implements Screen {
         craftingMenuScreenView = new CraftingMenuScreenView(player, this);
         game.setScreen(craftingMenuScreenView);
     }
-
+    public void showChatMenu(){
+        ChatView chatView = new ChatView(game, this.lobbyController); // Pass GameView's LobbyController
+        // Register this listener to handle when chat is closed
+        chatView.addChatViewListener(new ChatView.ChatViewListener() {
+            @Override
+            public void onChatClosed() {
+                game.setScreen(mapView); // Set the screen back to the stored MapView instance
+                if (mapView != null) { // Ensure mapView is not null before setting input processor
+                    Gdx.input.setInputProcessor(mapView.getStage()); // Re-set input processor to MapView's stage
+                }
+                System.out.println("GAMEVIEW_DEBUG: ChatView closed. Returned to MapView.");
+            }
+        });
+        game.setScreen(chatView); // Switch to the ChatView
+        System.out.println("GAMEVIEW_DEBUG: Switched to ChatView via GameView.showChatMenu().");
+    }
     public void showMapView() {
         if (mapView != null) {
             game.setScreen(mapView);

@@ -1,6 +1,9 @@
 package com.StardewValley.Network;
 
 import com.StardewValley.models.Lobby;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,7 +13,7 @@ public class LobbyManager {
     private static LobbyManager instance;
     private final List<Lobby> lobbies = new ArrayList<>();
     private final String DB_PATH = "core/src/main/java/com/StardewValley/Network/Database/Lobbies.csv";
-
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     private LobbyManager() {
         loadLobbies();
     }

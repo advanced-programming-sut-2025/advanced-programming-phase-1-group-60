@@ -19,13 +19,20 @@ public class LobbyController {
     private final com.badlogic.gdx.Game game;
     private final LoginMenuController loginController;
     private final LobbyManager lobbyManager;
+    private Lobby currentLobby;
 
     public LobbyController(com.badlogic.gdx.Game game, LoginMenuController loginController) {
         this.game = game;
         this.loginController = loginController;
         this.lobbyManager = LobbyManager.getInstance();
     }
-
+    public LobbyController(com.badlogic.gdx.Game game, LoginMenuController loginController, Lobby currentLobby) {
+        this(game, loginController);
+        this.currentLobby = currentLobby;
+    }
+    public Lobby getCurrentLobby() {
+        return currentLobby;
+    }
     public void startGame(String lobbyId) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("lobbyId", lobbyId);
@@ -161,6 +168,22 @@ public class LobbyController {
         // Set the game screen
         gameView.setMapView(new com.StardewValley.view.MapView(gameInstance.getCurrentMap(), gameView::showMainMenu, gameView));
         gameView.showGameplayScreen();
+    }
+    public void updateLobbyState(Lobby updatedLobby) {
+        this.currentLobby = updatedLobby;
+        System.out.println("LobbyController: currentLobby updated to " + updatedLobby.getName());
+    }
+
+    /**
+     * Sends a request to the server to get the latest lobby state for the current lobby.
+     * This message triggers a LOBBY_STATE_UPDATE from the server, which includes chat history.
+     */
+    public void requestLobbyStateUpdate(String lobbyId) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("lobbyId", lobbyId);
+        Message message = new Message(Message.ActionType.GET_LOBBY_STATE, payload);
+        ClientMain.sendMessage(message);
+        System.out.println("LobbyController: Sent request for lobby state update for lobby ID: " + lobbyId);
     }
     public void onBack() {
         game.setScreen(new com.StardewValley.view.MainView(game, loginController));

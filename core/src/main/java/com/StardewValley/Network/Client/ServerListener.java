@@ -244,6 +244,41 @@ public class ServerListener implements Runnable {
                 }
                 break;
             }
+            case CHAT_MESSAGE_PUBLIC:
+            case CHAT_MESSAGE_PRIVATE: {
+                String sender = (String) message.getPayload().get("sender");
+                String msgContent = (String) message.getPayload().get("message");
+                String localUsername = lobbyController.getLoginController().getLoggedInUser().getUsername();
+                String formattedMessage;
+
+                if (message.getAction() == Message.ActionType.CHAT_MESSAGE_PRIVATE) {
+                    String recipient = (String) message.getPayload().get("recipient");
+                    if (recipient == null) { // Fallback in case recipient is null in payload
+                        formattedMessage = sender + " (Private): " + msgContent;
+                    } else if (sender.equalsIgnoreCase(localUsername)) {
+                        formattedMessage = "You (to " + recipient + "): " + msgContent;
+                    } else if (recipient.equalsIgnoreCase(localUsername)) {
+                        formattedMessage = sender + " (Private): " + msgContent;
+                    } else {
+                        return; // This private message is not for the current client.
+                    }
+                } else { // Public message
+                    formattedMessage = sender + " (Public): " + msgContent;
+                }
+
+                if (game.getScreen() instanceof ChatView) {
+                    ((ChatView) game.getScreen()).addMessageToHistory(formattedMessage);
+                    System.out.println("CLIENT_RECEIVE_CHAT: Added message to chat history: " + formattedMessage);
+                } else if (game.getScreen() instanceof MapView) {
+                    String chatType = (message.getAction() == Message.ActionType.CHAT_MESSAGE_PUBLIC) ? "Public" : "Private";
+                   // ((MapView) game.getScreen()).showNotification("New " + chatType + " Message from " + sender);
+                    System.out.println("CLIENT_RECEIVE_CHAT: ChatView not active. Showing notification on MapView for: " + formattedMessage);
+                } else {
+                    System.out.println("CLIENT_RECEIVE_CHAT: Received chat message, but neither ChatView nor MapView is active: " + formattedMessage);
+                }
+                break;
+            }
+
             default: {
                 System.out.println("Unhandled message from server: " + message.getAction());
                 break;

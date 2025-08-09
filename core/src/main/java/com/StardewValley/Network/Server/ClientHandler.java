@@ -112,6 +112,8 @@ public class ClientHandler implements Runnable {
             case START_GAME:
                 handleStartGame(message.getPayload());
                 break;
+            case GET_LOBBY_STATE:
+                handleGetLobbyState(message.getPayload()); break;
             case SELECT_MAP:
                 handleSelectMap(message.getPayload());
                 break;
@@ -144,6 +146,22 @@ public class ClientHandler implements Runnable {
                 break;
             case GET_PLAYER_LIST:
                 handleGetPlayerList();
+                break;
+            case CHAT_MESSAGE_PUBLIC:
+                // For public messages, the type is already implied by the ActionType
+                // but handleChatMessage still expects a "type" in payload.
+                // We'll add it here before calling handleChatMessage.
+                Map<String, Object> publicPayload = new HashMap<>(message.getPayload()); // Create a mutable copy
+                publicPayload.put("type", "PUBLIC");
+                handleChatMessage(publicPayload);
+                break;
+            case CHAT_MESSAGE_PRIVATE:
+                // For private messages, the type is already implied by the ActionType
+                // but handleChatMessage still expects a "type" in payload.
+                // We'll add it here before calling handleChatMessage.
+                Map<String, Object> privatePayload = new HashMap<>(message.getPayload()); // Create a mutable copy
+                privatePayload.put("type", "PRIVATE");
+                handleChatMessage(privatePayload);
                 break;
             default:
                 System.out.println("Unknown action received by handler: " + message.getAction());
@@ -687,7 +705,81 @@ public class ClientHandler implements Runnable {
             System.err.println("SERVER_CLIENT_HANDLER_PLAYER_DATA_ERROR: Received PLAYER_DATA_UPDATE for unknown user: " + username);
         }
     }
+    private void handleChatMessage(Map<String, Object> payload) {
+        String chatType = (String) payload.get("type"); // "PUBLIC" or "PRIVATE"
+        String messageContent = (String) payload.get("message");
+        String senderUsername = this.username; // The sender is the client associated with this handler
 
+        if (chatType == null || messageContent == null) {
+            System.err.println("SERVER_CLIENT_HANDLER_CHAT_ERROR: Malformed chat message from " + senderUsername + ": " + payload);
+            return;
+        }
+
+        String formattedMessage;
+        if ("PUBLIC".equalsIgnoreCase(chatType)) {
+            formattedMessage = senderUsername + " (Public): " + messageContent;
+        } else { // PRIVATE
+            String recipientUsername = (String) payload.get("recipient");
+            if (recipientUsername == null || recipientUsername.isEmpty()) {
+                System.err.println("SERVER_CLIENT_HANDLER_CHAT_ERROR: Private chat message from " + senderUsername + " missing recipient.");
+                sendMessage(new Message(Message.ActionType.ERROR, Map.of("message", "Private message requires a recipient.")));
+                return;
+            }
+            formattedMessage = senderUsername + " (to " + recipientUsername + "): " + messageContent;
+        }
+
+        Lobby senderLobby = lobbyManager.getLobbies().stream()
+            .filter(l -> l.getMembers().contains(senderUsername))
+            .findFirst().orElse(null);
+
+        if (senderLobby != null) {
+            senderLobby.addMessageToChatHistory(formattedMessage);
+            lobbyManager.updateLobby(senderLobby); // This saves the updated lobby (including chat history) to file
+            System.out.println("SERVER_CLIENT_HANDLER_CHAT: Message added to lobby history: " + formattedMessage);
+        } else {
+            System.out.println("SERVER_CLIENT_HANDLER_CHAT_WARN: Could not find lobby for player " + senderUsername + ". Message not persisted.");
+        }
+
+        Map<String, Object> chatPayload = new HashMap<>();
+        chatPayload.put("sender", senderUsername);
+        chatPayload.put("message", messageContent);
+        if ("PRIVATE".equalsIgnoreCase(chatType)) {
+            chatPayload.put("recipient", payload.get("recipient"));
+        }
+
+        if ("PUBLIC".equalsIgnoreCase(chatType)) {
+            Message publicChatMessage = new Message(Message.ActionType.CHAT_MESSAGE_PUBLIC, chatPayload);
+            if (senderLobby != null) {
+                System.out.println("SERVER_CLIENT_HANDLER_CHAT: Broadcasting public message from " + senderUsername + " in lobby " + senderLobby.getId());
+                for (String member : senderLobby.getMembers()) {
+                    server.sendMessageTo(member, publicChatMessage);
+                }
+            }
+        } else if ("PRIVATE".equalsIgnoreCase(chatType)) {
+            String recipientUsername = (String) payload.get("recipient");
+            Message privateChatMessage = new Message(Message.ActionType.CHAT_MESSAGE_PRIVATE, chatPayload);
+            System.out.println("SERVER_CLIENT_HANDLER_CHAT: Sending private message from " + senderUsername + " to " + recipientUsername);
+            server.sendMessageTo(senderUsername, privateChatMessage); // Send to sender (for their own chat history)
+            server.sendMessageTo(recipientUsername, privateChatMessage); // Send to recipient
+        } else {
+            System.err.println("SERVER_CLIENT_HANDLER_CHAT_ERROR: Unknown chat type '" + chatType + "' from " + senderUsername);
+        }
+    }
+    private void handleGetLobbyState(Map<String, Object> payload) {
+        String lobbyId = (String) payload.get("lobbyId");
+        Lobby lobby = lobbyManager.getLobbyById(lobbyId).orElse(null);
+
+        if (lobby != null) {
+            Map<String, Object> responsePayload = new HashMap<>();
+            responsePayload.put("lobby", lobby); // Send the entire lobby object
+            Message updateMessage = new Message(Message.ActionType.LOBBY_STATE_UPDATE, responsePayload);
+            sendMessage(updateMessage);
+            System.out.println("SERVER_CLIENT_HANDLER_LOBBY: Sent LOBBY_STATE_UPDATE to " + this.username + " for lobby " + lobbyId + " (requested).");
+        } else {
+            sendMessage(new Message(Message.ActionType.ERROR, Map.of("message", "Lobby not found for GET_LOBBY_STATE request.")));
+            System.out.println("SERVER_CLIENT_HANDLER_LOBBY_ERROR: Lobby " + lobbyId + " not found for GET_LOBBY_STATE request from " + this.username);
+        }
+    }
     public String getUsername() {
         return username;
     }

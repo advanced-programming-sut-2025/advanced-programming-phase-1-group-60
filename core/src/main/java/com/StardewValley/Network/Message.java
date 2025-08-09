@@ -36,7 +36,8 @@ public class Message {
         TRADE_CANCELLED,        // S -> C: Trade was cancelled
         INVENTORY_UPDATE, // Server tells clients the game has started with all assignments
         PLAYER_DATA_UPDATE,
-        // Game Actions
+        CHAT_MESSAGE_PUBLIC,  // <--- پیام چت عمومی
+        CHAT_MESSAGE_PRIVATE,
         PLAYER_MOVE,
         PLAYER_POSITION_UPDATE,
         USE_TOOL,
@@ -46,7 +47,7 @@ public class Message {
         INTERACT_NPC,
         SHOW_REACTION,
         ITEM_SOLD_UPDATE,
-
+        GET_LOBBY_STATE,
         // General
         ERROR,
         SUCCESS,
