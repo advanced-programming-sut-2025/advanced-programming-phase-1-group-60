@@ -34,7 +34,8 @@ public class Message {
         TRADE_FINALIZE_RESPONSE,// C -> S: Receiver sends final accept/reject
         TRADE_COMPLETE,         // S -> C: Trade was successful, update inventories
         TRADE_CANCELLED,        // S -> C: Trade was cancelled
-        INVENTORY_UPDATE, // Server tells clients the game has started with all assignments
+        TRADE_HISTORY_ADD,
+        INVENTORY_UPDATE,
         PLAYER_DATA_UPDATE,
         // Game Actions
         PLAYER_MOVE,
@@ -46,6 +47,11 @@ public class Message {
         INTERACT_NPC,
         SHOW_REACTION,
         ITEM_SOLD_UPDATE,
+        // Group Mission
+        JOIN_GROUP_MISSION,
+        DELIVER_GROUP_MISSION_ITEM,
+        GROUP_MISSION_UPDATE,
+        GET_GROUP_MISSIONS,
 
         // General
         ERROR,

@@ -4,9 +4,11 @@ import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.Network.JsonUtil;
 import com.StardewValley.Network.Message;
 import com.StardewValley.controller.LobbyController;
+import com.StardewValley.controller.TradeController;
 import com.StardewValley.exceptions.GameException;
 import com.StardewValley.models.Lobby;
 import com.StardewValley.models.User;
+import com.StardewValley.repository.UserRepository;
 import com.StardewValley.view.InLobbyView;
 import com.StardewValley.view.MapSelectionView;
 import com.StardewValley.view.MapView;
@@ -18,10 +20,12 @@ import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.reflect.Type;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -244,6 +248,16 @@ public class ServerListener implements Runnable {
                 }
                 break;
             }
+            case GROUP_MISSION_UPDATE:
+                handleGroupMissionUpdate(message.getPayload());
+                break;
+            case ERROR: {
+                String errorMessage = (String) message.getPayload().get("message");
+                System.err.println("SERVER ERROR: " + errorMessage);
+                break;
+            }
+            case TRADE_HISTORY_ADD:
+                handleTradeHistoryAdd(message.getPayload());
             default: {
                 System.out.println("Unhandled message from server: " + message.getAction());
                 break;
@@ -411,6 +425,52 @@ public class ServerListener implements Runnable {
         if (game.getScreen() instanceof TradeView) {
             boolean accepted = message.getAction() == Message.ActionType.TRADE_COMPLETE;
             ((TradeView) game.getScreen()).finalizeTrade(accepted);
+        }
+    }
+
+    private void handleTradeHistoryAdd(Map<String, Object> payload) {
+        String tradeOfferJson = gson.toJson(payload.get("tradeOffer"));
+        TradeOffer offer = gson.fromJson(tradeOfferJson, TradeOffer.class);
+        boolean accepted = (Boolean) payload.get("accepted");
+
+        User fromUser = UserRepository.getInstance().getUserByUsername(offer.getRequester());
+        User toUser = UserRepository.getInstance().getUserByUsername(offer.getReceiver());
+
+        if (fromUser != null && toUser != null) {
+            Trade trade = new Trade();
+            trade.setId(TradeController.getNextTradeId());
+            trade.setFromUser(fromUser);
+            trade.setToUser(toUser);
+            if (!offer.getOfferedItems().isEmpty()) {
+                trade.setOfferedItems(offer.getOfferedItems().get(0));
+            }
+            if (!offer.getRequestedItems().isEmpty()) {
+                trade.setRequestedItems(offer.getRequestedItems().get(0));
+            }
+            trade.setOfferedMoney(offer.getOfferedMoney());
+            trade.setRequestedMoney(offer.getRequestedMoney());
+            trade.setAccepted(accepted);
+            trade.setTimestamp(TimeSystem.getInstance().getDateTime());
+
+            TradeController.addUserTrade(fromUser, trade);
+            TradeController.addUserTrade(toUser, trade);
+            TradeController.addRespondedTrade(fromUser, trade.getId());
+            TradeController.addRespondedTrade(toUser, trade.getId());
+        }
+    }
+
+    private void handleGroupMissionUpdate(Map<String, Object> payload) {
+        Gson gson = new Gson();
+        Type missionListType = new TypeToken<ArrayList<GroupMission>>(){}.getType();
+
+        List<GroupMission> available = gson.fromJson(gson.toJson(payload.get("available")), missionListType);
+        List<GroupMission> active = gson.fromJson(gson.toJson(payload.get("active")), missionListType);
+
+        if (game.getScreen() instanceof GroupMissionView) {
+            ((GroupMissionView) game.getScreen()).updateMissions(available, active);
+        } else if (game.getScreen() instanceof MapView) {
+            MapView mapView = (MapView) game.getScreen();
+            mapView.getGameView().showGroupMissionView(available, active);
         }
     }
 }

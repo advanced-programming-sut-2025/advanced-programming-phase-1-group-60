@@ -61,6 +61,8 @@ public class GameView implements Screen {
     private MapSelectionView mapSelectionView;
     private TradeMenuView tradeMenuView;
     private TradeView tradeView;
+    private GroupMissionView groupMissionView;
+
 
     public GameView(com.badlogic.gdx.Game game, LoginMenuController loginController, Lobby lobby) {
         this.game = game;
@@ -635,6 +637,15 @@ public class GameView implements Screen {
             tradeView = new TradeView(game, this, localPlayer, remotePlayer, isRequester, tradeId);
             game.setScreen(tradeView);
         });
+    }
+
+    public void showGroupMissionView(List<GroupMission> availableMissions, List<GroupMission> activeMissions) {
+        User currentPlayer = loginController.getLoggedInUser();
+        if (groupMissionView != null) {
+            groupMissionView.dispose();
+        }
+        groupMissionView = new GroupMissionView(game, this, currentPlayer, availableMissions, activeMissions);
+        game.setScreen(groupMissionView);
     }
 
     public Stage getStage() {

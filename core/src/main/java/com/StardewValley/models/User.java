@@ -790,4 +790,25 @@ public class User {
     public void setAverageSkill(float averageSkill) {
         AverageSkill = averageSkill;
     }
+
+    // Group Mission
+    private List<GroupMission> activeGroupMissions = new ArrayList<>();
+
+    public List<GroupMission> getActiveGroupMissions() {
+        return activeGroupMissions;
+    }
+
+    public void setActiveGroupMissions(List<GroupMission> missions) {
+        this.activeGroupMissions = missions;
+    }
+
+    public void addActiveGroupMission(GroupMission mission) {
+        if (!this.activeGroupMissions.stream().anyMatch(m -> m.getId() == mission.getId())) {
+            this.activeGroupMissions.add(mission);
+        }
+    }
+
+    public void removeActiveGroupMission(GroupMission mission) {
+        this.activeGroupMissions.removeIf(m -> m.getId() == mission.getId());
+    }
 }

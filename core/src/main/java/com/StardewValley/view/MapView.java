@@ -400,6 +400,9 @@ public class MapView implements Screen {
             isMoving = true;
             currentPlayerAnimation = MapManager.getInstance().getWalkLeftAnimation();
         }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+            ClientMain.sendMessage(new Message(Message.ActionType.GET_GROUP_MISSIONS, new HashMap<>()));
+        }
         if (Gdx.input.isKeyPressed(Input.Keys.D)) {
             velocity.x += 1;
             lastDirection = 1; // Right

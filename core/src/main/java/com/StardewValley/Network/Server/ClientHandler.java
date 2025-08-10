@@ -3,11 +3,7 @@ package com.StardewValley.Network.Server;
 import com.StardewValley.Network.JsonUtil;
 import com.StardewValley.Network.LobbyManager;
 import com.StardewValley.Network.Message;
-import com.StardewValley.models.Item;
-import com.StardewValley.models.Game;
-import com.StardewValley.models.Lobby;
-import com.StardewValley.models.TradeOffer;
-import com.StardewValley.models.User;
+import com.StardewValley.models.*;
 import com.StardewValley.repository.UserRepository;
 import com.StardewValley.models.User;
 
@@ -144,6 +140,15 @@ public class ClientHandler implements Runnable {
                 break;
             case GET_PLAYER_LIST:
                 handleGetPlayerList();
+                break;
+            case GET_GROUP_MISSIONS:
+                handleGetGroupMissions();
+                break;
+            case JOIN_GROUP_MISSION:
+                handleJoinGroupMission(message.getPayload());
+                break;
+            case DELIVER_GROUP_MISSION_ITEM:
+                handleDeliverGroupMissionItem(message.getPayload());
                 break;
             default:
                 System.out.println("Unknown action received by handler: " + message.getAction());
@@ -620,6 +625,14 @@ public class ClientHandler implements Runnable {
                     server.sendMessageTo(receiver.getUsername(), receiverUpdateMessage);
                     System.out.println("SERVER: Sent INVENTORY_UPDATE to receiver: " + receiver.getUsername());
 
+                    Map<String, Object> historyPayload = new HashMap<>();
+                    historyPayload.put("tradeOffer", offer);
+                    historyPayload.put("accepted", true);
+                    Message historyMessage = new Message(Message.ActionType.TRADE_HISTORY_ADD, historyPayload);
+                    server.sendMessageTo(offer.getRequester(), historyMessage);
+                    server.sendMessageTo(offer.getReceiver(), historyMessage);
+                    System.out.println("SERVER: Sent TRADE_HISTORY_ADD to both parties.");
+
                     // ارسال پیام تکمیل ترید برای بستن رابط کاربری ترید
                     offer.setFinalized(true);
                     Map<String, Object> completePayload = new HashMap<>();
@@ -685,6 +698,83 @@ public class ClientHandler implements Runnable {
             server.broadcastGameDataUpdate(userToUpdate);
         } else {
             System.err.println("SERVER_CLIENT_HANDLER_PLAYER_DATA_ERROR: Received PLAYER_DATA_UPDATE for unknown user: " + username);
+        }
+    }
+
+    private void handleGetGroupMissions() {
+        GroupMissionManager manager = GroupMissionManager.getInstance();
+        User user = UserRepository.getInstance().getUserByUsername(this.username);
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("available", manager.getAvailableMissions());
+        payload.put("active", user.getActiveGroupMissions());
+
+        sendMessage(new Message(Message.ActionType.GROUP_MISSION_UPDATE, payload));
+    }
+
+    private void handleJoinGroupMission(Map<String, Object> payload) {
+        int missionId = ((Double) payload.get("missionId")).intValue();
+        String result = GroupMissionManager.getInstance().joinMission(this.username, missionId);
+
+        // Broadcast the update to all players
+        broadcastGroupMissionUpdate();
+    }
+
+    private void handleDeliverGroupMissionItem(Map<String, Object> payload) {
+        System.out.println("[SERVER LOG] Received DELIVER_GROUP_MISSION_ITEM from " + username + ": missionId="
+            + payload.get("missionId") + ", amount=" + payload.get("amount"));
+        int missionId = ((Double) payload.get("missionId")).intValue();
+        int amount = ((Double) payload.get("amount")).intValue();
+        String result = GroupMissionManager.getInstance().deliverItem(this.username, missionId, amount);
+
+        // If the delivery resulted in an error, send the message back to the sender only
+        if (result.startsWith("Invalid") || result.startsWith("Not enough")) {
+            Map<String, Object> errorPayload = new HashMap<>();
+            errorPayload.put("message", result);
+            sendMessage(new Message(Message.ActionType.ERROR, errorPayload));
+        } else {
+            System.out.println("[SERVER LOG] Delivery result for " + username + ": " + result);
+            broadcastGroupMissionUpdate();
+            if (result.contains("Mission complete")) {
+                GroupMission mission = GroupMissionManager.getInstance().getMissionById(missionId);
+                if (mission != null) {
+                    for (String playerUsername : mission.getJoinedPlayers()) {
+                        User participant = UserRepository.getInstance().getUserByUsername(playerUsername);
+                        if (participant != null) {
+                            Map<String, Object> updatePayload = new HashMap<>();
+                            updatePayload.put("inventory", participant.getInventory().getItems());
+                            updatePayload.put("money", participant.getMoney());
+                            Message updateMessage = new Message(Message.ActionType.INVENTORY_UPDATE, updatePayload);
+                            server.sendMessageTo(playerUsername, updateMessage);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void broadcastGroupMissionUpdate() {
+        GroupMissionManager manager = GroupMissionManager.getInstance();
+        List<GroupMission> allMissions = manager.getAllMissions();
+
+        // The list of available missions is the same for everyone
+        List<GroupMission> available = allMissions.stream()
+            .filter(m -> m.getStatus() == GroupMission.MissionStatus.AVAILABLE && !m.isFull())
+            .collect(java.util.stream.Collectors.toList());
+
+        for(String username : server.getConnectedClients()) {
+            User user = UserRepository.getInstance().getUserByUsername(username);
+            if(user != null) {
+                // The list of active missions for each player is determined dynamically
+                List<GroupMission> activeForThisUser = allMissions.stream()
+                    .filter(m -> m.getStatus() == GroupMission.MissionStatus.ACTIVE && m.getJoinedPlayers().contains(username))
+                    .collect(java.util.stream.Collectors.toList());
+
+                Map<String, Object> payload = new HashMap<>();
+                payload.put("available", available);
+                payload.put("active", activeForThisUser);
+                server.sendMessageTo(username, new Message(Message.ActionType.GROUP_MISSION_UPDATE, payload));
+            }
         }
     }
 

@@ -15,6 +15,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 import java.util.List;
+import java.util.Set;
 
 public class TradeMenuView implements Screen {
     private final Game game;
@@ -134,7 +135,30 @@ public class TradeMenuView implements Screen {
         contentTable.clear();
         contentTable.top().left().pad(20);
         contentTable.add(new Label("Trade History", menuManager.getPixthulhuSkin(), "title")).row();
-        // Logic to display trade history
+
+        // Use the new static getters from TradeController
+        List<com.StardewValley.models.Trade> allTrades = com.StardewValley.controller.TradeController.getAllUserTrades().get(player);
+        Set<Integer> respondedTrades = com.StardewValley.controller.TradeController.getRespondedTrades().get(player);
+
+        if (allTrades == null || respondedTrades == null || allTrades.stream().noneMatch(t -> respondedTrades.contains(t.getId()))) {
+            contentTable.add(new Label("No trade history found.", menuManager.getPixthulhuSkin())).pad(10);
+            return;
+        }
+
+        Table historyTable = new Table(menuManager.getPixthulhuSkin());
+        for (com.StardewValley.models.Trade t : allTrades) {
+            if (respondedTrades.contains(t.getId())) {
+                String status = t.isAccepted() ? "[ACCEPTED]" : "[REJECTED]";
+                String tradeInfo = String.format("#%d %s - From: %s, To: %s\n  Offer: %s, Request: %s",
+                    t.getId(), status, t.getFromUser().getUsername(), t.getToUser().getUsername(),
+                    (t.getOfferedItem() != null ? t.getOfferedItem().toString() : "") + " (" + t.getOfferedMoney() + "g)",
+                    (t.getRequestedItems() != null ? t.getRequestedItems().toString() : "") + " (" + t.getRequestedMoney() + "g)");
+                Label tradeLabel = new Label(tradeInfo, menuManager.getPixthulhuSkin());
+                tradeLabel.setWrap(true);
+                historyTable.add(tradeLabel).width(500).left().pad(5).row();
+            }
+        }
+        contentTable.add(new ScrollPane(historyTable, menuManager.getPixthulhuSkin())).expand().fill();
     }
 
     public GameView getGameView() {

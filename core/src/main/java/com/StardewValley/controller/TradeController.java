@@ -39,6 +39,27 @@ public class TradeController {
         }
     }
 
+    public static synchronized int getNextTradeId() {
+        return tradeIdCounter++;
+    }
+
+    public static void addUserTrade(User user, Trade trade) {
+        userTrades.computeIfAbsent(user, k -> new ArrayList<>()).add(trade);
+    }
+
+    public static void addRespondedTrade(User user, int tradeId) {
+        respondedTrades.computeIfAbsent(user, k -> new HashSet<>()).add(tradeId);
+    }
+
+    public static Map<User, List<Trade>> getAllUserTrades() {
+        return userTrades;
+    }
+
+    public static Map<User, Set<Integer>> getRespondedTrades() {
+        return respondedTrades;
+    }
+
+
     public void startTrade() {
         System.out.println("Entering trade menu. Type 'exit trade' to return.");
         while (true) {
@@ -298,7 +319,8 @@ public class TradeController {
             return;
         }
 
-        respondedTrades.get(mainUser).add(id);
+        respondedTrades.get(target.getFromUser()).add(id);
+        respondedTrades.get(target.getToUser()).add(id);
     }
 
 
@@ -327,15 +349,15 @@ public class TradeController {
         }
 
         return String.format(
-                "#%d from:%s to:%s offers:%s moneyOffered:%d requests:%s moneyRequested:%d at %s",
-                t.getId(),
-                t.getFromUser().getUsername(),
-                t.getToUser().getUsername(),
-                offered,
-                t.getOfferedMoney(),
-                requested,
-                t.getRequestedMoney(),
-                t.getTimestamp()
+            "#%d from:%s to:%s offers:%s moneyOffered:%d requests:%s moneyRequested:%d at %s",
+            t.getId(),
+            t.getFromUser().getUsername(),
+            t.getToUser().getUsername(),
+            offered,
+            t.getOfferedMoney(),
+            requested,
+            t.getRequestedMoney(),
+            t.getTimestamp()
         );
     }
 }

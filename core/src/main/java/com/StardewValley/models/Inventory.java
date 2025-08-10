@@ -1,10 +1,12 @@
 package com.StardewValley.models;
 
+import com.StardewValley.Network.Client.ClientMain;
+import com.StardewValley.Network.Message;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 
 public class Inventory {
     private List<Item> items;
@@ -25,6 +27,21 @@ public class Inventory {
             case DELUXE -> capacity = 36;
         }
     }
+
+    private void sendInventoryUpdate() {
+        if (owner != null && ClientMain.isConnected) {
+            Map<String, Object> payload = new HashMap<>();
+            List<Map<String, Object>> itemsAsMaps = new ArrayList<>();
+            for (Item item : this.items) {
+                itemsAsMaps.add(item.toMap());
+            }
+            payload.put("inventory", itemsAsMaps);
+            payload.put("money", owner.getMoney());
+            Message message = new Message(Message.ActionType.INVENTORY_UPDATE, payload);
+            ClientMain.sendMessage(message);
+        }
+    }
+
     public List<Item> getItems() {
         return items;
     }
@@ -72,6 +89,7 @@ public class Inventory {
 
     public void setItems(List<Item> items) {
         this.items = items;
+        sendInventoryUpdate();
     }
 
     public int getCapacity() {
@@ -96,53 +114,64 @@ public class Inventory {
     }
 
     public boolean addItem(Item item) {
+        boolean result = false;
         if (item instanceof Tools) {
             if (items.size() < capacity) {
                 items.add(item);
-                return true;
+                result = true;
             } else {
-                /// remember to remove this
                 items.add(item);
-                return false;
+                result = false;
             }
-        }
-        for (Item i : items) {
-            if (i.getName().equalsIgnoreCase(item.getName())) {
-                i.setQuantity(i.getQuantity() + item.getQuantity());
-                return true;
-            }
-        }
-        if (items.size() < capacity) {
-            items.add(item);
-            return true;
         } else {
-            return false;
+            for (Item i : items) {
+                if (i.getName().equalsIgnoreCase(item.getName())) {
+                    i.setQuantity(i.getQuantity() + item.getQuantity());
+                    result = true;
+                    sendInventoryUpdate();
+                    return result;
+                }
+            }
+            if (items.size() < capacity) {
+                items.add(item);
+                result = true;
+            } else {
+                result = false;
+            }
         }
+        sendInventoryUpdate();
+        return result;
     }
 
     public boolean tryAddItem(Item item) {
+        boolean result = false;
         if (item instanceof Tools) {
             if (items.size() < capacity) {
                 items.add(item);
-                return true;
+                result = true;
             } else {
                 System.out.println("Inventory is full!");
-                return false;
+                result = false;
             }
-        }
-        for (Item i : items) {
-            if (i.getName().equalsIgnoreCase(item.getName())) {
-                i.setQuantity(i.getQuantity() + item.getQuantity());
-                return true;
-            }
-        }
-        if (items.size() < capacity) {
-            items.add(item);
-            return true;
         } else {
-            System.out.println("Inventory is full!");
-            return false;
+            for (Item i : items) {
+                if (i.getName().equalsIgnoreCase(item.getName())) {
+                    i.setQuantity(i.getQuantity() + item.getQuantity());
+                    result = true;
+                    sendInventoryUpdate();
+                    return result;
+                }
+            }
+            if (items.size() < capacity) {
+                items.add(item);
+                result = true;
+            } else {
+                System.out.println("Inventory is full!");
+                result = false;
+            }
         }
+        sendInventoryUpdate();
+        return result;
     }
 
     public void removeItem(Item item) {
@@ -154,6 +183,7 @@ public class Inventory {
                 } else {
                     items.remove(idx);
                 }
+                sendInventoryUpdate();
                 return;
             }
         }
@@ -163,6 +193,7 @@ public class Inventory {
         for (Item i : items) {
             if (i.getName().equalsIgnoreCase(itemName)) {
                 i.setQuantity(i.getQuantity() + count);
+                sendInventoryUpdate();
                 return;
             }
         }
@@ -174,6 +205,7 @@ public class Inventory {
         } else {
             System.out.println("Inventory is full!");
         }
+        sendInventoryUpdate();
     }
 
 
@@ -187,6 +219,7 @@ public class Inventory {
                 } else {
                     items.remove(idx);
                 }
+                sendInventoryUpdate();
                 return;
             }
         }
