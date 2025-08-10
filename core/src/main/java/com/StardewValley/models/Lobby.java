@@ -1,5 +1,9 @@
 package com.StardewValley.models;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -14,6 +18,8 @@ public class Lobby {
     private String admin;
     private List<String> members;
     private int capacity;
+    private List<String> chatHistory = new ArrayList<>(); // Initialize to prevent NullPointerException
+
 
     public Lobby(String name, boolean isPublic, String password, boolean isVisible, String creator, int capacity) {
         // FIX: Generate a 10-digit random ID
@@ -53,7 +59,13 @@ public class Lobby {
     public boolean isFull() {
         return members.size() >= capacity;
     }
+    public void setChatHistory(List<String> chatHistory) {
+        this.chatHistory = chatHistory != null ? new ArrayList<>(chatHistory) : new ArrayList<>();
+    }
 
+    public void addMessageToChatHistory(String message) {
+        this.chatHistory.add(message);
+    }
     public void addMember(String username) {
         if (!members.contains(username) && !isFull()) {
             members.add(username);

@@ -37,7 +37,8 @@ public class Message {
         TRADE_HISTORY_ADD,
         INVENTORY_UPDATE,
         PLAYER_DATA_UPDATE,
-        // Game Actions
+        CHAT_MESSAGE_PUBLIC,  // <--- پیام چت عمومی
+        CHAT_MESSAGE_PRIVATE,
         PLAYER_MOVE,
         PLAYER_POSITION_UPDATE,
         USE_TOOL,
@@ -47,6 +48,7 @@ public class Message {
         INTERACT_NPC,
         SHOW_REACTION,
         ITEM_SOLD_UPDATE,
+        GET_LOBBY_STATE,
         // Group Mission
         JOIN_GROUP_MISSION,
         DELIVER_GROUP_MISSION_ITEM,
