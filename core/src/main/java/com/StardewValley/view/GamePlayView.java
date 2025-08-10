@@ -117,10 +117,10 @@ public class GamePlayView {
             status.append("Energy Penalty Active\n");
         }
 
-        String unreadMessages = currentUser.getUnreadMessage();
+        /*String unreadMessages = currentUser.getUnreadMessage();
         if (!unreadMessages.isEmpty()) {
             status.append("New Messages:\n").append(unreadMessages);
-        }
+        }*/
 
         String marriageRequests = currentUser.getUnreadMarriageRequests();
         if (!marriageRequests.isEmpty()) {

@@ -118,8 +118,8 @@ public class InventoryView implements Screen {
     }
 
     private void addTestItems() {
-      //  player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
-      //  player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
+        //  player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
+        //  player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
         player.getInventory().addItem(new Item("Copper_Bar", 100, "assets/Inventory/Copper_Bar.png"));
         player.getInventory().addItem(new Item("Wood", 2000, "assets/Inventory/Wood.png"));
         player.getInventory().addItem(new Item("Stone", 5000, "assets/Inventory/Stone.png"));
@@ -558,7 +558,12 @@ public class InventoryView implements Screen {
                 showQuests();
             }
         });
-        settingsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { game.setScreen(new MainView(game, loginController)); } });
+        settingsButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                gameView.showSettingsView(); // Changed to show new SettingsView
+            }
+        });
         exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { gameView.showMapView(); } });
 
         return sidebar;
@@ -728,8 +733,15 @@ public class InventoryView implements Screen {
         for (Skill skill : player.getSkills()) {
             Label skillLabel = new Label(skill.getName() + " - Level: " + skill.getLevel(),
                 menuManager.getPixthulhuSkin());
-            skillLabel.setFontScale(0.7f); // Make skills text smaller
-            contentTable.add(skillLabel).left().pad(10).row();
+            skillLabel.setFontScale(0.7f);
+
+            // ساخت Tooltip با توضیحات مهارت
+            TextTooltip tooltip = new TextTooltip(skill.getDescription(), menuManager.getPixthulhuSkin());
+            tooltip.setInstant(true); // نمایش فوری
+            skillLabel.addListener(tooltip);
+
+            // افزایش فاصله بین مهارت‌ها
+            contentTable.add(skillLabel).left().pad(20).row();
         }
         refreshQuickAccessSlots();
     }

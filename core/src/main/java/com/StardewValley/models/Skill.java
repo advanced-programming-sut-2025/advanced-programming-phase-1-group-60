@@ -10,11 +10,12 @@ public class Skill {
 
     public static final int MAX_LEVEL = 4;
 
-    public Skill(String name) {
+    public Skill(String name, String s) {
         this.name = name;
         this.level = 1;
         this.experience = 0;
-        this.maxExperience = 20; // XP needed for level 1->2
+        this.maxExperience = 20;
+        this.setDescription(s);
     }
 
     public String getName() {

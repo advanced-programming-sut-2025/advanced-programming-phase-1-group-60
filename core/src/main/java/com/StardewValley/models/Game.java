@@ -15,6 +15,9 @@ public class Game {
     private GameMap currentMap;
     private boolean forceTerminateVote = false;
     private Set<User> terminationVotes = new HashSet<>();
+    // New: Map to store kick votes
+    private final Map<User, Set<User>> kickVotes = new HashMap<>();
+
 
     private Game() {}
 
@@ -61,7 +64,10 @@ public class Game {
             if (user.getCurrentGame() != null) throw new GameException("User already in game: " + username);
             this.players.add(user);
         }
-
+        // Initialize kickVotes for all players
+        for (User player : this.players) {
+            kickVotes.put(player, new HashSet<>());
+        }
         this.state = GameState.MAP_SELECTION;
     }
 
@@ -123,11 +129,18 @@ public class Game {
 
     // مدیریت نوبت‌ها
     public Integer nextTurn() {
+        if (players.isEmpty()) {
+            terminateGame();
+            return -1; // Or handle appropriately
+        }
         currentPlayerIndex = (currentPlayerIndex + 1) % players.size();
         return currentPlayerIndex;
     }
 
     public User getCurrentPlayer() {
+        if (players.isEmpty() || currentPlayerIndex < 0 || currentPlayerIndex >= players.size()) {
+            return null;
+        }
         return players.get(currentPlayerIndex);
     }
 
@@ -156,8 +169,74 @@ public class Game {
 
     private void notifyPlayers(String message) {
         players.forEach(player ->
-                System.out.println("[System] " + player.getUsername() + ": " + message));
+            System.out.println("[System] " + player.getUsername() + ": " + message));
     }
+
+    /**
+     * New method to remove a player from the game.
+     * It adjusts the currentPlayerIndex if the removed player was before the current one.
+     * If no players are left, the game is terminated.
+     */
+    public void removePlayer(User playerToRemove) {
+        if (playerToRemove == null || !players.contains(playerToRemove)) {
+            return; // Player not in the game
+        }
+
+        int removedPlayerIndex = players.indexOf(playerToRemove);
+        players.remove(playerToRemove);
+        kickVotes.remove(playerToRemove); // Also remove from kick tracking
+
+        if (players.isEmpty()) {
+            terminateGame();
+            return;
+        }
+
+        // Adjust current player index
+        if (removedPlayerIndex < currentPlayerIndex) {
+            currentPlayerIndex--;
+        } else if (removedPlayerIndex == currentPlayerIndex) {
+            // If the current player is removed, advance to the next player's turn
+            // The index is now pointing to the next player, so no change needed unless it was the last player
+            if (currentPlayerIndex >= players.size()) {
+                currentPlayerIndex = 0;
+            }
+        }
+        notifyPlayers(playerToRemove.getUsername() + " has left the game.");
+    }
+    /**
+     * New method to handle voting to kick a player.
+     * @param voter The player who is voting.
+     * @param target The player being voted against.
+     * @return A message indicating the result of the vote.
+     */
+    public String voteToKick(User voter, User target) {
+        if (state != GameState.IN_GAME) {
+            return "Voting is only allowed during the game.";
+        }
+        if (voter.equals(target)) {
+            return "You cannot vote to kick yourself.";
+        }
+        if (!players.contains(target)) {
+            return "Target player is not in this game.";
+        }
+
+        Set<User> votesForTarget = kickVotes.get(target);
+        if (votesForTarget.contains(voter)) {
+            return "You have already voted to kick this player.";
+        }
+
+        votesForTarget.add(voter);
+        int requiredVotes = (players.size() / 2) + 1;
+
+        if (votesForTarget.size() >= requiredVotes) {
+            removePlayer(target);
+            return target.getUsername() + " has been kicked from the game.";
+        } else {
+            return "Vote to kick " + target.getUsername() + " has been registered. " +
+                (requiredVotes - votesForTarget.size()) + " more votes needed.";
+        }
+    }
+
 
     public GameState getState () {
         return state;

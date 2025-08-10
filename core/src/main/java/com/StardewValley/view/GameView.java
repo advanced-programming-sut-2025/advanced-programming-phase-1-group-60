@@ -43,6 +43,8 @@ public class GameView implements Screen {
     private CarpenterShopView carpenterShopView;
     private KitchenView kitchenView;
     private GiftToPlayerView giftToPlayerView;
+    private SettingsView settingsView;
+
 
     private Table mainMenuTable;
     private Table newGameTable;
@@ -259,7 +261,7 @@ public class GameView implements Screen {
         Gdx.input.setInputProcessor(stage);
     }
 
-    private void showMainMenu() {
+    public void showMainMenu() {
         isGameRunning = false;
         newGameTable.setVisible(false);
         mapSelectionTable.setVisible(false);
@@ -541,6 +543,20 @@ public class GameView implements Screen {
     public void setLastFrameTexture(Texture texture) {
         this.lastFrameTexture = texture;
     }
+
+    /**
+     * New method to switch to the Settings screen.
+     */
+    public void showSettingsView() {
+        User currentPlayer = Game.getInstance().getCurrentPlayer();
+        if (settingsView != null) {
+            settingsView.dispose();
+        }
+        settingsView = new SettingsView(game, this, currentPlayer);
+        game.setScreen(settingsView);
+    }
+
+
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0.1f, 0.1f, 0.1f, 1);

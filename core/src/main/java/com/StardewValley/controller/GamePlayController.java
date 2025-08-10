@@ -222,10 +222,10 @@ public class GamePlayController {
                     break;
                 }
                 System.out.println(user.getUsername() + "'s turn ->(energy used this turn: " + energyUsedThisTurn + ")");
-                String unread = user.getUnreadMessage();
-                if (!unread.isEmpty()) {
+                //String unread = user.getUnreadMessage();
+             /*   if (!unread.isEmpty()) {
                     System.out.println("You have unread messages: \n" + unread);
-                }
+                }*/
 
                 String unreadMarriage = user.getUnreadMarriageRequests();
                 if (!unreadMarriage.isEmpty()) {

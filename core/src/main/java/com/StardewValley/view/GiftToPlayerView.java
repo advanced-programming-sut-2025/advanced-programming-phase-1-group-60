@@ -43,6 +43,11 @@ public class GiftToPlayerView implements Screen {
         this.gameView = gameView;
         this.giftController = GiftController.getInstance();
 
+        for (User u : UserRepository.getInstance().getAllUsers()) {
+            currentPlayer.increaseFriendshipXpsWithUsers(u, 150);
+            u.increaseFriendshipXpsWithUsers(currentPlayer, 150);
+        }
+
         setupUI();
     }
 

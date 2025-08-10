@@ -29,7 +29,8 @@ public class User {
     private Map<User, Integer> friendshipLevelWithUsers;
     private Map<User, Integer> friendshipXpsWithUsers;
     private Map<Npc, Integer> friendshipXpsWithNPCs;
-    private HashMap<User,String> unreadMessages;
+    private List<String> unreadMessages;
+    private List<String> unreadGiftNotifications;
     private List<Item> refrigeratorItems = new ArrayList<>();
     private int money = 3000000;
     private List<Question> securityQuestions;
@@ -55,15 +56,17 @@ public class User {
         this.gender = gender;
         this.securityQuestions = new ArrayList<>();
         this.friendshipXpsWithUsers = new HashMap<>();
-        this.unreadMessages = new HashMap<>();
+        this.unreadMessages = new ArrayList<>();
+        this.unreadGiftNotifications = new ArrayList<>();
         this.friendshipXpsWithNPCs = new HashMap<>();
         this.friendshipXpsWithUsers = new HashMap<>();
         this.friendshipLevelWithUsers = new HashMap<>();
         this.skills = new ArrayList<>();
-        skills.add(new Skill("Farming"));
-        skills.add(new Skill("Mining"));
-        skills.add(new Skill("Foraging"));
-        skills.add(new Skill("Fishing"));
+        skills.add(new Skill("Farming", "Increases crop yield and animal product quality."));
+        skills.add(new Skill("Mining", "Improves efficiency at breaking rocks and ores."));
+        skills.add(new Skill("Foraging", "Boosts gathering of wild plants, wood, and resources."));
+        skills.add(new Skill("Fishing", "Enhances fishing ability and catch quality."));
+
 
         for (User existingUser : UserRepository.getInstance().getAllUsers()) {
             this.friendshipLevelWithUsers.put(existingUser, 0);
@@ -266,7 +269,11 @@ public class User {
     }
 
     public void increaseFriendshipXpsWithUsers(User user, Integer xp) {
-        friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.get(user) + xp);
+        if (friendshipXpsWithUsers.get(user) != null) {
+            friendshipXpsWithUsers.put(user, friendshipXpsWithUsers.get(user) + xp);
+        } else {
+            friendshipLevelWithUsers.put(user, xp);
+        }
     }
 
     public void increaseFriendshipXpsWithNpc (Npc npc, Integer xp) {
@@ -286,7 +293,7 @@ public class User {
     }
 
     public int getFriendshipLevelWithUsers (User user) {
-     //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
+        //   if (friendshipLevelWithUsers.containsKey(user)) return friendshipLevelWithUsers.get(user);
         int xp = friendshipXpsWithUsers.getOrDefault(user, 0);
         if (xp < 100) return 0;
         if (xp > 100 && xp < 300) return 1;
@@ -411,7 +418,10 @@ public class User {
     }
 
     public void requestToTalk(User sender, String message) {
-        this.unreadMessages.put(sender, message); // `this` همان گیرنده پیام است
+        if (this.unreadMessages == null) {
+            this.unreadMessages = new ArrayList<>();
+        }
+        this.unreadMessages.add("You have a new message from " + sender.getNickname());
 
         String key = getChatHistoryKey(this, sender);
         // تاریخچه را از منبع مرکزی دریافت کرده یا در صورت عدم وجود، ایجاد می‌کند
@@ -430,20 +440,29 @@ public class User {
         return allChatHistories.getOrDefault(key, new StringBuilder());
     }
 
-    public String getUnreadMessage() {
-        if (unreadMessages.isEmpty()) return "";
-
-        StringBuilder sb = new StringBuilder();
-        for (Map.Entry<User, String> entry : new HashMap<>(unreadMessages).entrySet()) {
-            if (entry.getValue() != null && !entry.getValue().isEmpty()) {
-                sb.append(entry.getKey().getNickname())
-                    .append(": ")
-                    .append(entry.getValue())
-                    .append("\n");
-            }
+    public List<String> getUnreadMessagesAndClear() {
+        if (unreadMessages == null || unreadMessages.isEmpty()) {
+            return new ArrayList<>();
         }
+        List<String> messages = new ArrayList<>(unreadMessages);
         unreadMessages.clear();
-        return sb.toString();
+        return messages;
+    }
+
+    public void addGiftNotification(String senderName) {
+        if (this.unreadGiftNotifications == null) {
+            this.unreadGiftNotifications = new ArrayList<>();
+        }
+        this.unreadGiftNotifications.add("you have a new gift from " + senderName);
+    }
+
+    public List<String> getUnreadGiftNotificationsAndClear() {
+        if (unreadGiftNotifications == null || unreadGiftNotifications.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<String> notifications = new ArrayList<>(unreadGiftNotifications);
+        unreadGiftNotifications.clear();
+        return notifications;
     }
 
 

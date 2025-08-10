@@ -69,6 +69,7 @@ public class GiftController {
         // انتقال آیتم و ثبت رویداد
         from.getInventory().removeItemByName(itemName, quantity);
         to.getInventory().addItemByName(itemName, quantity);
+        to.addGiftNotification(from.getUsername());
 
         String date = TimeSystem.getInstance().getCurrentDate();
         GiftEvent ev = new GiftEvent(from.getUsername(), toUsername, itemName, quantity, date);

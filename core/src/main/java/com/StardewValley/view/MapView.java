@@ -206,15 +206,15 @@ public class MapView implements Screen {
 
         if (!allAvailableFishes.isEmpty()) {
             Random random = new Random();
-                Fish fish = allAvailableFishes.get(random.nextInt(allAvailableFishes.size()));
-                float randomOffsetX = random.nextFloat() * (6 - TILE_SIZE); // Subtract TILE_SIZE to ensure fish stays within bounds
-                float randomOffsetY = random.nextFloat() * (4 - TILE_SIZE);
+            Fish fish = allAvailableFishes.get(random.nextInt(allAvailableFishes.size()));
+            float randomOffsetX = random.nextFloat() * (6 - TILE_SIZE); // Subtract TILE_SIZE to ensure fish stays within bounds
+            float randomOffsetY = random.nextFloat() * (4 - TILE_SIZE);
 
-                float nx = randomOffsetX;
-                float ny =randomOffsetY;
-                fish.setPosition(nx, ny);
-                fishTexture = new Texture(Gdx.files.internal("assets/Fish/"+fish.getName()+".png"));
-                lakeFishes.add(fish);
+            float nx = randomOffsetX;
+            float ny =randomOffsetY;
+            fish.setPosition(nx, ny);
+            fishTexture = new Texture(Gdx.files.internal("assets/Fish/"+fish.getName()+".png"));
+            lakeFishes.add(fish);
 
         }
     }
@@ -241,6 +241,9 @@ public class MapView implements Screen {
             lastWalkingAnimation = MapManager.getInstance().getWalkRightAnimation();
             currentPlayerAnimation = lastWalkingAnimation;
             animationCooldown = ANIMATION_PERSIST_TIME;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.G)) {
+            gameView.showGiftToPlayerView();
         }
         if (Gdx.input.isKeyPressed(Input.Keys.W)) {
             velocity.y += 1;
@@ -1736,8 +1739,21 @@ public class MapView implements Screen {
                     completedRound = true;
                 }
 
-                if (notificationLabel != null) {
-                    showNotification(notificationLabel.toString());
+                StringBuilder notificationMessage = new StringBuilder();
+                List<String> giftNotifications = newCurrentPlayer.getUnreadGiftNotificationsAndClear();
+                for (String notification : giftNotifications) {
+                    notificationMessage.append(notification).append("\n");
+                }
+
+                List<String> messageNotifications = newCurrentPlayer.getUnreadMessagesAndClear();
+                for (String notification : messageNotifications) {
+                    notificationMessage.append(notification).append("\n");
+                }
+
+                if (notificationMessage.length() > 0) {
+                    lastTurnMessage = "Now playing as: " + newCurrentPlayer.getUsername() + "\n" + notificationMessage.toString().trim();
+                } else {
+                    lastTurnMessage = "Now playing as: " + newCurrentPlayer.getUsername();
                 }
 
                 if (completedRound) {
@@ -1753,7 +1769,6 @@ public class MapView implements Screen {
                 playerPos = new Vector2(playerPositions.get(newCurrentPlayer));
                 inVillage = playerInVillageState.get(newCurrentPlayer);
                 centerCameraOnPlayer();
-                lastTurnMessage = "Now playing as: " + newCurrentPlayer.getUsername();
                 messageTimer = MESSAGE_DISPLAY_TIME;
                 energyUsedThisTurn = 0;
                 lastEnergyTile.set(-1, -1);
@@ -2931,7 +2946,7 @@ public class MapView implements Screen {
             }
         }
     }
-//    private void drawArtisanProductionProgress() {
+    //    private void drawArtisanProductionProgress() {
 //        Farm farm = gamePlayController.getUser().getFarm();
 //        if (farm == null) return;
 //
@@ -3007,50 +3022,50 @@ public class MapView implements Screen {
 //        Gdx.gl.glDisable(GL20.GL_BLEND); // Disable blending after drawing all bars
 //    }
 // This method should be called between batch.begin() and batch.end()
-private void drawArtisanProductionProgressTextOnly() {
-    Farm farm = gamePlayController.getUser().getFarm();
-    if (farm == null || font == null || batch == null) return;
+    private void drawArtisanProductionProgressTextOnly() {
+        Farm farm = gamePlayController.getUser().getFarm();
+        if (farm == null || font == null || batch == null) return;
 
-    int currentDay = TimeSystem.getInstance().getCurrentDay();
-    int currentHour = TimeSystem.getInstance().getCurrentHour();
-    float currentAbsHours = (float)currentDay * 24 + currentHour;
+        int currentDay = TimeSystem.getInstance().getCurrentDay();
+        int currentHour = TimeSystem.getInstance().getCurrentHour();
+        float currentAbsHours = (float)currentDay * 24 + currentHour;
 
-    for (int y = 0; y < farm.getHeight(); y++) {
-        for (int x = 0; x < farm.getWidth(); x++) {
-            Tile tile = farm.getTiles()[y][x];
-            if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof PlaceableGameBuilding) {
-                PlaceableGameBuilding building = (PlaceableGameBuilding) tile.getStaticElement().get();
+        for (int y = 0; y < farm.getHeight(); y++) {
+            for (int x = 0; x < farm.getWidth(); x++) {
+                Tile tile = farm.getTiles()[y][x];
+                if (tile.getStaticElement().isPresent() && tile.getStaticElement().get() instanceof PlaceableGameBuilding) {
+                    PlaceableGameBuilding building = (PlaceableGameBuilding) tile.getStaticElement().get();
 
-                if (gamePlayController.isArtisanBuilding(building.getName())) {
-                    if (gamePlayController.isArtisanProducing(building.getName())) {
-                        ProductionTask task = gamePlayController.getProductionTask(building.getName());
-                        if (task != null) {
-                            float startAbsHours = (float)task.getStartDayInitial() * 24 + task.getStartHourActual();
-                            float totalTaskHours = task.getTotalCraftingDurationHours();
-                            float elapsedHours = currentAbsHours - startAbsHours;
-                            float progress = 0.0f;
-                            if (totalTaskHours > 0) {
-                                progress = Math.min(1.0f, Math.max(0.0f, elapsedHours / totalTaskHours));
+                    if (gamePlayController.isArtisanBuilding(building.getName())) {
+                        if (gamePlayController.isArtisanProducing(building.getName())) {
+                            ProductionTask task = gamePlayController.getProductionTask(building.getName());
+                            if (task != null) {
+                                float startAbsHours = (float)task.getStartDayInitial() * 24 + task.getStartHourActual();
+                                float totalTaskHours = task.getTotalCraftingDurationHours();
+                                float elapsedHours = currentAbsHours - startAbsHours;
+                                float progress = 0.0f;
+                                if (totalTaskHours > 0) {
+                                    progress = Math.min(1.0f, Math.max(0.0f, elapsedHours / totalTaskHours));
+                                }
+
+                                float buildingScreenX = (building.getX() * TILE_SIZE) + renderOffset.x;
+                                float buildingScreenY = (building.getY() * TILE_SIZE) + renderOffset.y;
+
+                                float barWidth = TILE_SIZE * 0.9f;
+                                float barHeight = TILE_SIZE * 0.15f;
+                                float barX = buildingScreenX + (TILE_SIZE - barWidth) / 2f;
+                                float barY = buildingScreenY + TILE_SIZE + 5;
+
+                                font.draw(batch, (int)(progress * 100) + "%",
+                                    barX + barWidth / 2f, barY + barHeight + font.getCapHeight() + 2,
+                                    0, Align.center, false);
                             }
-
-                            float buildingScreenX = (building.getX() * TILE_SIZE) + renderOffset.x;
-                            float buildingScreenY = (building.getY() * TILE_SIZE) + renderOffset.y;
-
-                            float barWidth = TILE_SIZE * 0.9f;
-                            float barHeight = TILE_SIZE * 0.15f;
-                            float barX = buildingScreenX + (TILE_SIZE - barWidth) / 2f;
-                            float barY = buildingScreenY + TILE_SIZE + 5;
-
-                            font.draw(batch, (int)(progress * 100) + "%",
-                                barX + barWidth / 2f, barY + barHeight + font.getCapHeight() + 2,
-                                0, Align.center, false);
                         }
                     }
                 }
             }
         }
     }
-}
     private void renderBuildingPlacementHighlightShapesOnly() {
         if (gamePlayController.isInBuildMode() && buildingSelectBox != null) {
             float mouseX = Gdx.input.getX();
