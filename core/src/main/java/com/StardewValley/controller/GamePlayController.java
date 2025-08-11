@@ -29,6 +29,7 @@ public class GamePlayController {
     private boolean inBuildMode = false; // Add this field to track build mode state
     private String selectedBuildingType = "Bee_House";
     private Map<String, ProductionTask> activeProductions = new HashMap<>();
+    private final List<int[]> crowAttackEvents = new ArrayList<>();
     public GamePlayController(Farm f, User u, Scanner sc, Game game) {
         this.farm = f;
         this.tiles = f.getTiles();
@@ -46,6 +47,9 @@ public class GamePlayController {
         MENU_OPEN,    // A menu is open (e.g., inventory, shop)
         DIALOG_OPEN   // A dialogue is active
         // Add other states as needed
+    }
+    public List<int[]> getCrowAttackEvents() {
+        return crowAttackEvents;
     }
     public User getUser() {
         return user;
@@ -162,6 +166,7 @@ public class GamePlayController {
         this.selectedBuildingType = selectedBuildingType;
     }
     public void initializeNextDay() {
+        crowAttackEvents.clear();
         processCrowAttack();
         farm.spawnDailyForageItems();
         farm.spawnDailyStones(5);
@@ -1578,6 +1583,7 @@ public class GamePlayController {
         }
     }
     private void processCrowAttack() {
+        // Collect all tiles that currently have a planted seed (any crop) and are not greenhouse tiles
         List<Tile> cropTiles = new ArrayList<>();
         for (int y = 0; y < tiles.length; y++) {
             for (int x = 0; x < tiles[0].length; x++) {
@@ -1587,25 +1593,21 @@ public class GamePlayController {
                 }
             }
         }
+        // If more than 16 crops exist, 25% chance of a crow attack
         if (cropTiles.size() > 16 && Math.random() < 0.25) {
             Tile target = cropTiles.get(new Random().nextInt(cropTiles.size()));
-            Seeds seed = target.getPlantedSeed();
-            if (seed != null) {
-                FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(seed.getGrowsInto());
-                if (fv != null) {
-                    System.out.println("Crow attack: " + seed.getName() + " isOneTime=" + fv.isOneTime());
-                    if (!fv.isOneTime()) {
-                        target.resetForRegrowth();
-                        System.out.println("A crow attacked a regrowable crop at (" + target.getPositionX() + ", " + target.getPositionY() + ")! It will regrow.");
-                    } else {
-                        target.setPlantedSeed(null);
-                        target.resetCropFields();
-                        target.setToNormalTile();
-                        target.setType(".");
-                        System.out.println("A crow destroyed a crop at (" + target.getPositionX() + ", " + target.getPositionY() + ")!");
-                    }
-                }
-            }
+            // Record coordinates for rendering (use the tile's own stored positions if available)
+            crowAttackEvents.add(new int[]{target.getPositionX(), target.getPositionY()});
+
+            // Destroy the crop outright (no regrowth logic)
+            target.setPlantedSeed(null);
+            target.setCrop(null);
+            target.resetCropFields();   // if this exists to clear flags like ready/harvest/etc
+            target.setType(".");        // if you rely on type for textual map
+            // Keep the soil plowed so user can replant easily (optional)
+            target.setPlowed(true);
+
+            System.out.println("A crow destroyed a crop at (" + target.getPositionX() + ", " + target.getPositionY() + ")!");
         }
     }
     private void updateCropsDaily(int daysToAdvance) {

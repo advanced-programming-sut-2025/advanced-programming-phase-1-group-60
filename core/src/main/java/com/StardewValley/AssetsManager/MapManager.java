@@ -21,6 +21,7 @@ public class MapManager {
 
     // Map textures
     private Texture grassTile;
+    private final Map<String, Texture> seasonFloorTextures = new HashMap<>();
     private Texture placeholderTile;
     private Texture chatIconTexture; // Chat icon from the new version
     private Texture pixelWhiteTexture; // For drawing highlights (e.g., a 1x1 white pixel)
@@ -28,7 +29,12 @@ public class MapManager {
     private Texture plowedGroundTexture;
     private Texture wateredGroundTexture;
     private final Map<String, Texture> fertilizerTextures = new HashMap<>();
-
+    private Texture clockMainTexture;
+    private Texture clockMomentTexture;
+    private TextureRegion[] seasonRegions;   // 4 regions (row 0)
+    private TextureRegion[] weatherRegions;
+    private final Map<String, Texture> clockSeasonIconTextures = new HashMap<>();
+    private final Map<String, Texture> clockWeatherIconTextures = new HashMap<>();
     // Stone textures
     private Texture[] stoneTiles;
     //Fish:
@@ -70,6 +76,7 @@ public class MapManager {
     // Structures
     private Texture cabinTexture;
     private Texture greenhouseTexture;
+    private Texture greenhouseBrokenTexture;
     private Texture waterTexture;
     private Texture quarryTexture;
     private Texture sellingBinTexture;
@@ -93,12 +100,19 @@ public class MapManager {
     private Texture barnTexture;
     private Texture hayTexture;
 
+    // Lightning
+    private Animation<TextureRegion> lightningAnimation;
+    private Texture[] lightningFrameTextures; // to dispose later
+    private Texture burntTreeTexture;
+    private static final float LIGHTNING_FRAME_DURATION = 0.07f;
+
     private MapManager() {
         random = new Random();
         npcTextures = new HashMap<>();
         loadTextures();
         loadAnimalAnimations();
         loadBuildingTextures();
+        loadLightningAssets();
     }
 
     public static MapManager getInstance() {
@@ -267,9 +281,49 @@ public class MapManager {
 
         return null;
     }
-
-
-
+    private void loadLightningAssets() {
+        try {
+            lightningFrameTextures = new Texture[7];
+            TextureRegion[] regions = new TextureRegion[7];
+            boolean any = false;
+            for (int i = 1; i <= 7; i++) {
+                String path = "assets/Map/Lightning/" + i + ".png";
+                if (Gdx.files.internal(path).exists()) {
+                    Texture t = new Texture(Gdx.files.internal(path));
+                    lightningFrameTextures[i - 1] = t;
+                    regions[i - 1] = new TextureRegion(t);
+                    any = true;
+                } else {
+                    System.err.println("[Lightning] Missing frame: " + path);
+                }
+            }
+            if (any) {
+                lightningAnimation = new Animation<>(LIGHTNING_FRAME_DURATION, regions);
+                lightningAnimation.setPlayMode(Animation.PlayMode.NORMAL);
+            } else {
+                lightningAnimation = null;
+            }
+            String burntPath = "assets/Map/Lightning/Burnt.png";
+            if (Gdx.files.internal(burntPath).exists()) {
+                burntTreeTexture = new Texture(Gdx.files.internal(burntPath));
+            } else {
+                System.err.println("[Lightning] Missing burnt tree texture: " + burntPath);
+            }
+        } catch (Exception e) {
+            System.err.println("[Lightning] Error loading assets: " + e.getMessage());
+        }
+    }
+    public Animation<TextureRegion> getLightningAnimation() {
+        return lightningAnimation;
+    }
+    public Texture getBurntTreeTexture() {
+        return burntTreeTexture != null ? burntTreeTexture : placeholderTile;
+    }
+    public Texture getSeasonClockFrame(String season) {
+        if (season == null) return clockMainTexture;
+        Texture t = clockSeasonIconTextures.get(season.toLowerCase());
+        return (t != null) ? t : clockMainTexture;
+    }
     public Animation<TextureRegion> getAnimalAnimation(String animalType, String direction, boolean isMoving) {
         Map<String, Animation<TextureRegion>> anims = animalAnimations.get(animalType);
         if (anims == null) return null;
@@ -284,9 +338,16 @@ public class MapManager {
         placeholderTile = new Texture(Gdx.files.internal("placeholder.png"));
         chatIconTexture = new Texture(Gdx.files.internal("assets/Village/chat_icon.png"));
         wateredGroundTexture = new Texture(Gdx.files.internal("assets/Map/Floor/Watered.png"));
+        loadClockTextures();
         // Structure textures
         cabinTexture = new Texture(Gdx.files.internal("Map/Floor/Cabin.png"));
         greenhouseTexture = new Texture(Gdx.files.internal("Map/Floor/Greenhouse.png"));
+        String brokenPath = "assets/Map/Floor/Greenhouse_Broken.png";
+        if (Gdx.files.internal(brokenPath).exists()) {
+            greenhouseBrokenTexture = new Texture(Gdx.files.internal(brokenPath));
+        } else {
+            greenhouseBrokenTexture = null; // keep null; getter will return placeholder to make issue visible
+        }
         waterTexture = new Texture(Gdx.files.internal("Map/Floor/Water.png"));
         quarryTexture = new Texture(Gdx.files.internal("Map/Floor/Quarry.png"));
         sellingBinTexture = new Texture(Gdx.files.internal("assets/Inventory/Bin.png"));
@@ -296,6 +357,7 @@ public class MapManager {
         for (int i = 0; i < 8; i++) {
             stoneTiles[i] = new Texture(Gdx.files.internal("Map/Stone/Stone_" + (i + 1) + ".png"));
         }
+        loadSeasonFloorTextures();
         loadFertilizerTextures();
         // Load NPC textures
         npcTextures.put("sebastian", new Texture(Gdx.files.internal("assets/Village/sebastian.png")));
@@ -309,6 +371,116 @@ public class MapManager {
         loadPlayerAnimations();
         coopTexture = new Texture(Gdx.files.internal("assets/Inventory/AnimalPlaces/Coop.png"));
         barnTexture = new Texture(Gdx.files.internal("assets/Inventory/AnimalPlaces/Barn.png"));
+    }
+    private void loadSeasonFloorTextures() {
+        loadSeasonFloorTexture("Spring");
+        loadSeasonFloorTexture("Summer");
+        loadSeasonFloorTexture("Fall");
+        loadSeasonFloorTexture("Winter");
+    }
+    private void loadSeasonFloorTexture(String season) {
+        String path = "assets/Map/Floor/" + season + ".png";
+        if (Gdx.files.internal(path).exists()) {
+            seasonFloorTextures.put(season, new Texture(Gdx.files.internal(path)));
+        } else {
+            System.out.println("Season floor texture missing for " + season + " at " + path + " (using fallback grass).");
+        }
+    }
+    public Texture getSeasonFloorTexture(String season) {
+        Texture t = seasonFloorTextures.get(season);
+        return (t != null) ? t : grassTile;
+    }
+    private void loadClockTextures() {
+        try {
+            String mainPath = "assets/Map/Clock/Main.png";
+            String momentPath = "assets/Map/Clock/Moment.png";
+            if (Gdx.files.internal(mainPath).exists()) {
+                clockMainTexture = new Texture(Gdx.files.internal(mainPath));
+            } else {
+                System.err.println("[Clock] Missing " + mainPath);
+            }
+            if (Gdx.files.internal(momentPath).exists()) {
+                clockMomentTexture = new Texture(Gdx.files.internal(momentPath));
+                int cols = 4;
+                int rows = 3;
+                int cellW = clockMomentTexture.getWidth() / cols;
+                int cellH = clockMomentTexture.getHeight() / rows;
+                seasonRegions = new TextureRegion[4];
+                weatherRegions = new TextureRegion[4];
+                for (int i = 0; i < 4; i++) {
+                    seasonRegions[i] = new TextureRegion(clockMomentTexture, i * cellW, 0, cellW, cellH);
+                    weatherRegions[i] = new TextureRegion(clockMomentTexture, i * cellW, cellH, cellW, cellH);
+                }
+            } else {
+                System.err.println("[Clock] Missing " + momentPath);
+            }
+
+            // NEW: Load standalone season icon textures (per-file)
+            String[] seasons = {"Spring","Summer","Fall","Winter"};
+            for (String s : seasons) {
+                String p = "assets/Map/Clock/" + s + ".png";
+                if (Gdx.files.internal(p).exists()) {
+                    clockSeasonIconTextures.put(s.toLowerCase(), new Texture(Gdx.files.internal(p)));
+                }
+            }
+
+            // NEW: Attempt weather icons (currently only clear sky specified)
+            // We'll try common names; whichever exists will be used.
+            String[] weatherCandidates = {"Clear","ClearSky","Sunny","Sun"};
+            for (String w : weatherCandidates) {
+                String p = "assets/Map/Clock/" + w + ".png";
+                if (Gdx.files.internal(p).exists()) {
+                    clockWeatherIconTextures.put(w.toLowerCase(), new Texture(Gdx.files.internal(p)));
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[Clock] Error loading clock textures: " + e.getMessage());
+        }
+    }
+    public Texture getSeasonIconTexture(String season) {
+        if (season == null) return null;
+        return clockSeasonIconTextures.get(season.toLowerCase());
+    }
+    public Texture getWeatherIconTexture(String weather) {
+        if (weather == null) return null;
+        String lower = weather.toLowerCase();
+        if (clockWeatherIconTextures.containsKey(lower)) {
+            return clockWeatherIconTextures.get(lower);
+        }
+        // Map synonyms
+        if (lower.equals("sunny") && clockWeatherIconTextures.containsKey("clear")) {
+            return clockWeatherIconTextures.get("clear");
+        }
+        if (lower.equals("clear") && clockWeatherIconTextures.containsKey("sunny")) {
+            return clockWeatherIconTextures.get("sunny");
+        }
+        return null;
+    }
+    public Texture getClockMainTexture() {
+        return clockMainTexture;
+    }
+    public TextureRegion getSeasonRegion(String season) {
+        if (seasonRegions == null) return null;
+        if (season == null) return seasonRegions[0];
+        switch (season) {
+            case "Spring": return seasonRegions[0];
+            case "Summer": return seasonRegions[1];
+            case "Fall":   return seasonRegions[2];
+            case "Winter": return seasonRegions[3];
+            default: return seasonRegions[0];
+        }
+    }
+    public TextureRegion getWeatherRegion(String weather) {
+        if (weatherRegions == null) return null;
+        if (weather == null) return weatherRegions[0];
+        // Map weather strings to index (adjust if needed)
+        switch (weather.toLowerCase()) {
+            case "sunny": return weatherRegions[0];
+            case "rain":  return weatherRegions[1];
+            case "snow":  return weatherRegions[2];
+            case "storm": return weatherRegions[3];
+            default: return weatherRegions[0];
+        }
     }
     private void loadFertilizerTextures() {
         loadFertilizerTexture("Basic_Fertilizer");
@@ -446,6 +618,9 @@ public class MapManager {
     public Texture getGreenhouseTexture() {
         return greenhouseTexture;
     }
+    public Texture getGreenhouseBrokenTexture() {
+        return greenhouseBrokenTexture != null ? greenhouseBrokenTexture : greenhouseTexture;
+    }
 
     public Texture getWaterTexture() {
         return waterTexture;
@@ -557,7 +732,17 @@ public class MapManager {
         if (waterTexture != null) waterTexture.dispose();
         if (quarryTexture != null) quarryTexture.dispose();
         if (sellingBinTexture != null) sellingBinTexture.dispose();
-
+        if (clockMainTexture != null) clockMainTexture.dispose();
+        if (clockMomentTexture != null) clockMomentTexture.dispose();
+        for (Texture t : clockSeasonIconTextures.values()) t.dispose();
+        for (Texture t : clockWeatherIconTextures.values()) t.dispose();
+        if (greenhouseBrokenTexture != null) greenhouseBrokenTexture.dispose();
+        if (burntTreeTexture != null) burntTreeTexture.dispose();
+        if (lightningFrameTextures != null) {
+            for (Texture t : lightningFrameTextures) {
+                if (t != null) t.dispose();
+            }
+        }
         // Dispose stone textures
         for (Texture stoneTile : stoneTiles) {
             stoneTile.dispose();

@@ -6,6 +6,7 @@ import com.StardewValley.AssetsManager.MenuManager;
 import com.StardewValley.AssetsManager.ToolManager;
 import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
+import com.StardewValley.controller.WeatherController;
 import com.StardewValley.models.*;
 import com.StardewValley.models.Tree;
 import com.StardewValley.repository.FishingRepository;
@@ -69,13 +70,20 @@ public class MapView implements Screen {
     private int selectedQuickSlot = 0;
     private Vector2 renderOffset;
     private boolean fishInitialized = false;
+    private Texture nightFogTexture;
+    private SpriteBatch nightFogBatch;
+    private boolean nightFogReady = false;
+    private float nightProgress = 0f;
+    private float nightProgressTarget = 0f;
     // --- NEW: Inventory selection and quantity fields ---
     private SelectBox<String> inventorySelectBox;
     private TextField useItemQuantityField;
     private Label currentSelectedItemQuantityLabel;
     private Item selectedInventoryItem; // To store the actual selected Item object
     // --- END NEW ---
+    private boolean nightEnabled = true;
     private final Map<String, Texture> quickItemTextureCache = new HashMap<>();
+    private static final int GREENHOUSE_REPAIR_COST = 1000;
     private static final float TILE_SIZE = 32f;
     private int currentFarmIndex = 0;
     private boolean inVillage = false;
@@ -97,6 +105,7 @@ public class MapView implements Screen {
     private String lastTurnMessage = "";
     private ShapeRenderer shapeRenderer;
     private boolean craftInfoMode = false;
+    private int currentToolUseDirection = 0;
     // Player animation fields
     private boolean wateringHintShown = false;
     private Texture shadowTexture;
@@ -111,6 +120,15 @@ public class MapView implements Screen {
     private String selectedBuildingType;
     private Pixmap lastFramePixmap;
     private Texture lastFrameTexture;
+    private boolean lightningTargetMode = false;
+    private boolean lightningActive = false;
+    private float lightningTime = 0f;
+    private Vector2 lightningWorldPos = null;
+    private static final float LIGHTNING_WIDTH = 64f;
+    private static final float LIGHTNING_HEIGHT = 160f;
+    private static final float FLASH_DURATION = 0.18f;
+    private static final float FLASH_MAX_ALPHA = 0.55f;
+    private Set<Tile> burntTreeTiles = new HashSet<>();
     private static final String[] ALL_POSSIBLE_BUILDING_NAMES = {
         "Bee_House", "Cheese_Press", "Keg", "Dehydrator", "Charcoal_Kiln",
         "Loom", "Mayonnaise_Machine", "Oil_Maker", "Preserves_Jar",
@@ -126,6 +144,21 @@ public class MapView implements Screen {
     private Label notificationLabel;
     private float notificationTimer = 0f;
 
+    // Clock
+    private static final float DAY_BOX_X1   = 53f;
+    private static final float DAY_BOX_X2   = 133f;
+    private static final float DAY_BOX_Y_BOTTOM = 31f;
+    private static final float DAY_BOX_Y_TOP    = 50f;
+    private static final float TIME_BOX_X1  = 53f;
+    private static final float TIME_BOX_X2  = 134f;
+    private static final float TIME_BOX_Y_BOTTOM = -13f;
+    private static final float TIME_BOX_Y_TOP    = 5f;
+    private static final boolean CLOCK_DEBUG_BOUNDS = false;
+    private static final float DAY_BOX_CENTER_X  = (DAY_BOX_X1 + DAY_BOX_X2) * 0.5f;
+    private static final float TIME_BOX_CENTER_X = (TIME_BOX_X1 + TIME_BOX_X2) * 0.5f;
+    private static final float CLOCK_SCALE = 2f;
+    private boolean clickDebugMode = false;
+    private int clickDebugSampleIndex = 0;
     private List<Fish> lakeFishes;
     private Texture fishTexture;
     public MapView(GameMap gameMap, Runnable onBackToMenu, GameView gameView) {
@@ -173,7 +206,7 @@ public class MapView implements Screen {
         pixmap.setColor(Color.GREEN);
         pixmap.fill();
         this.fallbackTexture = new Texture(pixmap);
-
+        initNightFogTexture();
         pixmap.setColor(Color.RED);
         pixmap.fill();
         this.playerTexture = new Texture(pixmap);
@@ -199,6 +232,84 @@ public class MapView implements Screen {
         initializeLakeFishes();
         createUI();
 
+    }
+    private String ordinal(int d) {
+        if (d >= 11 && d <= 13) return d + "th";
+        switch (d % 10) {
+            case 1: return d + "st";
+            case 2: return d + "nd";
+            case 3: return d + "rd";
+            default: return d + "th";
+        }
+    }
+    private void drawClock() {
+        TimeSystem ts = TimeSystem.getInstance();
+        WeatherController wc = WeatherController.getInstance();
+        if (wc.forecastWeather == null) wc.getForecast();
+
+        Texture frame = mapManager.getSeasonClockFrame(ts.getCurrentSeason());
+        float padX = 0f;
+        float padY = 0f;
+
+        float topLeftX = camera.position.x - (Gdx.graphics.getWidth() / 2f) * camera.zoom + padX;
+        float topLeftY = camera.position.y + (Gdx.graphics.getHeight() / 2f) * camera.zoom - padY;
+
+        if (frame == null) {
+            font.setColor(Color.WHITE);
+            font.draw(batch, String.format("%02d:00", ts.getCurrentHour()), topLeftX, topLeftY);
+            return;
+        }
+
+        float fw = frame.getWidth() * CLOCK_SCALE;
+        float fh = frame.getHeight() * CLOCK_SCALE;
+        float clockX = topLeftX;
+        float clockY = topLeftY - fh;
+
+        batch.setColor(Color.WHITE);
+        batch.draw(frame, clockX, clockY, fw, fh);
+
+        String timeText = String.format("%02d:00", ts.getCurrentHour());
+        String dow = ts.getDayOfWeek();
+        String dayText = ((dow != null && dow.length() >= 3) ? dow.substring(0,3) : "Day") + ", " + ordinal(ts.getCurrentDay());
+
+        com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout();
+        font.setColor(Color.WHITE);
+
+        float TEXT_X_SHIFT = 3f;
+
+        layout.setText(font, timeText);
+        float timeDrawX = clockX + (TIME_BOX_CENTER_X - layout.width / 2f) + TEXT_X_SHIFT;
+        float timeBaselineY = clockY + fh * 0.45f + layout.height / 2f;
+        font.draw(batch, layout, timeDrawX, timeBaselineY);
+
+        layout.setText(font, dayText);
+        float dayDrawX = clockX + (DAY_BOX_CENTER_X - layout.width / 2f) + TEXT_X_SHIFT;
+        float dayBaselineY = clockY + fh * 0.85f + layout.height / 2f;
+        font.draw(batch, layout, dayDrawX, dayBaselineY);
+
+        if (CLOCK_DEBUG_BOUNDS) {
+            Texture px = mapManager.getTexture("pixel_white");
+            if (px != null) {
+                float dayBoxWidth  = DAY_BOX_X2 - DAY_BOX_X1;
+                float dayBoxHeight = DAY_BOX_Y_TOP - DAY_BOX_Y_BOTTOM;
+                float timeBoxWidth = TIME_BOX_X2 - TIME_BOX_X1;
+                float timeBoxHeight = TIME_BOX_Y_TOP - TIME_BOX_Y_BOTTOM;
+
+                batch.setColor(1,0,0,0.25f);
+                batch.draw(px, clockX + DAY_BOX_X1,  clockY + DAY_BOX_Y_BOTTOM, dayBoxWidth, dayBoxHeight);
+                batch.setColor(0,0,1,0.25f);
+                batch.draw(px, clockX + TIME_BOX_X1, clockY + TIME_BOX_Y_BOTTOM, timeBoxWidth, timeBoxHeight);
+                batch.setColor(Color.WHITE);
+            }
+        }
+    }
+
+    private void drawBottomLeftMessage() {
+        if (messageTimer <= 0 || lastTurnMessage == null || lastTurnMessage.isEmpty()) return;
+        float bottomLeftX = camera.position.x - (Gdx.graphics.getWidth() / 2f) * camera.zoom + 10f;
+        float bottomLeftY = camera.position.y - (Gdx.graphics.getHeight() / 2f) * camera.zoom + font.getLineHeight() + 10f;
+        font.setColor(Color.WHITE);
+        font.draw(batch, lastTurnMessage, bottomLeftX, bottomLeftY);
     }
     private void initializeLakeFishes() {
         lakeFishes = new ArrayList<>();
@@ -325,28 +436,31 @@ public class MapView implements Screen {
 
     private boolean handleToolUsage(Vector3 clickPos) {
         User currentPlayer = gameInstance.getCurrentPlayer();
-
-        // Get the currently selected tool from quick access
         Item[] quickSlots = currentPlayer.getInventory().getQuickAccessSlots();
         Item selectedItem = quickSlots[selectedQuickSlot];
 
         if (selectedItem instanceof Tools) {
             Tools tool = (Tools) selectedItem;
 
-            // Check if tool is already swinging (prevent spam clicking)
-            if (toolManager.isSwinging()) {
+            // Prevent overlap while already animating
+            if (toolManager.isUsingTool()) {
                 return true;
             }
 
-            // Start tool swing animation
+            // Determine direction based on click position relative to player
+            currentToolUseDirection = computeDirectionFromClick(clickPos);
+
+            // Start new tool-use animation (character animation)
+            toolManager.startToolUse(currentToolUseDirection);
+
+            // (Optional) still start legacy swing if you want rotation overlay for some tools; you asked to remove icons, not necessarily rotation.
+            // If you want to fully suppress old rotation, comment the next line.
             toolManager.startToolSwing(tool);
 
-            // Convert click position to tile coordinates
             Vector2 farmTopLeft = inVillage ? new Vector2(0, 0) : getFarmTopLeft(currentFarmIndex);
             int clickedTileX = (int) ((clickPos.x - farmTopLeft.x) / TILE_SIZE);
             int clickedTileY = (int) ((clickPos.y - farmTopLeft.y) / TILE_SIZE);
 
-            // Handle different tool types
             if ("Hoe".equals(tool.getName())) {
                 return handleHoeUsage(tool, clickPos);
             }
@@ -354,8 +468,9 @@ public class MapView implements Screen {
                 handleScytheUsage(clickPos, currentPlayer, tool);
                 return true;
             }
-
-            if ("Watering Can".equalsIgnoreCase(tool.getName()) || "WateringCan".equalsIgnoreCase(tool.getName()) || "Watering_Can".equalsIgnoreCase(tool.getName())) {
+            if ("Watering Can".equalsIgnoreCase(tool.getName())
+                || "WateringCan".equalsIgnoreCase(tool.getName())
+                || "Watering_Can".equalsIgnoreCase(tool.getName())) {
                 if (!wateringHintShown) {
                     showMessage("Watering Can: click a plowed tile to water it.", 2f);
                     wateringHintShown = true;
@@ -364,69 +479,39 @@ public class MapView implements Screen {
                 return true;
             }
             else if ("Pickaxe".equals(tool.getName())) {
-                // Get the clicked tile
-                Tile clickedTile;
-                if (inVillage) {
-                    clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
-                } else {
-                    clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
-                }
-
+                Tile clickedTile = inVillage
+                    ? gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY)
+                    : gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
                 if (clickedTile != null) {
-                    // Check if the clicked tile has a stone
                     if (clickedTile.getRandomElement().isPresent() && clickedTile.getRandomElement().get() instanceof Stone) {
                         Stone stone = (Stone) clickedTile.getRandomElement().get();
-
-                        // Check if player has enough energy
                         int energyCost = tool.getEnergyCost();
                         if (currentPlayer.getEnergy().getCurrentEnergy() < energyCost && !currentPlayer.getEnergy().isUnlimited()) {
                             showMessage("Not enough energy to use the pickaxe", 2);
                             return true;
                         }
-
-                        // Get the mineral from the stone
                         ForagingMineral mineral = stone.getMineral();
                         if (mineral != null) {
-                            // Determine quantity (level 2+ mining gives double minerals)
-                            int quantity = 1;
-                            if (currentPlayer.getSkill("Mining").getLevel() >= 2) {
-                                quantity = 2;
-                            }
-
-                            // Get the image path directly from the mineral object
+                            int quantity = (currentPlayer.getSkill("Mining").getLevel() >= 2) ? 2 : 1;
                             String imagePath = mineral.getImagePath();
-
-                            // Create the inventory item with the proper path for InventoryView
                             Item mineralItem = new Item(mineral.getName(), quantity, "Map/ForagingMineral/" + imagePath);
                             mineralItem.setSellPrice(mineral.getBaseSellPrice());
-
-                            // Add the item to player's inventory
                             currentPlayer.getInventory().addItem(mineralItem);
-
-                            // Remove the stone from the tile
                             clickedTile.setToNormalTile();
                             clickedTile.setType(".");
-
-                            // Consume energy
                             if (!currentPlayer.getEnergy().isUnlimited()) {
                                 currentPlayer.getEnergy().decreaseEnergy(energyCost);
                                 energyUsedThisTurn += energyCost;
                             }
-
-                            // Give mining XP
                             currentPlayer.getSkill("Mining").gainExperience(10);
-
                             showMessage("Mined " + quantity + " " + mineral.getName(), 2);
                         }
                         return true;
-                    }
-                    // Check if we're removing the hoe effect (plowed ground)
-                    else if (clickedTile.isPlowed()) {
+                    } else if (clickedTile.isPlowed()) {
                         clickedTile.setPlowed(false);
                         showMessage("Removed plowed ground", 2);
                         return true;
-                    }
-                    else {
+                    } else {
                         showMessage("Nothing to mine here", 2);
                         return true;
                     }
@@ -434,119 +519,66 @@ public class MapView implements Screen {
                 return true;
             }
             else if ("Axe".equals(tool.getName())) {
-                // Get the clicked tile
-                Tile clickedTile;
-                if (inVillage) {
-                    clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
-                } else {
-                    clickedTile = gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
-                }
+                Tile clickedTile = inVillage
+                    ? gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY)
+                    : gameMap.getFarm(currentFarmIndex).getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
 
-                if (clickedTile != null) {
-                    // Check if the clicked tile has a tree or foraging crop
-                    if (clickedTile.getRandomElement().isPresent()) {
-                        Object element = clickedTile.getRandomElement().get();
-
-                        // Check if player has enough energy
-                        int energyCost = tool.getEnergyCost();
-                        if (currentPlayer.getEnergy().getCurrentEnergy() < energyCost && !currentPlayer.getEnergy().isUnlimited()) {
-                            showMessage("Not enough energy to use the axe", 2);
-                            return true;
-                        }
-
-                        if (element instanceof Tree) {
-                            Tree tree = (Tree) element;
-
-                            // Remove the tree from the tile
-                            clickedTile.setToNormalTile();
-                            clickedTile.setType(".");
-
-                            // Consume energy
-                            if (!currentPlayer.getEnergy().isUnlimited()) {
-                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
-                                energyUsedThisTurn += energyCost;
-                            }
-
-                            // Give foraging XP
-                            currentPlayer.getSkill("Foraging").gainExperience(10);
-
-                            showMessage("Chopped down a tree", 2);
-                            return true;
-                        }
-                        else if (element instanceof ForagingTree) {
-                            ForagingTree tree = (ForagingTree) element;
-
-                            // Remove the foraging tree from the tile
-                            clickedTile.setToNormalTile();
-                            clickedTile.setType(".");
-
-                            // Consume energy
-                            if (!currentPlayer.getEnergy().isUnlimited()) {
-                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
-                                energyUsedThisTurn += energyCost;
-                            }
-
-                            // Give foraging XP
-                            currentPlayer.getSkill("Foraging").gainExperience(10);
-
-                            showMessage("Chopped down a " + tree.getName(), 2);
-                            return true;
-                        }
-                        else if (element instanceof ForagingCrop) {
-                            ForagingCrop crop = (ForagingCrop) element;
-
-                            // Remove the foraging crop from the tile
-                            clickedTile.setToNormalTile();
-                            clickedTile.setType(".");
-
-                            // Consume energy
-                            if (!currentPlayer.getEnergy().isUnlimited()) {
-                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
-                                energyUsedThisTurn += energyCost;
-                            }
-
-                            // Give foraging XP
-                            currentPlayer.getSkill("Foraging").gainExperience(10);
-
-                            showMessage("Collected " + crop.getName(), 2);
-                            return true;
-                        }
-                        else if (element instanceof ForagingMineral) {
-                            ForagingMineral mineral = (ForagingMineral) element;
-
-                            // Remove the foraging mineral from the tile
-                            clickedTile.setToNormalTile();
-                            clickedTile.setType(".");
-
-                            // Consume energy
-                            if (!currentPlayer.getEnergy().isUnlimited()) {
-                                currentPlayer.getEnergy().decreaseEnergy(energyCost);
-                                energyUsedThisTurn += energyCost;
-                            }
-
-                            // Give foraging XP
-                            currentPlayer.getSkill("Mining").gainExperience(10);
-
-                            showMessage("Collected " + mineral.getName(), 2);
-                            return true;
-                        }
-                        else {
-                            showMessage("Can't use axe on this", 2);
-                            return true;
-                        }
-                    }
-                    else {
-                        showMessage("Nothing to chop here", 2);
+                if (clickedTile != null && clickedTile.getRandomElement().isPresent()) {
+                    Object element = clickedTile.getRandomElement().get();
+                    int energyCost = tool.getEnergyCost();
+                    if (currentPlayer.getEnergy().getCurrentEnergy() < energyCost && !currentPlayer.getEnergy().isUnlimited()) {
+                        showMessage("Not enough energy to use the axe", 2);
                         return true;
                     }
+                    if (element instanceof Tree ||
+                        element instanceof ForagingTree ||
+                        element instanceof ForagingCrop ||
+                        element instanceof ForagingMineral) {
+
+                        clickedTile.setToNormalTile();
+                        clickedTile.setType(".");
+                        if (!currentPlayer.getEnergy().isUnlimited()) {
+                            currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                            energyUsedThisTurn += energyCost;
+                        }
+                        if (element instanceof Tree || element instanceof ForagingTree) {
+                            currentPlayer.getSkill("Foraging").gainExperience(10);
+                        } else if (element instanceof ForagingMineral) {
+                            currentPlayer.getSkill("Mining").gainExperience(10);
+                        }
+                        showMessage("Cleared object.", 2);
+                        return true;
+                    } else {
+                        showMessage("Can't use axe on this", 2);
+                        return true;
+                    }
+                } else {
+                    showMessage("Nothing to chop here", 2);
+                    return true;
                 }
-                return true;
             }
 
-            return true; // Tool usage handled
+            return true;
+        }
+        return false;
+    }
+    private int computeDirectionFromClick(Vector3 clickPos) {
+        // Player center (approx) - playerPos is bottom-left; use half tile
+        float playerCenterX = playerPos.x + TILE_SIZE / 2f;
+        float playerCenterY = playerPos.y + TILE_SIZE / 2f;
+        float dx = clickPos.x - playerCenterX;
+        float dy = clickPos.y - playerCenterY;
+
+        // If both very small, fallback to last walking direction
+        if (Math.abs(dx) < 0.001f && Math.abs(dy) < 0.001f) {
+            return currentToolUseDirection;
         }
 
-        return false; // No tool selected or not a tool
+        if (Math.abs(dx) > Math.abs(dy)) {
+            return dx > 0 ? 1 : 3; // right or left
+        } else {
+            return dy > 0 ? 2 : 0; // up or down
+        }
     }
     private void handleScytheUsage(Vector3 clickPos, User player, Tools scythe) {
         Vector2 farmTopLeft = inVillage ? new Vector2(0,0) : getFarmTopLeft(currentFarmIndex);
@@ -1132,27 +1164,23 @@ public class MapView implements Screen {
     }
 
     private void renderPlayer() {
-        TextureRegion currentFrame = currentPlayerAnimation.getKeyFrame(animationTime);
-
-        // Make character taller - 1.5x height ratio
+        TextureRegion frame;
+        if (toolManager.isUsingTool()) {
+            frame = toolManager.getToolUseFrame(currentToolUseDirection);
+        } else {
+            frame = currentPlayerAnimation.getKeyFrame(animationTime);
+        }
         float playerWidth = TILE_SIZE * 0.8f;
         float playerHeight = TILE_SIZE * 1.5f;
-
-        // Adjust Y position so character stands on ground properly
         float adjustedY = playerPos.y - (playerHeight - TILE_SIZE) * 0.5f;
 
-        // Draw shadow under player's feet - pushed further down
         float shadowWidth = TILE_SIZE * 0.8f;
         float shadowHeight = TILE_SIZE * 0.4f;
         float shadowX = playerPos.x + (playerWidth - shadowWidth) * 0.5f;
-        // Position shadow lower than originally suggested - pushed down by 5 pixels
         float shadowY = playerPos.y - shadowHeight * 0.9f;
-
-        // Draw shadow first so it appears under the player
         batch.draw(shadowTexture, shadowX, shadowY, shadowWidth, shadowHeight);
 
-        // Draw player
-        batch.draw(currentFrame, playerPos.x, adjustedY, playerWidth, playerHeight);
+        batch.draw(frame, playerPos.x, adjustedY, playerWidth, playerHeight);
     }
 
     @Override
@@ -1162,7 +1190,7 @@ public class MapView implements Screen {
         fishInitialized = false;
         handleInput(delta);
         updateAnimals(delta);
-        toolManager.updateSwing(delta);
+        toolManager.updateAll(delta);
         centerCameraOnPlayer();
         updateBuildingSelectBoxItems(); // This is UI logic, can be here
 
@@ -1173,9 +1201,8 @@ public class MapView implements Screen {
         batch.begin(); // BEGIN MAIN BATCH
         renderMap();
         renderAnimals();
-        renderToolSwing();
         renderPlayer();
-
+        renderLightning(delta);
         // Draw all text for progress bars while batch is active
         // If renderUI draws with the main batch (world-space UI), keep it here.
         // If it draws screen-space UI or uses its own batch/stage, it should be moved.
@@ -1193,7 +1220,7 @@ public class MapView implements Screen {
         shapeRenderer.end(); // END MAIN SHAPE RENDERER
 
         Gdx.gl.glDisable(GL20.GL_BLEND); // Disable blending after all shapes are drawn
-
+        drawNightOverlays(delta);
         // --- PHASE 3: Draw UI Stage last ---
         stage.act(delta);
         stage.draw();
@@ -1229,7 +1256,7 @@ public class MapView implements Screen {
                 batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
             }
         }
-
+        Texture seasonFloor = mapManager.getSeasonFloorTexture(TimeSystem.getInstance().getCurrentSeason());
         // Giant crop aggregation
         class GiantRender {
             final float x, y;
@@ -1249,7 +1276,7 @@ public class MapView implements Screen {
                 float posY = renderOffset.y + (y * TILE_SIZE);
 
                 // Base ground
-                batch.draw(mapManager.getGrassTile(), posX, posY, TILE_SIZE, TILE_SIZE);
+                batch.draw(seasonFloor, posX, posY, TILE_SIZE, TILE_SIZE);
 
                 Tile tile = inVillage
                     ? gameMap.getVillage().getTile(x, 20 - 1 - y)
@@ -1327,7 +1354,27 @@ public class MapView implements Screen {
                         }
                     }
                 }
-
+                if (!inVillage && currentPlayerController != null) {
+                    List<int[]> crowEvents = currentPlayerController.getCrowAttackEvents();
+                    if (!crowEvents.isEmpty()) {
+                        Texture crowTex = CropManager.getInstance().getCrowTexture();
+                        if (crowTex != null) {
+                            for (int[] pos : crowEvents) {
+                                int internalX = pos[0];
+                                int internalY = pos[1];
+                                // Convert internal Y (array index) to render loop Y:
+                                int renderY = FarmTemplate.HEIGHT - 1 - internalY;
+                                // Ensure still inside bounds
+                                if (internalX >= 0 && internalX < FarmTemplate.WIDTH &&
+                                    renderY >= 0 && renderY < FarmTemplate.HEIGHT) {
+                                    float drawX = renderOffset.x + internalX * TILE_SIZE;
+                                    float drawY = renderOffset.y + renderY * TILE_SIZE;
+                                    batch.draw(crowTex, drawX, drawY, TILE_SIZE, TILE_SIZE);
+                                }
+                            }
+                        }
+                    }
+                }
                 // Static elements
                 tile.getStaticElement().ifPresent(element -> {
                     if (element instanceof Cabin) {
@@ -1335,12 +1382,19 @@ public class MapView implements Screen {
                             structuresToRender.add(new StructureRenderData(
                                 mapManager.getCabinTexture(), posX, posY, 4, 4));
                         }
-                    } else if (element instanceof Greenhouse) {
+                    }
+                    else if (element instanceof Greenhouse) {
                         if (isStructureOrigin(finalX, finalY, element, width, height)) {
+                            Greenhouse gh = (Greenhouse) element;
+                            Texture ghTex = gh.isRepaired()
+                                ? mapManager.getGreenhouseTexture()
+                                : mapManager.getGreenhouseBrokenTexture();
                             structuresToRender.add(new StructureRenderData(
-                                mapManager.getGreenhouseTexture(), posX, posY, 5, 6));
+                                ghTex, posX, posY, gh.getWidth(), gh.getHeight()
+                            ));
                         }
-                    } else if (element instanceof Lake) {
+                    }
+                    else if (element instanceof Lake) {
                         batch.draw(mapManager.getWaterTexture(), posX, posY, TILE_SIZE, TILE_SIZE);
                         if (!fishInitialized) {
                             batch.draw(fishTexture, posX, posY, TILE_SIZE, TILE_SIZE);
@@ -1565,41 +1619,43 @@ public class MapView implements Screen {
     }
 
     private void renderUI() {
-        float textX = camera.position.x - Gdx.graphics.getWidth() / 2f * camera.zoom + 10;
-        float textY = camera.position.y + Gdx.graphics.getHeight() / 2f * camera.zoom - 10;
-
-        String ownerName = farmOwners.getOrDefault(currentFarmIndex, "Unknown");
-        font.draw(batch, "Location: " + (inVillage ? "Village" : "Farm " + (currentFarmIndex + 1) + " - Owner: " + ownerName), textX, textY);
-        font.draw(batch, "WASD: Move | +/-: Zoom | K: Next Turn", textX, textY - 20);
-        font.draw(batch, "1-4: Switch Farm | I: Inventory | B: Crafting", textX, textY - 40);
-
-        User currentPlayer = gameInstance.getCurrentPlayer();
-        TimeSystem timeSystem = TimeSystem.getInstance();
-        String turnInfo = String.format("Player: %s | Day: %d | Time: %02d:00 | Energy: %d/%d (Used: %.1f/%.0f) | Money: %d",
-            currentPlayer.getUsername(),
-            timeSystem.getCurrentDay(),
-            timeSystem.getCurrentHour(),
-            currentPlayer.getEnergy().getCurrentEnergy(),
-            currentPlayer.getEnergy().getMaxEnergy(),
-            energyUsedThisTurn,
-            (float) ENERGY_LIMIT_PER_TURN,
-            currentPlayer.getMoney()
-        );
-        font.draw(batch, turnInfo, textX, textY - 60);
-
-        String farmStats = String.format("Farm: %s | Location: %s | Animals: %d | Spouse: %s",
-            "Farm" + (gameInstance.getSelectedMaps().get(currentPlayer)),
-            currentPlayer.isInVillage ? "Village" : "Farm",
-            currentPlayer.getPutAnimals().size(),
-            currentPlayer.getSpouse() != null ? currentPlayer.getSpouse().getNickname() : "None"
-        );
-        font.draw(batch, farmStats, textX, textY - 80);
-
-        if (messageTimer > 0) {
-            font.draw(batch, lastTurnMessage, textX, textY - 100);
-        }
-
+        drawClock();
+        drawEnergyStats();
+        drawBottomLeftMessage();
         renderQuickAccessToolbar();
+    }
+    private void drawEnergyStats() {
+        User player = gameInstance.getCurrentPlayer();
+        if (player == null || player.getEnergy() == null) return;
+
+        // Recompute the same anchor used in drawClock
+        float padX = 40f;
+        float padY = 0f;
+        Texture frame = mapManager.getSeasonClockFrame(TimeSystem.getInstance().getCurrentSeason());
+        if (frame == null) return;
+
+        float fw = frame.getWidth() * CLOCK_SCALE;
+        float fh = frame.getHeight() * CLOCK_SCALE;
+
+        float topLeftX = camera.position.x - (Gdx.graphics.getWidth() / 2f) * camera.zoom + padX;
+        float topLeftY = camera.position.y + (Gdx.graphics.getHeight() / 2f) * camera.zoom - padY;
+        float clockX = topLeftX;
+        float clockY = topLeftY - fh;
+
+        int cur = player.getEnergy().getCurrentEnergy();
+        int max = player.getEnergy().getMaxEnergy();
+        String energyLine = "Energy: " + cur + "/" + max + " (Used: " +
+            String.format("%.1f", energyUsedThisTurn) + "/" + ENERGY_LIMIT_PER_TURN + ")";
+
+        com.badlogic.gdx.graphics.g2d.GlyphLayout layout = new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, energyLine);
+
+        float yOffsetBelowFrame = 8f;   // distance below the frame
+        float x = clockX + (fw - layout.width) / 2f;
+        float y = clockY - yOffsetBelowFrame; // baseline just below frame
+
+        font.setColor(Color.YELLOW);
+        font.draw(batch, layout, x, y);
+        font.setColor(Color.WHITE);
     }
 
     private void renderQuickAccessToolbar() {
@@ -1688,13 +1744,66 @@ public class MapView implements Screen {
         if (uiBlockedByDialog) {
             return;
         }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
+            lightningTargetMode = !lightningTargetMode;
+            showMessage("Lightning mode: " + (lightningTargetMode ? "Click a tile" : "Off"), 2f);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F7)) {
+            nightEnabled = !nightEnabled;
+            showMessage("Night overlay: " + (nightEnabled ? "ON" : "OFF"), 1.5f);
+        }
+        // ADDED: F10 toggle
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F10)) {
+            clickDebugMode = !clickDebugMode;
+            showMessage("ClickDebug: " + (clickDebugMode ? "ON" : "OFF"), 2f);
+            clickDebugSampleIndex = 0;
+        }
 
+        // ADDED: capture click first (before other left click logic)
+        if (clickDebugMode && Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            Vector3 world = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
+            camera.unproject(world);
+
+            int screenX = Gdx.input.getX();
+            int screenY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+            float viewLeft = camera.position.x - (Gdx.graphics.getWidth() / 2f) * camera.zoom;
+            float viewTop  = camera.position.y + (Gdx.graphics.getHeight() / 2f) * camera.zoom;
+
+            float relWorldX = world.x - viewLeft;
+            float relWorldYFromTop = viewTop - world.y;
+
+            Texture clockFrame = mapManager.getClockMainTexture();
+            float clockFrameX = viewLeft + 10f;
+            float clockFrameY = viewTop - 10f - (clockFrame != null ? clockFrame.getHeight() : 0f);
+
+            float relClockX = (clockFrame != null) ? (world.x - clockFrameX) : -1f;
+            float relClockY = (clockFrame != null) ? (world.y - clockFrameY) : -1f;
+
+            clickDebugSampleIndex++;
+            System.out.println("[ClickDebug #" + clickDebugSampleIndex + "] "
+                + "Screen=(" + screenX + "," + screenY + ") "
+                + "World=(" + (int)world.x + "," + (int)world.y + ") "
+                + "RelView=(" + (int)relWorldX + ", down " + (int)relWorldYFromTop + ") "
+                + (clockFrame != null
+                ? ("RelClock=(" + (int)relClockX + "," + (int)relClockY + ")")
+                : "(NoClockFrame)")
+            );
+            showMessage("Logged click #" + clickDebugSampleIndex, 1.2f);
+            // (Do NOT return; let normal click logic continue if you want interaction at the same time)
+        }
         User currentPlayer = Game.getInstance().getCurrentPlayer();
         handleGameplayMechanics(delta);
         if (Gdx.input.isKeyJustPressed(Input.Keys.F)) {
             openFarmingDialog();
             return;
         }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
+            TimeSystem.getInstance().advanceSeason();
+            showMessage("Season changed to " + TimeSystem.getInstance().getCurrentSeason() +
+                " (Year " + TimeSystem.getInstance().getCurrentYear() + ")", 3f);
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.F8)) {
             craftInfoMode = !craftInfoMode;
             showMessage(craftInfoMode ? "Craft Info: Click a crop/tree/forage to inspect" : "Craft Info: Off", 2f);
@@ -1760,7 +1869,6 @@ public class MapView implements Screen {
                     TimeSystem.getInstance().advanceTime(1);
                     if (TimeSystem.getInstance().getCurrentHour() >= 12) {
                         for (GamePlayController controller : playerControllers.values()) {
-                            controller.initializeNextDay();
                         }
                     }
                 }
@@ -1920,6 +2028,10 @@ public class MapView implements Screen {
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
             camera.unproject(clickPos);
+            if (lightningTargetMode) {
+                castLightningAtClick();
+                return; // do not process normal left-click logic
+            }
             if (craftInfoMode) {
                 if (tryShowCraftInfoAt(clickPos)) {
                     // After one inspection, keep mode on or turn it off based on preference; here we keep it on
@@ -1992,21 +2104,60 @@ public class MapView implements Screen {
                         showMessage("Cannot plant here.", 1.5f);
                         return;
                     }
+                    Seeds seedToPlant = seed; // default
 
-                    // Plant
-                    clickedTile.setPlantedSeed(seed);
+                    if (seed.getName().equalsIgnoreCase("Mixed Seeds")) {
+                        String season = TimeSystem.getInstance().getCurrentSeason();
+                        List<String> spring = List.of("Cauliflower", "Parsnip", "Potato", "Blue Jazz", "Tulip");
+                        List<String> summer = List.of("Corn", "Hot Pepper", "Radish", "Wheat", "Poppy", "Sunflower", "Summer Spangle");
+                        List<String> fall   = List.of("Artichoke", "Corn", "Eggplant", "Pumpkin", "Sunflower", "Fairy Rose");
+                        List<String> winter = List.of("Powdermelon");
+
+                        List<String> options;
+                        switch (season) {
+                            case "Spring": options = spring; break;
+                            case "Summer": options = summer; break;
+                            case "Fall":   options = fall;   break;
+                            case "Winter": options = winter; break;
+                            default:       options = Collections.emptyList(); break;
+                        }
+
+                        if (options.isEmpty()) {
+                            showMessage("No crops available for this season.", 2f);
+                            return;
+                        }
+
+                        String chosenCrop = options.get(new Random().nextInt(options.size()));
+                        Seeds actualSeed = FruitsAndVegetablesRepository.seeds.stream()
+                            .filter(s -> s.getGrowsInto().equalsIgnoreCase(chosenCrop))
+                            .findFirst().orElse(null);
+
+                        if (actualSeed == null) {
+                            showMessage("Mixed Seeds failed (" + chosenCrop + " missing).", 2f);
+                            return;
+                        }
+
+                        seedToPlant = cloneSeed(actualSeed);
+                        currentPlayer.getInventory().removeItemByName("Mixed Seeds", 1);
+                        showMessage("Mixed Seeds -> " + chosenCrop, 2f);
+                    } else {
+                        // Regular seed: consume 1
+                        currentPlayer.getInventory().removeItemByName(seed.getName(), 1);
+                        showMessage("Planted " + seed.getName(), 2f);
+                    }
+
+                    // CRITICAL FIX: plant the resolved seedToPlant, NOT the original seed
+                    clickedTile.setPlantedSeed(seedToPlant);
                     clickedTile.setDaysGrown(0);
-                    clickedTile.setWatered(true); // auto-water for now
+                    clickedTile.setWatered(true);
                     clickedTile.setLastWateredDay(TimeSystem.getInstance().getCurrentDay());
+                    clickedTile.setType("*"); // optional visual marker if you use text map
 
-                    // Reduce seed quantity in inventory (we only stored a reference; find actual stack)
-//                    boolean removed = (currentPlayer.getInventory().removeItemByName(seed.getName(), 1);
-//                    if (!removed) {
-//                        showMessage("Planted (cheat copy in quick slot).", 2f);
-//                    } else {
-//                        showMessage("Planted " + seed.getName(), 2f);
-//                    }
-                    // If quantity reaches zero in inventory, quick slot will still have stale reference; optional cleanup skipped for now.
+                    // Debug log (remove later if noisy)
+                    System.out.println("Planted seed: displayName=" + seedToPlant.getName()
+                        + " growsInto=" + seedToPlant.getGrowsInto()
+                        + " harvestTime=" + seedToPlant.getTotalHarvestTime());
+
                     return;
                 }
                 if (selected != null && selected.getName() != null &&
@@ -2018,6 +2169,19 @@ public class MapView implements Screen {
 
             if (clickedTile != null && clickedTile.getStaticElement().isPresent()) {
                 StaticElement element = clickedTile.getStaticElement().get();
+                if (element instanceof Greenhouse) {
+                    if (isAdjacent(playerTileX, playerTileY, clickedTileX, clickedTileY)) {
+                        Greenhouse gh = (Greenhouse) element;
+                        if (!gh.isRepaired()) {
+                            showGreenhouseRepairDialog(gh);
+                        } else {
+                            showMessage("Greenhouse is already repaired.", 2f);
+                        }
+                    } else {
+                        showMessage("Get closer to interact with the greenhouse.", 2f);
+                    }
+                    return;
+                }
                 if (element instanceof Npc) {
                     Npc npc = (Npc) element;
                     if (Math.abs(playerTileX - clickedTileX) <= 1 && Math.abs(playerTileY - clickedTileY) <= 1) {
@@ -2117,6 +2281,162 @@ public class MapView implements Screen {
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) selectQuickAccessSlot(4);
         if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_6)) selectQuickAccessSlot(5);
         checkTravel();
+    }
+    private boolean isAdjacent(int ax, int ay, int bx, int by) {
+        return Math.abs(ax - bx) <= 1 && Math.abs(ay - by) <= 1;
+    }
+    private void showGreenhouseRepairDialog(Greenhouse gh) {
+        final User player = gameInstance.getCurrentPlayer();
+        final int cost = GREENHOUSE_REPAIR_COST;
+
+        if (gh.isRepaired()) {
+            showMessage("Greenhouse is already repaired.", 2f);
+            return;
+        }
+
+        Dialog dialog = new Dialog("Broken Greenhouse", skin) {
+            @Override
+            protected void result(Object object) {
+                if (Boolean.TRUE.equals(object)) {
+                    // Confirm repair
+                    if (player.getMoney() >= cost && !gh.isRepaired()) {
+                        player.setMoney(player.getMoney() - cost);
+                        gh.repair();
+                        showMessage("Greenhouse repaired!", 3f);
+                    } else {
+                        showMessage("Unable to repair (not enough gold or already repaired).", 2.5f);
+                    }
+                }
+            }
+        };
+
+        if (player.getMoney() >= cost) {
+            dialog.text("Repair the greenhouse for " + cost + "g?\nYou have: " + player.getMoney() + "g");
+            dialog.button("Repair", true);
+            dialog.button("Cancel", false);
+        } else {
+            dialog.text("The greenhouse is broken.\nNeed " + cost + "g to repair.\nYou have: " + player.getMoney() + "g");
+            dialog.button("OK");
+        }
+
+        dialog.show(stage);
+    }
+    private void renderLightning(float delta) {
+        if (!lightningActive) return;
+        Animation<TextureRegion> anim = MapManager.getInstance().getLightningAnimation();
+        if (anim == null || lightningWorldPos == null) {
+            lightningActive = false;
+            return;
+        }
+        lightningTime += delta;
+        TextureRegion frame = anim.getKeyFrame(lightningTime, false);
+        if (frame == null) {
+            lightningActive = false;
+            return;
+        }
+        final float TARGET_HEIGHT_PIX = 560f;
+
+        final boolean STRETCH_VERTICALLY = false;
+        float srcW = frame.getRegionWidth();
+        float srcH = frame.getRegionHeight();
+        float drawW;
+        float drawH;
+        if (STRETCH_VERTICALLY) {
+            drawH = TARGET_HEIGHT_PIX;
+            drawW = srcW * (drawH / srcH) * 0.65f;
+        } else {
+            float scale = TARGET_HEIGHT_PIX / srcH;
+            drawH = TARGET_HEIGHT_PIX;
+            drawW = srcW * scale;
+        }
+
+        float drawX = lightningWorldPos.x - (drawW / 2f);
+        float drawY = lightningWorldPos.y;
+        batch.setColor(Color.WHITE);
+        batch.draw(frame, drawX, drawY, drawW, drawH);
+        if (lightningTime < FLASH_DURATION) {
+            float t = lightningTime / FLASH_DURATION;
+            float alpha = FLASH_MAX_ALPHA * (1f - t);
+            Texture px = MapManager.getInstance().getPixelWhiteTexture();
+            float left = camera.position.x - camera.viewportWidth / 2f;
+            float bottom = camera.position.y - camera.viewportHeight / 2f;
+            batch.setColor(1f, 1f, 1f, alpha);
+            batch.draw(px, left, bottom, camera.viewportWidth, camera.viewportHeight);
+            batch.setColor(Color.WHITE);
+        }
+
+        if (anim.isAnimationFinished(lightningTime)) {
+            lightningActive = false;
+        }
+    }
+    private void castLightningAtClick() {
+        lightningTargetMode = false;
+
+        Animation<TextureRegion> anim = MapManager.getInstance().getLightningAnimation();
+        if (anim == null) {
+            showMessage("Lightning assets missing.", 2f);
+            return;
+        }
+
+        Vector3 clickPos = new Vector3(Gdx.input.getX(), Gdx.input.getY(), 0);
+        camera.unproject(clickPos);
+
+        int clickedTileX, clickedTileY;
+        Tile clickedTile = null;
+        if (inVillage) {
+            clickedTileX = (int) (clickPos.x / TILE_SIZE);
+            clickedTileY = (int) (clickPos.y / TILE_SIZE);
+            if (clickedTileX >= 0 && clickedTileX < 20 && clickedTileY >= 0 && clickedTileY < 20) {
+                clickedTile = gameMap.getVillage().getTile(clickedTileX, 20 - 1 - clickedTileY);
+            }
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            clickedTileX = (int) ((clickPos.x - farmTopLeft.x) / TILE_SIZE);
+            clickedTileY = (int) ((clickPos.y - farmTopLeft.y) / TILE_SIZE);
+            if (clickedTileX >= 0 && clickedTileX < FarmTemplate.WIDTH &&
+                clickedTileY >= 0 && clickedTileY < FarmTemplate.HEIGHT) {
+                clickedTile = gameMap.getFarm(currentFarmIndex)
+                    .getTile(clickedTileX, FarmTemplate.HEIGHT - 1 - clickedTileY);
+            }
+        }
+
+        float worldX, worldY;
+        if (inVillage) {
+            worldX = clickedTileX * TILE_SIZE + TILE_SIZE / 2f;
+            worldY = clickedTileY * TILE_SIZE;
+        } else {
+            Vector2 farmTopLeft = getFarmTopLeft(currentFarmIndex);
+            worldX = farmTopLeft.x + clickedTileX * TILE_SIZE + TILE_SIZE / 2f;
+            worldY = farmTopLeft.y + clickedTileY * TILE_SIZE;
+        }
+
+        lightningWorldPos = new Vector2(worldX, worldY);
+        lightningActive = true;
+        lightningTime = 0f;
+
+        if (clickedTile != null && !inVillage && clickedTile.getRandomElement().isPresent()) {
+            Object rnd = clickedTile.getRandomElement().get();
+            if (rnd instanceof Tree || rnd instanceof ForagingTree) {
+                burntTreeTiles.add(clickedTile);
+                showMessage("Tree was struck by lightning!", 2f);
+            } else {
+                showMessage("Lightning strikes!", 1.2f);
+            }
+        } else {
+            showMessage("Lightning strikes!", 1.2f);
+        }
+    }
+    private Seeds cloneSeed(Seeds original) {
+        if (original == null) return null;
+        Seeds copy = new Seeds();
+        copy.setName(original.getName());
+        copy.setGrowsInto(original.getGrowsInto());
+        copy.setSuitableSeasons(new ArrayList<>(original.getSuitableSeasons()));
+        copy.setTotalHarvestTime(original.getTotalHarvestTime());
+        copy.setImagePath(original.getImagePath());
+        copy.setQuantity(1);
+        // If Seeds has extra fields (sell price, etc.) add copying here.
+        return copy;
     }
     private void applyFertilizerToTile(Tile tile, Item fertilizer, User player) {
         if (inVillage) {
@@ -2485,42 +2805,36 @@ public class MapView implements Screen {
         }
     }
     private void renderToolSwing() {
+        // If the new character tool-use animation is active, skip old overlay.
+        if (toolManager.isUsingTool()) {
+            return;
+        }
         if (toolManager.isSwinging()) {
             Texture toolTexture = toolManager.getCurrentToolTexture();
-
             if (toolTexture != null) {
                 float swingAngle = toolManager.getSwingAngle();
-
-                // Calculate position based on the player's position
                 float toolX = playerPos.x;
                 float toolY = playerPos.y;
-                // Make tool smaller
-                float toolWidth = TILE_SIZE * 1.0f;  // Reduced from 1.2f
-                float toolHeight = TILE_SIZE * 1.0f; // Reduced from 1.2f
-
-                // FIXED: Always position the tool as if facing right direction
-                // This makes the tool animation consistent regardless of player direction
+                float toolWidth = TILE_SIZE * 1.0f;
+                float toolHeight = TILE_SIZE * 1.0f;
                 toolX += TILE_SIZE * 0.4f;
-
-                // Get rotation origin from ToolManager (where the handle is)
                 float[] origin = toolManager.getToolRotationOrigin();
                 float originX = toolWidth * origin[0];
                 float originY = toolHeight * origin[1];
-
-                // Draw the tool with rotation around the handle
                 batch.draw(
                     toolTexture,
-                    toolX, // X position
-                    toolY, // Y position
-                    originX, // Origin X (point of rotation)
-                    originY, // Origin Y (point of rotation)
-                    toolWidth, // Width
-                    toolHeight, // Height
-                    1, 1, // Scale X, Y
-                    swingAngle, // Rotation from ToolManager
-                    0, 0, // Source X, Y
-                    toolTexture.getWidth(), toolTexture.getHeight(), // Source width, height
-                    false, false // Flip X, Y
+                    toolX,
+                    toolY,
+                    originX,
+                    originY,
+                    toolWidth,
+                    toolHeight,
+                    1, 1,
+                    swingAngle,
+                    0, 0,
+                    toolTexture.getWidth(),
+                    toolTexture.getHeight(),
+                    false, false
                 );
             }
         }
@@ -2860,7 +3174,63 @@ public class MapView implements Screen {
         removeDialog.button("Cancel");
         removeDialog.show(stage);
     }
-
+    private void initNightFogTexture() {
+        if (nightFogReady) return;
+        nightFogBatch = new SpriteBatch();
+        int texSize = 512;
+        Pixmap pixmap = new Pixmap(texSize, texSize, Pixmap.Format.RGBA8888);
+        pixmap.setBlending(Pixmap.Blending.None);
+        float radius = texSize / 2f;
+        for (int x = 0; x < texSize; x++) {
+            for (int y = 0; y < texSize; y++) {
+                float dist = Vector2.dst(x, y, radius, radius) / radius;
+                float alpha;
+                if (dist < 0.25f) {
+                    alpha = 0f;
+                } else if (dist < 0.6f) {
+                    float t = (dist - 0.25f) / 0.35f;
+                    alpha = Math.min(0.8f, t * t * 0.8f);
+                } else {
+                    alpha = 0.8f;
+                }
+                pixmap.drawPixel(x, y, Color.rgba8888(0.02f, 0.03f, 0.06f, alpha));
+            }
+        }
+        nightFogTexture = new Texture(pixmap);
+        pixmap.dispose();
+        nightFogReady = true;
+    }
+    private float computeNightTarget() {
+        int hour = TimeSystem.getInstance().getCurrentHour();
+        if (hour < 17) return 0f;
+        if (hour >= 19) return 1f;
+        float t = (hour - 17f) / 2f;
+        return Math.max(0f, Math.min(1f, t));
+    }
+    private void drawNightOverlays(float delta) {
+        if (!nightEnabled) return;
+        nightProgressTarget = computeNightTarget();
+        float lerpRate = 2.0f;
+        nightProgress += (nightProgressTarget - nightProgress) * Math.min(1f, delta * lerpRate);
+        nightProgress = Math.max(0f, Math.min(1f, nightProgress));
+        if (nightProgress <= 0.001f) return;
+        float left   = camera.position.x - camera.viewportWidth  / 2f;
+        float bottom = camera.position.y - camera.viewportHeight / 2f;
+        float w = camera.viewportWidth;
+        float h = camera.viewportHeight;
+        float darkAlpha = 0.6f * nightProgress;
+        float blueAlpha = 0.4f * nightProgress;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, darkAlpha);
+        shapeRenderer.rect(left, bottom, w, h);
+        shapeRenderer.setColor(0.06f, 0.09f, 0.15f, blueAlpha);
+        shapeRenderer.rect(left, bottom, w, h);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
@@ -3169,6 +3539,9 @@ public class MapView implements Screen {
         if (panelTexture != null) panelTexture.dispose();
         if (lastFrameTexture != null) lastFrameTexture.dispose();
         if (lastFramePixmap != null) lastFramePixmap.dispose();
-        if (shapeRenderer != null) shapeRenderer.dispose();}
+        if (nightFogTexture != null) nightFogTexture.dispose();
+        if (nightFogBatch != null) nightFogBatch.dispose();
+        if (shapeRenderer != null) shapeRenderer.dispose();
+    }
 
 }

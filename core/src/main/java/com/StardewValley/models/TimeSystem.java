@@ -1,10 +1,10 @@
 package com.StardewValley.models;
 
+import java.util.Arrays;
+
 public class TimeSystem {
-    // نمونه singleton
     private static final TimeSystem INSTANCE = new TimeSystem();
 
-    // فیلدهای زمان بازی
     private int currentHour;
     private int currentDay;
     private String currentSeason;
@@ -12,46 +12,32 @@ public class TimeSystem {
     private int currentYear;
     public boolean oneSeasonPassed = false;
 
-    // سازنده خصوصی با مقداردهی اولیه
     private TimeSystem() {
-        this.currentHour = 9;            // ساعت شروع: 9 صبح
-        this.currentDay = 1;             // روز اول فصل
-        this.currentSeason = "Spring"; // فصل بهار
-        this.dayOfWeek = "Monday";     // دوشنبه
-        this.currentYear = 1;            // سال اول
+        this.currentHour = 9;
+        this.currentDay = 1;
+        this.currentSeason = "Spring";
+        this.dayOfWeek = "Monday";
+        this.currentYear = 1;
     }
 
-    /** دسترسی به نمونه singleton */
     public static TimeSystem getInstance() {
         return INSTANCE;
     }
 
-    /**
-     * یک شناسه زمانی منحصر به فرد بر اساس زمان کل بازی برمی‌گرداند
-     * این متد برای مقایسه زمان‌ها و اعمال cooldown استفاده می‌شود
-     */
     public long getTotalHoursSinceStart() {
-        int seasonIndex = java.util.Arrays.asList("Spring", "Summer", "Fall", "Winter").indexOf(currentSeason);
+        int seasonIndex = Arrays.asList("Spring", "Summer", "Fall", "Winter").indexOf(currentSeason);
         long totalDays = (long)(currentYear - 1) * 112 + (long)seasonIndex * 28 + (currentDay - 1);
         return totalDays * 24 + currentHour;
     }
 
-
-    /**
-     * جلو بردن زمان بازی به تعداد ساعت مشخص
-     * @param hours تعداد ساعت (عدد منفی غیرمجاز است)
-     */
     public synchronized boolean advanceTime(int hours) {
         if (hours < 0) throw new IllegalArgumentException();
-
         int previousDay = currentDay;
         currentHour += hours;
-
         while (currentHour >= 22) {
             currentHour -= 13;
             advanceDate(1);
         }
-
         return (currentDay != previousDay);
     }
 
@@ -63,7 +49,8 @@ public class TimeSystem {
 
         while (currentDay > 28) {
             currentDay -= 28;
-            updateSeason();
+            // Season naturally rolls
+            updateSeasonInternal();
             oneSeasonPassed = true;
         }
 
@@ -71,44 +58,56 @@ public class TimeSystem {
         return (currentDay != previousDay);
     }
 
-    // محاسبه روز هفته براساس currentDay
     private void calculateDayOfWeek() {
         String[] days = {"Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"};
         int index = (currentDay - 1) % 7;
         dayOfWeek = days[index];
     }
 
-    // به‌روزرسانی فصل و سال
-    private void updateSeason() {
+    private void updateSeasonInternal() {
         String[] seasons = {"Spring","Summer","Fall","Winter"};
-        int idx = java.util.Arrays.asList(seasons).indexOf(currentSeason);
+        int idx = Arrays.asList(seasons).indexOf(currentSeason);
         currentSeason = seasons[(idx + 1) % seasons.length];
         if ("Spring".equals(currentSeason)) {
             currentYear++;
         }
     }
 
-    /** نمایش ساعت فعلی با فرمت HH:00 */
+    /**
+     * Cheat / external season advance:
+     * - Advances to next season
+     * - Resets day to 1
+     * - Resets hour to 9 (start-of-day) (adjust if you want different behavior)
+     * - Recalculates dayOfWeek (starts Monday)
+     * - Increments year if wrapped from Winter to Spring
+     */
+    public synchronized void advanceSeason() {
+        String prevSeason = currentSeason;
+        updateSeasonInternal();
+        currentDay = 1;
+        currentHour = 9;
+        dayOfWeek = "Monday";
+        if (!prevSeason.equals(currentSeason) && "Spring".equals(currentSeason) && !"Spring".equals(prevSeason)) {
+            // Year increment already handled in updateSeasonInternal
+        }
+    }
+
     public synchronized String getCurrentTime() {
         return String.format("%02d:00", currentHour);
     }
 
-    /** نمایش تاریخ فعلی */
     public synchronized String getCurrentDate() {
         return String.format("Year %d, %s %d", currentYear, currentSeason, currentDay);
     }
 
-    /** نمایش روز هفته */
     public synchronized String getDayOfWeek() {
         return dayOfWeek;
     }
 
-    /** نمایش ترکیبی ساعت و تاریخ */
     public synchronized String getDateTime() {
         return getCurrentDate() + " " + getCurrentTime() + " (" + dayOfWeek + ")";
     }
 
-    /** نمایش فصل فعلی */
     public synchronized String getCurrentSeason() {
         return currentSeason;
     }
@@ -124,7 +123,6 @@ public class TimeSystem {
     public synchronized int getCurrentDay() {
         return currentDay;
     }
-
 
     public synchronized void setCurrentSeason(String season) {
         currentSeason = season;

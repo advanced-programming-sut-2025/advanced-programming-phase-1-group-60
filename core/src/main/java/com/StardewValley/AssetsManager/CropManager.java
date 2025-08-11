@@ -20,6 +20,9 @@ public class CropManager {
     private final Map<String, Texture> giantCropTextureCache = new HashMap<>();
     private boolean allLoaded = false;
 
+    // NEW: Crow texture
+    private Texture crowTexture;
+
     private CropManager() {}
 
     public static synchronized CropManager getInstance() {
@@ -29,15 +32,23 @@ public class CropManager {
         return instance;
     }
 
-    /* --------------------------------------------------
-       Public API
-       -------------------------------------------------- */
+    // NEW
+    public Texture getCrowTexture() {
+        if (crowTexture == null) {
+            String path = "assets/Map/FruitsAndVegetables/Crow.png";
+            if (Gdx.files.internal(path).exists()) {
+                crowTexture = new Texture(Gdx.files.internal(path));
+            }
+        }
+        return crowTexture;
+    }
 
     // Seed packet icons
     public Texture getSeedTexture(Seeds seed) {
         if (seed == null) return null;
         return getSeedTexture(seed.getImagePath());
     }
+
     public Texture getGiantCropTexture(String cropName) {
         if (cropName == null) return null;
         String key = cropName.toLowerCase(Locale.ROOT);
@@ -59,6 +70,7 @@ public class CropManager {
         }
         return null;
     }
+
     public Texture getSeedTexture(String imageFileName) {
         if (imageFileName == null || imageFileName.isEmpty()) return null;
         String key = imageFileName.toLowerCase(Locale.ROOT);
@@ -154,13 +166,8 @@ public class CropManager {
         }
         Texture fruit = loadFruitTexture(crop.getName());
         if (fruit != null) fruitTextureCache.put(key, fruit);
-        // Preload multi-harvest base if applicable
         if (!crop.isOneTime()) getMultiHarvestBaseTexture(crop.getName());
     }
-
-    /* --------------------------------------------------
-       Internal helpers
-       -------------------------------------------------- */
 
     private void ensureCropStagesLoaded(String keyLower, String originalName) {
         if (stageTextureCache.containsKey(keyLower)) return;
@@ -248,29 +255,25 @@ public class CropManager {
         return list;
     }
 
-    /* --------------------------------------------------
-       Disposal
-       -------------------------------------------------- */
-
     public void dispose() {
         for (Texture t : seedTextureCache.values()) if (t != null) t.dispose();
         seedTextureCache.clear();
-
         for (Texture t : fruitTextureCache.values()) if (t != null) t.dispose();
         fruitTextureCache.clear();
-
         for (List<Texture> list : stageTextureCache.values())
             for (Texture t : list) if (t != null) t.dispose();
         stageTextureCache.clear();
-
         for (Texture t : multiHarvestBaseCache.values()) if (t != null) t.dispose();
         multiHarvestBaseCache.clear();
-
         for (Texture t : giantCropTextureCache.values()) if (t != null) t.dispose();
         giantCropTextureCache.clear();
-
+        if (crowTexture != null) {
+            crowTexture.dispose();
+            crowTexture = null;
+        }
         allLoaded = false;
     }
+
     public String resolveProduceInventoryPath(String cropName) {
         if (cropName == null) return null;
         List<String> variants = buildNameVariants(cropName);
@@ -283,6 +286,7 @@ public class CropManager {
         }
         return null;
     }
+
     private void disposeCrop(String key) {
         List<Texture> frames = stageTextureCache.remove(key);
         if (frames != null)
