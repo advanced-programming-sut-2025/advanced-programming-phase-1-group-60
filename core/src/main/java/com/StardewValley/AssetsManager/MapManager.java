@@ -18,7 +18,8 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 public class MapManager {
     private static MapManager instance;
     private Random random;
-
+    private Texture faintTexture;
+    private Animation<TextureRegion> faintAnimation;
     // Map textures
     private Texture grassTile;
     private final Map<String, Texture> seasonFloorTextures = new HashMap<>();
@@ -84,7 +85,9 @@ public class MapManager {
     // NPC and Store textures
     private Map<String, Texture> npcTextures;
     private Texture storeTexture;
-
+    private Texture cabinsSheet;
+    private TextureRegion[] storeVariantRegions; // 3 variants (rows)
+    private Map<String, TextureRegion> assignedStoreVariants = new HashMap<>();
     // Character textures
     private Texture playerSpriteSheet;
     private Animation<TextureRegion> walkDownAnimation;
@@ -366,11 +369,78 @@ public class MapManager {
         npcTextures.put("leah", new Texture(Gdx.files.internal("assets/Village/leah.png")));
         npcTextures.put("robin", new Texture(Gdx.files.internal("assets/Village/robin.png")));
         storeTexture = new Texture(Gdx.files.internal("assets/Village/store.png"));
+        loadStoreVariants();
         loadTreeTextures();
         loadForagingTextures();
         loadPlayerAnimations();
+        loadFaintAnimation();
         coopTexture = new Texture(Gdx.files.internal("assets/Inventory/AnimalPlaces/Coop.png"));
         barnTexture = new Texture(Gdx.files.internal("assets/Inventory/AnimalPlaces/Barn.png"));
+    }
+    public Animation<TextureRegion> getFaintAnimation() {
+        return faintAnimation;
+    }
+    private void loadFaintAnimation() {
+        String path = "assets/Character/Faint.png";
+        if (!Gdx.files.internal(path).exists()) {
+            System.err.println("[Faint] Missing " + path);
+            return;
+        }
+        faintTexture = new Texture(Gdx.files.internal(path));
+        int fullW = faintTexture.getWidth();
+        int fullH = faintTexture.getHeight();
+        int frameCount = 2; // as specified
+        int frameW = fullW / frameCount;
+        TextureRegion[] frames = new TextureRegion[frameCount];
+        for (int i = 0; i < frameCount; i++) {
+            frames[i] = new TextureRegion(faintTexture, i * frameW, 0, frameW, fullH);
+        }
+        // 0.55s per frame (tweak)
+        faintAnimation = new Animation<>(0.55f, frames);
+        faintAnimation.setPlayMode(Animation.PlayMode.NORMAL);
+        System.out.println("[Faint] Loaded faint animation frames.");
+    }
+    private void loadStoreVariants() {
+        String path = "assets/Map/Store/Cabins.png";
+        if (!Gdx.files.internal(path).exists()) {
+            System.err.println("[StoreVariants] Missing " + path + " (using fallback single-tile store texture).");
+            return;
+        }
+        cabinsSheet = new Texture(Gdx.files.internal(path));
+        int totalHeight = cabinsSheet.getHeight();
+        int totalWidth = cabinsSheet.getWidth();
+        int rows = 3; // as specified
+        int regionHeight = totalHeight / rows;
+        storeVariantRegions = new TextureRegion[rows];
+        for (int i = 0; i < rows; i++) {
+            storeVariantRegions[i] = new TextureRegion(cabinsSheet, 0, i * regionHeight, totalWidth, regionHeight);
+        }
+        System.out.println("[StoreVariants] Loaded " + rows + " store variants from Cabins.png");
+    }
+    public TextureRegion getStoreVariant(String storeName) {
+        if (storeVariantRegions == null || storeVariantRegions.length == 0) {
+            // fallback: wrap legacy texture if available
+            if (storeTexture != null) {
+                return new TextureRegion(storeTexture);
+            }
+            return null;
+        }
+        String key = storeName == null ? "default" : storeName.toLowerCase();
+        if (!assignedStoreVariants.containsKey(key)) {
+            TextureRegion chosen = storeVariantRegions[random.nextInt(storeVariantRegions.length)];
+            assignedStoreVariants.put(key, chosen);
+        }
+        return assignedStoreVariants.get(key);
+    }
+    public int getStoreVariantWidthTiles(TextureRegion region) {
+        if (region == null) return 1;
+        // Assume 32px tile
+        return Math.max(1, Math.round(region.getRegionWidth() / 32f));
+    }
+
+    public int getStoreVariantHeightTiles(TextureRegion region) {
+        if (region == null) return 1;
+        return Math.max(1, Math.round(region.getRegionHeight() / 32f));
     }
     private void loadSeasonFloorTextures() {
         loadSeasonFloorTexture("Spring");

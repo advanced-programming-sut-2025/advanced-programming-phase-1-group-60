@@ -47,6 +47,15 @@ public class LoginView implements Screen {
         Gdx.input.setInputProcessor(stage);
         this.menuManager = MenuManager.getInstance();
         this.loginMenuController = new LoginMenuController(null); // Scanner not needed for UI
+
+        // Attempt auto-login BEFORE building full forms (but after controller init)
+        if (loginMenuController.tryAutoLogin() != null) {
+            // User auto-logged in successfully
+            game.setScreen(new MainView(game, loginMenuController));
+            return; // Skip creating UI; we are navigating away
+        }
+
+        // Build UI forms only if not auto-logged in
         createLoginForm();
         createForgotPasswordForm();
     }
@@ -79,7 +88,6 @@ public class LoginView implements Screen {
         TextButton forgotPasswordButton = new TextButton("Forgot Password", menuManager.getPixthulhuSkin());
         TextButton backButton = new TextButton("Back", menuManager.getPixthulhuSkin());
 
-        // Button colors
         Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
         Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
 
@@ -91,7 +99,6 @@ public class LoginView implements Screen {
         forgotPasswordButton.getLabel().setColor(textColor);
         backButton.getLabel().setColor(textColor);
 
-        // Dimensions
         float fieldWidth = 300;
         float buttonWidth = 300;
         float buttonHeight = 90;
@@ -111,12 +118,10 @@ public class LoginView implements Screen {
 
         loginTable.add(errorLabel).width(400).padBottom(20).row();
 
-        // Stack buttons vertically
         loginTable.add(loginButton).width(buttonWidth).height(buttonHeight).padBottom(20).row();
         loginTable.add(forgotPasswordButton).width(450).height(buttonHeight).padBottom(20).row();
         loginTable.add(backButton).width(buttonWidth).height(buttonHeight).row();
 
-        // Button listeners remain the same
         loginButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -145,15 +150,14 @@ public class LoginView implements Screen {
     }
 
     private void createForgotPasswordForm() {
+        // (unchanged code)
         forgotPasswordTable = new Table();
         forgotPasswordTable.setFillParent(true);
         forgotPasswordTable.top().padTop(50);
 
-        // Title
         Label titleLabel = new Label("Forgot Password", menuManager.getPixthulhuSkin(), "title");
         titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
 
-        // Components
         forgotUsernameField = new TextField("", menuManager.getPixthulhuSkin());
         forgotUsernameField.setMessageText("Username");
 
@@ -172,12 +176,10 @@ public class LoginView implements Screen {
         forgotErrorLabel.setWrap(true);
         forgotErrorLabel.setAlignment(Align.center);
 
-        // Initially hide components
         answerField.setVisible(false);
         checkAnswerButton.setVisible(false);
         questionLabel.setVisible(false);
 
-        // Button styling
         Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
         Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
 
@@ -189,7 +191,6 @@ public class LoginView implements Screen {
         checkAnswerButton.getLabel().setColor(textColor);
         backButton.getLabel().setColor(textColor);
 
-        // Layout with proper spacing
         float fieldWidth = 400;
         float buttonWidth = 300;
         float buttonHeight = 100;
@@ -203,7 +204,6 @@ public class LoginView implements Screen {
         forgotPasswordTable.add(forgotErrorLabel).width(fieldWidth).padBottom(20).row();
         forgotPasswordTable.add(backButton).width(buttonWidth).height(buttonHeight).row();
 
-        // Get Question Button Listener
         getQuestionButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -223,7 +223,6 @@ public class LoginView implements Screen {
             }
         });
 
-        // Submit Answer Button Listener
         checkAnswerButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
@@ -232,95 +231,7 @@ public class LoginView implements Screen {
                 Result result = loginMenuController.checkSecurityAnswer(username, answer);
 
                 if (result.isSuccess()) {
-                    // Clear current form
-                    forgotPasswordTable.clearChildren();
-                    forgotPasswordTable.top().padTop(50);
-
-                    // Create new password components
-                    Label titleLabel = new Label("Reset Password", menuManager.getPixthulhuSkin(), "title");
-                    titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
-
-                    newPasswordField = new TextField("", menuManager.getPixthulhuSkin());
-                    newPasswordField.setMessageText("New Password");
-                    newPasswordField.setPasswordMode(true);
-
-                    generatePasswordButton = new TextButton("Generate Random Password", menuManager.getPixthulhuSkin());
-                    setNewPasswordButton = new TextButton("Set New Password", menuManager.getPixthulhuSkin());
-                    TextButton backButton = new TextButton("Back", menuManager.getPixthulhuSkin());
-
-                    // Add error label for password reset section
-                    Label resetErrorLabel = new Label("", menuManager.getPixthulhuSkin());
-                    resetErrorLabel.setWrap(true);
-                    resetErrorLabel.setAlignment(Align.center);
-
-                    // Styling
-                    Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
-                    Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
-
-                    generatePasswordButton.setColor(buttonColor);
-                    setNewPasswordButton.setColor(buttonColor);
-                    backButton.setColor(buttonColor);
-
-                    generatePasswordButton.getLabel().setColor(textColor);
-                    setNewPasswordButton.getLabel().setColor(textColor);
-                    backButton.getLabel().setColor(textColor);
-
-                    // Layout
-                    forgotPasswordTable.add(titleLabel).padBottom(30).row();
-                    forgotPasswordTable.add(newPasswordField).width(400).padBottom(20).row();
-                    forgotPasswordTable.add(generatePasswordButton).width(800).height(100).padBottom(20).row();
-                    forgotPasswordTable.add(setNewPasswordButton).width(550).height(100).padBottom(20).row();
-                    forgotPasswordTable.add(resetErrorLabel).width(400).padBottom(20).row();
-                    forgotPasswordTable.add(backButton).width(300).height(100).row();
-
-                    // Listeners
-                    generatePasswordButton.addListener(new ChangeListener() {
-                        @Override
-                        public void changed(ChangeEvent event, Actor actor) {
-                            String randomPass = loginMenuController.generateRandomPassword();
-                            newPasswordField.setText(randomPass);
-                            resetErrorLabel.setText("Random password generated!");
-                            resetErrorLabel.setColor(0, 1, 0, 1);
-                        }
-                    });
-
-                    setNewPasswordButton.addListener(new ChangeListener() {
-                        @Override
-                        public void changed(ChangeEvent event, Actor actor) {
-                            String newPassword = newPasswordField.getText();
-                            if (newPassword.isEmpty()) {
-                                resetErrorLabel.setText("Password cannot be empty!");
-                                resetErrorLabel.setColor(1, 0, 0, 1);
-                                return;
-                            }
-
-                            Result passwordResult = loginMenuController.setNewPassword(username, newPassword);
-                            if (passwordResult.isSuccess()) {
-                                resetErrorLabel.setText("Password successfully changed!");
-                                resetErrorLabel.setColor(0, 1, 0, 1);
-                                Timer.schedule(new Timer.Task() {
-                                    @Override
-                                    public void run() {
-                                        Gdx.app.postRunnable(() -> {
-                                            forgotPasswordTable.setVisible(false);
-                                            loginTable.setVisible(true);
-                                        });
-                                    }
-                                }, 1);
-                            } else {
-                                resetErrorLabel.setText(passwordResult.getMessage());
-                                resetErrorLabel.setColor(1, 0, 0, 1);
-                            }
-                        }
-                    });
-
-                    backButton.addListener(new ChangeListener() {
-                        @Override
-                        public void changed(ChangeEvent event, Actor actor) {
-                            forgotPasswordTable.setVisible(false);
-                            loginTable.setVisible(true);
-                        }
-                    });
+                    buildResetPasswordUI(username);
                 } else {
                     forgotErrorLabel.setText(result.getMessage());
                     forgotErrorLabel.setColor(1, 0, 0, 1);
@@ -328,13 +239,11 @@ public class LoginView implements Screen {
             }
         });
 
-        // Back Button Listener
         backButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 forgotPasswordTable.setVisible(false);
                 loginTable.setVisible(true);
-                // Reset fields
                 forgotUsernameField.setText("");
                 answerField.setText("");
                 questionLabel.setText("");
@@ -344,6 +253,91 @@ public class LoginView implements Screen {
 
         forgotPasswordTable.setVisible(false);
         stage.addActor(forgotPasswordTable);
+    }
+
+    private void buildResetPasswordUI(String username) {
+        forgotPasswordTable.clearChildren();
+        forgotPasswordTable.top().padTop(50);
+
+        Label titleLabel = new Label("Reset Password", menuManager.getPixthulhuSkin(), "title");
+        titleLabel.setColor(0.9f, 0.95f, 0.7f, 1f);
+
+        newPasswordField = new TextField("", menuManager.getPixthulhuSkin());
+        newPasswordField.setMessageText("New Password");
+        newPasswordField.setPasswordMode(true);
+
+        generatePasswordButton = new TextButton("Generate Random Password", menuManager.getPixthulhuSkin());
+        setNewPasswordButton = new TextButton("Set New Password", menuManager.getPixthulhuSkin());
+        TextButton backButton = new TextButton("Back", menuManager.getPixthulhuSkin());
+
+        Label resetErrorLabel = new Label("", menuManager.getPixthulhuSkin());
+        resetErrorLabel.setWrap(true);
+        resetErrorLabel.setAlignment(Align.center);
+
+        Color buttonColor = new Color(0.38f, 0.55f, 0.27f, 1f);
+        Color textColor = new Color(0.95f, 0.92f, 0.82f, 1f);
+
+        generatePasswordButton.setColor(buttonColor);
+        setNewPasswordButton.setColor(buttonColor);
+        backButton.setColor(buttonColor);
+
+        generatePasswordButton.getLabel().setColor(textColor);
+        setNewPasswordButton.getLabel().setColor(textColor);
+        backButton.getLabel().setColor(textColor);
+
+        forgotPasswordTable.add(titleLabel).padBottom(30).row();
+        forgotPasswordTable.add(newPasswordField).width(400).padBottom(20).row();
+        forgotPasswordTable.add(generatePasswordButton).width(800).height(100).padBottom(20).row();
+        forgotPasswordTable.add(setNewPasswordButton).width(550).height(100).padBottom(20).row();
+        forgotPasswordTable.add(resetErrorLabel).width(400).padBottom(20).row();
+        forgotPasswordTable.add(backButton).width(300).height(100).row();
+
+        generatePasswordButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String randomPass = loginMenuController.generateRandomPassword();
+                newPasswordField.setText(randomPass);
+                resetErrorLabel.setText("Random password generated!");
+                resetErrorLabel.setColor(0, 1, 0, 1);
+            }
+        });
+
+        setNewPasswordButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                String newPassword = newPasswordField.getText();
+                if (newPassword.isEmpty()) {
+                    resetErrorLabel.setText("Password cannot be empty!");
+                    resetErrorLabel.setColor(1, 0, 0, 1);
+                    return;
+                }
+                Result passwordResult = loginMenuController.setNewPassword(username, newPassword);
+                if (passwordResult.isSuccess()) {
+                    resetErrorLabel.setText("Password successfully changed!");
+                    resetErrorLabel.setColor(0, 1, 0, 1);
+                    Timer.schedule(new Timer.Task() {
+                        @Override
+                        public void run() {
+                            Gdx.app.postRunnable(() -> {
+                                forgotPasswordTable.setVisible(false);
+                                loginTable.setVisible(true);
+                            });
+                        }
+                    }, 1);
+                } else {
+                    resetErrorLabel.setText(passwordResult.getMessage());
+                    resetErrorLabel.setColor(1, 0, 0, 1);
+                }
+            }
+        });
+
+        backButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                forgotPasswordTable.setVisible(false);
+                loginTable.setVisible(true);
+            }
+        });
     }
 
     private void handleLogin() {
@@ -372,13 +366,9 @@ public class LoginView implements Screen {
         batch.begin();
         float width = Gdx.graphics.getWidth();
         float height = Gdx.graphics.getHeight();
-
         for (float position : positions) {
-            batch.draw(menuManager.getBackgroundLayer(),
-                position, 0,
-                width, height);
+            batch.draw(menuManager.getBackgroundLayer(), position, 0, width, height);
         }
-
         batch.draw(menuManager.getMiddlegroundLayer(), 0, 0, width, height);
         batch.end();
 
@@ -387,33 +377,19 @@ public class LoginView implements Screen {
     }
 
     @Override
-    public void show() {
-        Gdx.input.setInputProcessor(stage);
-    }
-
+    public void show() { Gdx.input.setInputProcessor(stage); }
     @Override
-    public void resize(int width, int height) {
-        stage.getViewport().update(width, height, true);
-    }
+    public void resize(int width, int height) { stage.getViewport().update(width, height, true); }
+    @Override
+    public void pause() {}
+    @Override
+    public void resume() {}
+    @Override
+    public void hide() {}
 
     @Override
     public void dispose() {
-        if (batch != null) {
-            batch.dispose();
-            batch = null;
-        }
-        if (stage != null) {
-            stage.dispose();
-            stage = null;
-        }
+        if (batch != null) { batch.dispose(); batch = null; }
+        if (stage != null) { stage.dispose(); stage = null; }
     }
-
-    @Override
-    public void pause() {}
-
-    @Override
-    public void resume() {}
-
-    @Override
-    public void hide() {}
 }

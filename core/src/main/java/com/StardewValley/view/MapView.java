@@ -1,9 +1,6 @@
 package com.StardewValley.view;
 
-import com.StardewValley.AssetsManager.CropManager;
-import com.StardewValley.AssetsManager.MapManager;
-import com.StardewValley.AssetsManager.MenuManager;
-import com.StardewValley.AssetsManager.ToolManager;
+import com.StardewValley.AssetsManager.*;
 import com.StardewValley.controller.GamePlayController;
 import com.StardewValley.controller.HomeController;
 import com.StardewValley.controller.WeatherController;
@@ -107,6 +104,20 @@ public class MapView implements Screen {
     private boolean craftInfoMode = false;
     private int currentToolUseDirection = 0;
     // Player animation fields
+    // Player animation / faint system fields
+    private enum FaintState { NONE, PLAY_FAINT_ANIM, BARS_CLOSING, DONE }
+    private FaintState faintState = FaintState.NONE;
+    private float faintAnimTime = 0f;
+    private float barsProgress = 0f;     // 0 -> 1
+    private boolean faintTurnAdvanced = false;
+    private static final float BARS_CLOSE_DURATION = 1.4f; // seconds
+
+    // OLD: private static final int FAINT_ENERGY_THRESHOLD = 3;  // (Remove this)
+    // NEW: per-turn threshold (remaining turn energy)
+    private static final float FAINT_TURN_REMAINING_THRESHOLD = 3f;
+    private static final float TURN_FAINT_USED_THRESHOLD = ENERGY_LIMIT_PER_TURN - FAINT_TURN_REMAINING_THRESHOLD; // 47
+    private float faintCooldownTimer = 0f;
+    private boolean faintLockedInput = false;
     private boolean wateringHintShown = false;
     private Texture shadowTexture;
     private Animation<TextureRegion> currentPlayerAnimation;
@@ -139,7 +150,11 @@ public class MapView implements Screen {
     private FarmingDialog farmingDialog;
     private boolean uiBlockedByDialog = false;
     private Seeds pendingSelectedSeed;
-
+    private boolean inGreenhouse = false;
+    private Vector2 greenhousePlayerPos = new Vector2();
+    private Vector2 outsideReturnPos = new Vector2();
+    private GreenhouseManager greenhouseManager = GreenhouseManager.getInstance();
+    private static final float GREENHOUSE_TILE_SIZE = 32f;
     //Gift players
     private Label notificationLabel;
     private float notificationTimer = 0f;
@@ -432,6 +447,107 @@ public class MapView implements Screen {
         if (messageTimer > 0) {
             messageTimer -= delta;
         }
+        if (faintState == FaintState.NONE
+            && faintCooldownTimer == 0f) {
+            User cp = gameInstance.getCurrentPlayer();
+            if (cp != null
+                && !cp.getEnergy().isUnlimited()
+                && energyUsedThisTurn > TURN_FAINT_USED_THRESHOLD) {
+                startFaintSequence();
+            }
+        }
+    }
+    private void startFaintSequence() {
+        if (faintState != FaintState.NONE) return;
+        faintState = FaintState.PLAY_FAINT_ANIM;
+        faintAnimTime = 0f;
+        barsProgress = 0f;
+        faintTurnAdvanced = false;
+        faintLockedInput = true;
+        showMessage("You feel dizzy...", 2f);
+    }
+
+    private void updateFaint(float delta) {
+        if (faintState == FaintState.NONE) return;
+
+        switch (faintState) {
+            case PLAY_FAINT_ANIM -> {
+                faintAnimTime += delta;
+                Animation<TextureRegion> faintAnim = MapManager.getInstance().getFaintAnimation();
+                if (faintAnim == null) {
+                    faintState = FaintState.BARS_CLOSING;
+                    return;
+                }
+                if (faintAnim.isAnimationFinished(faintAnimTime)) {
+                    faintState = FaintState.BARS_CLOSING;
+                }
+            }
+            case BARS_CLOSING -> {
+                barsProgress += delta / BARS_CLOSE_DURATION;
+                if (barsProgress >= 1f) {
+                    barsProgress = 1f;
+                    faintState = FaintState.DONE;
+                }
+            }
+            case DONE -> {
+                if (!faintTurnAdvanced) {
+                    advanceTurnAfterFaint();
+                    faintTurnAdvanced = true;
+                }
+            }
+        }
+    }
+
+    private void advanceTurnAfterFaint() {
+        User previous = gameInstance.getCurrentPlayer();
+
+        // Persist previous player's latest position & state exactly like K handling would
+        if (previous != null) {
+            playerPositions.put(previous, new Vector2(playerPos));
+            playerInVillageState.put(previous, inVillage);
+            if (inVillage) {
+                previous.setPosition(new Tile((int)(playerPos.x / TILE_SIZE), (int)(playerPos.y / TILE_SIZE)));
+            } else {
+                Vector2 farmOffset = getFarmTopLeft(currentFarmIndex);
+                int localX = (int)((playerPos.x - farmOffset.x) / TILE_SIZE);
+                int localY = (int)((playerPos.y - farmOffset.y) / TILE_SIZE);
+                previous.setPosition(new Tile(localX, localY));
+            }
+            previous.isInVillage = inVillage;
+
+            // Optional penalty: drop energy to 0
+            if (!previous.getEnergy().isUnlimited()) {
+                previous.getEnergy().setCurrentEnergy(150);
+            }
+        }
+
+        // Switch turn
+        gameInstance.nextTurn();
+        User newCurrent = gameInstance.getCurrentPlayer();
+
+        // Reset per-turn counters to avoid retrigger
+        energyUsedThisTurn = 0f;              // FIX: critical to prevent immediate re-faint
+        lastEnergyTile.set(-1, -1);
+        faintCooldownTimer = 0.25f;           // short grace period
+
+        // Load new player's position / state
+        currentPlayerController = playerControllers.get(newCurrent);
+        currentFarmIndex = gameInstance.getSelectedMaps().get(newCurrent) - 1;
+        playerPos = new Vector2(playerPositions.get(newCurrent));
+        inVillage = playerInVillageState.get(newCurrent);
+        centerCameraOnPlayer();
+
+        lastTurnMessage = (previous != null ? previous.getUsername() : "Player")
+            + " fainted! Now: " + newCurrent.getUsername();
+        messageTimer = MESSAGE_DISPLAY_TIME;
+
+        // Reset faint system
+        faintState = FaintState.NONE;
+        faintLockedInput = false;
+    }
+
+    private boolean isFaintingActive() {
+        return faintState != FaintState.NONE;
     }
 
     private boolean handleToolUsage(Vector3 clickPos) {
@@ -586,6 +702,42 @@ public class MapView implements Screen {
         int ty = (int)((clickPos.y - farmTopLeft.y)/TILE_SIZE);
 
         Tile tile;
+        if (inGreenhouse) {
+            int gx = (int)(clickPos.x / GREENHOUSE_TILE_SIZE);
+            int gy = (int)(clickPos.y / GREENHOUSE_TILE_SIZE);
+            Tile t = greenhouseManager.getTile(gx, gy);
+            if (t == null) return;
+
+            Seeds seed = t.getPlantedSeed();
+            if (seed == null) {
+                showMessage("No crop to harvest.", 1.2f);
+                return;
+            }
+            if (t.getDaysGrown() < seed.getTotalHarvestTime()) {
+                showMessage("Crop not ready.", 1.2f);
+                return;
+            }
+
+            // Create produce item
+            String cropName = seed.getGrowsInto();
+            FruitsAndVegetables fv = FruitsAndVegetablesRepository.getCropByName(cropName);
+            int sellPrice = (fv != null && fv.getSellPrice() != 0) ? fv.getSellPrice() : 0;
+
+            String producePath = CropManager.getInstance().resolveProduceInventoryPath(cropName);
+            Item produce = new Item(cropName, 1, producePath != null ? producePath : "");
+            produce.setSellPrice(sellPrice);
+            player.getInventory().addItem(produce);
+
+            // Reset tile (one-time harvest assumption)
+            t.setCrop(null);
+            t.setPlantedSeed(null);
+            t.setPlowed(true);
+            t.setDaysGrown(0);
+            t.setWatered(false);
+
+            showMessage("Harvested " + cropName + ".", 1.5f);
+            return;
+        }
         if (inVillage) {
             if (tx <0 || tx >=20 || ty <0 || ty >=20) return;
             tile = gameMap.getVillage().getTile(tx, 20 - 1 - ty);
@@ -697,6 +849,33 @@ public class MapView implements Screen {
         showMessage("Harvested GIANT " + seed.getGrowsInto() + " x4!", 2.5f);
     }
     private void waterTileAt(Vector3 clickPos, User player, Tools tool) {
+        if (inGreenhouse) {
+            int gx = (int)(clickPos.x / GREENHOUSE_TILE_SIZE);
+            int gy = (int)(clickPos.y / GREENHOUSE_TILE_SIZE);
+            Tile t = greenhouseManager.getTile(gx, gy);
+            if (t == null) return;
+            if (!t.isPlowed()) {
+                showMessage("Tile not plowed.", 1.2f);
+                return;
+            }
+            if (t.isWatered()) {
+                showMessage("Already watered today.", 1.2f);
+                return;
+            }
+            int cost = tool.getEnergyCost();
+            if (!player.getEnergy().isUnlimited() && player.getEnergy().getCurrentEnergy() < cost) {
+                showMessage("Not enough energy.", 1.5f);
+                return;
+            }
+            t.setWatered(true);
+            t.setLastWateredDay(TimeSystem.getInstance().getCurrentDay());
+            if (!player.getEnergy().isUnlimited()) {
+                player.getEnergy().decreaseEnergy(cost);
+                energyUsedThisTurn += cost;
+            }
+            showMessage("Watered (Greenhouse).", 1.2f);
+            return;
+        }
         if (inVillage) {
             showMessage("Cannot water in village.",1.5f);
             return;
@@ -828,7 +1007,15 @@ public class MapView implements Screen {
         dialog.button("OK");
         dialog.show(stage);
     }
-
+    public int getCurrentFarmIndex() {
+        return currentFarmIndex;
+    }
+    public boolean isInVillage() {
+        return inVillage;
+    }
+    public Vector2 getPlayerWorldPosition() {
+        return new Vector2(playerPos); // safe copy
+    }
     private void createBackButton() {
         Table uiTable = new Table();
         uiTable.setFillParent(true);
@@ -1118,6 +1305,12 @@ public class MapView implements Screen {
     }
 
     private void centerCameraOnPlayer() {
+        if (inGreenhouse) {
+            // Optionally clamp so you don't see outside edges (simple center follow is fine if interior fills)
+            camera.position.set(playerPos.x, playerPos.y, 0);
+            camera.update();
+            return;
+        }
         if (inVillage) {
             // Village - normal camera following
             camera.position.set(playerPos.x, playerPos.y, 0);
@@ -1164,22 +1357,45 @@ public class MapView implements Screen {
     }
 
     private void renderPlayer() {
-        TextureRegion frame;
-        if (toolManager.isUsingTool()) {
-            frame = toolManager.getToolUseFrame(currentToolUseDirection);
-        } else {
-            frame = currentPlayerAnimation.getKeyFrame(animationTime);
-        }
         float playerWidth = TILE_SIZE * 0.8f;
         float playerHeight = TILE_SIZE * 1.5f;
         float adjustedY = playerPos.y - (playerHeight - TILE_SIZE) * 0.5f;
 
+        // Shadow
         float shadowWidth = TILE_SIZE * 0.8f;
         float shadowHeight = TILE_SIZE * 0.4f;
         float shadowX = playerPos.x + (playerWidth - shadowWidth) * 0.5f;
         float shadowY = playerPos.y - shadowHeight * 0.9f;
         batch.draw(shadowTexture, shadowX, shadowY, shadowWidth, shadowHeight);
 
+        if (faintState == FaintState.PLAY_FAINT_ANIM) {
+            Animation<TextureRegion> faintAnim = MapManager.getInstance().getFaintAnimation();
+            if (faintAnim != null) {
+                TextureRegion frame = faintAnim.getKeyFrame(faintAnimTime);
+                if (frame != null) {
+                    // Scale faint frames to same logical size as normal body
+                    batch.draw(frame, playerPos.x, adjustedY, playerWidth, playerHeight);
+                    return;
+                }
+            }
+        } else if (faintState == FaintState.BARS_CLOSING || faintState == FaintState.DONE) {
+            // Show last faint frame (eyes closed)
+            Animation<TextureRegion> faintAnim = MapManager.getInstance().getFaintAnimation();
+            if (faintAnim != null) {
+                TextureRegion[] frames = faintAnim.getKeyFrames();
+                TextureRegion last = frames[frames.length - 1];
+                batch.draw(last, playerPos.x, adjustedY, playerWidth, playerHeight);
+                return;
+            }
+        }
+
+        // Normal rendering
+        TextureRegion frame;
+        if (toolManager.isUsingTool()) {
+            frame = toolManager.getToolUseFrame(currentToolUseDirection);
+        } else {
+            frame = currentPlayerAnimation.getKeyFrame(animationTime);
+        }
         batch.draw(frame, playerPos.x, adjustedY, playerWidth, playerHeight);
     }
 
@@ -1190,6 +1406,7 @@ public class MapView implements Screen {
         fishInitialized = false;
         handleInput(delta);
         updateAnimals(delta);
+        updateFaint(delta);
         toolManager.updateAll(delta);
         centerCameraOnPlayer();
         updateBuildingSelectBoxItems(); // This is UI logic, can be here
@@ -1218,7 +1435,28 @@ public class MapView implements Screen {
         // Draw the building placement highlight shape
         renderBuildingPlacementHighlightShapesOnly(); // This method now only draws shapes
         shapeRenderer.end(); // END MAIN SHAPE RENDERER
+        if (faintState == FaintState.BARS_CLOSING || faintState == FaintState.DONE) {
+            float progress = barsProgress;
+            progress = Math.min(1f, Math.max(0f, progress));
 
+            float viewW = camera.viewportWidth;
+            float viewH = camera.viewportHeight;
+
+            // Each bar height increases from 0 to half screen
+            float maxHalf = viewH / 2f;
+            float barHeight = maxHalf * progress;
+
+            // We must map camera coordinates to world. Bars drawn in world projection to overlay properly.
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0f, 0f, 0f, 1f);
+            float left = camera.position.x - viewW / 2f;
+            float bottom = camera.position.y - viewH / 2f;
+            // Top bar (from top downward)
+            shapeRenderer.rect(left, bottom + viewH - barHeight, viewW, barHeight);
+            // Bottom bar (from bottom upward)
+            shapeRenderer.rect(left, bottom, viewW, barHeight);
+            shapeRenderer.end();
+        }
         Gdx.gl.glDisable(GL20.GL_BLEND); // Disable blending after all shapes are drawn
         drawNightOverlays(delta);
         // --- PHASE 3: Draw UI Stage last ---
@@ -1230,13 +1468,53 @@ public class MapView implements Screen {
         //     stage.getBatch().setColor(Color.WHITE);
         // }
     }
+    private void renderGreenhouseInterior() {
+        // Draw static interior full image
+        Texture interior = greenhouseManager.getInteriorTexture();
+        float w = GreenhouseManager.WIDTH * GREENHOUSE_TILE_SIZE;
+        float h = GreenhouseManager.HEIGHT * GREENHOUSE_TILE_SIZE;
+        if (interior != null) {
+            batch.draw(interior, 0, 0, w, h);
+        }
 
+        // Draw farming overlays (plowed / watered / crops)
+        for (int y = 0; y < GreenhouseManager.HEIGHT; y++) {
+            for (int x = 0; x < GreenhouseManager.WIDTH; x++) {
+                Tile t = greenhouseManager.getTile(x, y);
+                if (t == null) continue;
+                float wx = x * GREENHOUSE_TILE_SIZE;
+                float wy = y * GREENHOUSE_TILE_SIZE;
+
+                if (t.isPlowed()) {
+                    Texture ground = t.isWatered()
+                        ? mapManager.getWateredGroundTexture()
+                        : mapManager.getPlowedGroundTexture();
+                    if (ground != null) {
+                        batch.draw(ground, wx, wy, GREENHOUSE_TILE_SIZE, GREENHOUSE_TILE_SIZE);
+                    }
+                }
+
+                if (t.getPlantedSeed() != null) {
+                    String cropName = t.getPlantedSeed().getGrowsInto();
+                    int day = Math.max(1, t.getDaysGrown());
+                    Texture stageTex = CropManager.getInstance()
+                        .getStageTextureForDay(cropName, day);
+                    if (stageTex != null) {
+                        batch.draw(stageTex, wx, wy, GREENHOUSE_TILE_SIZE, GREENHOUSE_TILE_SIZE);
+                    }
+                }
+            }
+        }
+    }
     private void renderMap() {
         int width, height;
         List<Vector2> npcChatIconPositions = new ArrayList<>();
         List<TreeRenderData> treesToRender = new ArrayList<>();
         List<StructureRenderData> structuresToRender = new ArrayList<>();
-
+        if (inGreenhouse) {
+            renderGreenhouseInterior();
+            return;
+        }
         if (inVillage) {
             width = 20;
             height = 20;
@@ -1737,6 +2015,22 @@ public class MapView implements Screen {
         return null;
     }
     private void handleInput(float delta) {
+        if (inGreenhouse && Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+            // Are we at door tile?
+            int tx = (int)(playerPos.x / GREENHOUSE_TILE_SIZE);
+            int ty = (int)(playerPos.y / GREENHOUSE_TILE_SIZE);
+            if (ty <= 1) { // near bottom
+                exitGreenhouse();
+                return;
+            }
+        }
+        if (isFaintingActive()) {
+            // Still allow camera to center each frame, but block movement & actions
+            // We still call handleGameplayMechanics internally for pose freeze if desired.
+            // Prevent double-triggering start; gameplay mechanics call will not re-trigger because state != NONE.
+            handleGameplayMechanics(delta); // optional; or skip to freeze animation
+            return;
+        }
         if (speechIsShowing) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) speechIsShowing = false;
             return;
@@ -1823,7 +2117,7 @@ public class MapView implements Screen {
                     farm.updateDaily();
                 }
             }
-
+            greenhouseManager.advanceDaily();
             showMessage("A new day begins. Crops advanced.", 3f);
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.K)) {
@@ -2092,6 +2386,42 @@ public class MapView implements Screen {
                         showMessage("Cannot plant seeds in the village.", 2f);
                         return;
                     }
+
+                    if (inGreenhouse) {
+                        // Convert clickPos to greenhouse tile
+                        int gx = (int)(clickPos.x / GREENHOUSE_TILE_SIZE);
+                        int gy = (int)(clickPos.y / GREENHOUSE_TILE_SIZE);
+                        Tile gTile = greenhouseManager.getTile(gx, gy);
+                        if (gTile == null) return;
+                        if (!gTile.isPlowed()) {
+                            showMessage("Tile is not plowed.", 1.5f);
+                            return;
+                        }
+                        if (gTile.getPlantedSeed() != null) {
+                            showMessage("Tile already has a seed.", 1.5f);
+                            return;
+                        }
+                        // Always allowed season here
+                        // Mixed seeds logic (reuse your existing clone logic)
+                        Seeds seedToPlant = seed;
+                        if (seed.getName().equalsIgnoreCase("Mixed Seeds")) {
+                            // Reuse simplified random selection across all seeds
+                            List<Seeds> viable = FruitsAndVegetablesRepository.seeds;
+                            if (viable.isEmpty()) {
+                                showMessage("No seeds available.", 2f);
+                                return;
+                            }
+                            Seeds picked = viable.get(new java.util.Random().nextInt(viable.size()));
+                            seedToPlant = cloneSeed(picked);
+                            gameInstance.getCurrentPlayer().getInventory().removeItemByName("Mixed Seeds", 1);
+                            showMessage("Mixed Seeds -> " + picked.getGrowsInto(), 2f);
+                        } else {
+                            gameInstance.getCurrentPlayer().getInventory().removeItemByName(seed.getName(), 1);
+                            showMessage("Planted " + seed.getName(), 2f);
+                        }
+                        greenhouseManager.plantSeed(gx, gy, seedToPlant);
+                        return;
+                    }
                     if (!clickedTile.isPlowed()) {
                         showMessage("Tile is not plowed.", 1.5f);
                         return;
@@ -2175,7 +2505,8 @@ public class MapView implements Screen {
                         if (!gh.isRepaired()) {
                             showGreenhouseRepairDialog(gh);
                         } else {
-                            showMessage("Greenhouse is already repaired.", 2f);
+                            // Enter greenhouse
+                            enterGreenhouse(playerPos.x, playerPos.y);
                         }
                     } else {
                         showMessage("Get closer to interact with the greenhouse.", 2f);
@@ -2561,6 +2892,18 @@ public class MapView implements Screen {
     }
 
     private boolean isAreaPassable(float worldX, float worldY) {
+        if (inGreenhouse) {
+            // Allow movement anywhere inside rectangle; block outside bounds
+            float maxX = GreenhouseManager.WIDTH * GREENHOUSE_TILE_SIZE;
+            float maxY = GreenhouseManager.HEIGHT * GREENHOUSE_TILE_SIZE;
+
+            // Player feet point; ensure within bounding box
+            if (worldX < 0 || worldX > maxX - TILE_SIZE) return false;
+            if (worldY < 0 || worldY > maxY - TILE_SIZE) return false;
+
+            // (Later you can add internal collision here)
+            return true;
+        }
         // Check all four corners with a smaller hitbox to prevent clipping
         float hitboxInset = TILE_SIZE * 0.15f; // Increased inset for better boundary detection
         float hitboxX = worldX + hitboxInset;
@@ -2594,6 +2937,24 @@ public class MapView implements Screen {
         }
 
         int clickedTileX, clickedTileY;
+        if (inGreenhouse) {
+            Vector3 cp = clickPos;
+            int tx = (int)(cp.x / GREENHOUSE_TILE_SIZE);
+            int ty = (int)(cp.y / GREENHOUSE_TILE_SIZE);
+            Tile t = greenhouseManager.getTile(tx, ty);
+            if (t == null) return false;
+            if (t.isPlowed()) {
+                showMessage("Already plowed.", 1.2f);
+                return true;
+            }
+            t.setPlowed(true);
+            if (!currentPlayer.getEnergy().isUnlimited()) {
+                currentPlayer.getEnergy().decreaseEnergy(energyCost);
+                energyUsedThisTurn += energyCost;
+            }
+            showMessage("Plowed (Greenhouse).", 1.2f);
+            return true;
+        }
         if (inVillage) {
             showMessage("You can't plow in the village", 2);
             return false;
@@ -2867,6 +3228,24 @@ public class MapView implements Screen {
                 y_offset = 0;
         }
         return new Vector2(x_offset, y_offset);
+    }
+    private void enterGreenhouse(float exteriorWorldX, float exteriorWorldY) {
+        if (inGreenhouse) return;
+        outsideReturnPos.set(exteriorWorldX, exteriorWorldY);
+        inGreenhouse = true;
+        // Door spawn: bottom center
+        greenhousePlayerPos.set((GreenhouseManager.WIDTH / 2f) * GREENHOUSE_TILE_SIZE, GREENHOUSE_TILE_SIZE * 1.2f);
+        playerPos.set(greenhousePlayerPos);
+        centerCameraOnPlayer();
+        showMessage("Entered Greenhouse", 2f);
+    }
+
+    private void exitGreenhouse() {
+        if (!inGreenhouse) return;
+        inGreenhouse = false;
+        playerPos.set(outsideReturnPos);
+        centerCameraOnPlayer();
+        showMessage("Left Greenhouse", 2f);
     }
     private void captureCurrentFrame() {
         if (lastFrameTexture != null) {

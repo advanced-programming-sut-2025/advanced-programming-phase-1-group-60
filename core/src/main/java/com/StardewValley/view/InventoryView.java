@@ -6,11 +6,10 @@ import com.StardewValley.controller.LoginMenuController;
 import com.StardewValley.controller.SellingController;
 import com.StardewValley.models.Item;
 import com.StardewValley.models.Npc;
-import com.StardewValley.models.Quest; // Import Quest
+import com.StardewValley.models.Quest;
 import com.StardewValley.models.Skill;
 import com.StardewValley.models.Tools;
 import com.StardewValley.models.User;
-import com.StardewValley.repository.NpcRepository; // Import NpcRepository
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -19,7 +18,6 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.Batch;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
@@ -33,10 +31,10 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 public class InventoryView implements Screen {
     private final Game game;
@@ -46,19 +44,22 @@ public class InventoryView implements Screen {
     private final LoginMenuController loginController;
     private final User player;
     private final GameView gameView;
+
     private Table quickAccessTable;
     private static final int QUICK_ACCESS_SLOTS = 6;
     private Texture panelTexture;
     private Item selectedItem = null;
 
     private Table contentTable;
+    private ScrollPane contentScrollPane;
+    private Table contentOuterContainer; // holds scroll pane (easier re-layout)
     private DragAndDrop dragAndDrop;
 
     private final Map<String, Texture> textureCache;
     private final Texture fallbackTexture;
     private final Texture slotBackgroundTexture;
 
-    // Textures for Trash Can levels
+    // Trash can textures
     private Texture trashCanBeginnerTexture;
     private Texture trashCanCopperTexture;
     private Texture trashCanSteelTexture;
@@ -70,21 +71,24 @@ public class InventoryView implements Screen {
     private Label giftQuantityLabel;
     private Item selectedGiftItem;
     private int giftQuantity = 1;
-    private boolean isDisposed = false;
 
     private boolean sellingMode = false;
     private Table sellControlsTable;
     private Label sellQuantityLabel;
     private Item selectedSellItem;
     private int sellQuantity = 1;
+
     private Texture gameBackgroundTexture;
-    // Field for the trash can image to allow for dynamic updates
     private Image trashBinImage;
     private Texture inventoryTexture;
     private Texture inventoryNothingTexture;
     private Label sectionTitleLabel;
-    private int questsCurrentPage = 1; // برای مدیریت صفحه‌بندی ماموریت‌ها
-    private com.StardewValley.models.Game gameInstance;
+    private int questsCurrentPage = 1;
+    private boolean isDisposed = false;
+
+    // Map tab fields
+    private Image miniMapImage;
+    private Table mapLegendTable;
 
     public InventoryView(Game game, LoginMenuController loginController, GameView gameView, Npc giftingTarget, User currentPlayer) {
         this.game = game;
@@ -113,64 +117,50 @@ public class InventoryView implements Screen {
         preloadAllTextures();
 
         addTestItems();
-
         createUI();
     }
 
-    private void addTestItems() {
-        //  player.getInventory().addItem(new Item("Egg", 10, "assets/Inventory/Egg.png").setType("Food"));
-        //  player.getInventory().addItem(new Item("Milk", 10, "assets/Inventory/Milk.png").setType("Food"));
-        player.getInventory().addItem(new Item("Copper_Bar", 100, "assets/Inventory/Copper_Bar.png"));
-        player.getInventory().addItem(new Item("Wood", 2000, "assets/Inventory/Wood.png"));
-        player.getInventory().addItem(new Item("Stone", 5000, "assets/Inventory/Stone.png"));
-    }
-
-    public boolean isDisposed() {
-        return isDisposed;
-    }
+    public boolean isDisposed() { return isDisposed; }
     public void setGiftingTarget(Npc npc) {
         this.giftingTarget = npc;
         this.sellingMode = false;
         showItems();
     }
-
     public void setSellingMode(boolean sellingMode) {
         this.sellingMode = sellingMode;
         this.giftingTarget = null;
         showItems();
     }
 
+    private void addTestItems() {
+        // Example test items (commented original seeds)
+        player.getInventory().addItem(new Item("Copper_Bar", 100, "assets/Inventory/Copper_Bar.png"));
+        player.getInventory().addItem(new Item("Wood", 2000, "assets/Inventory/Wood.png"));
+        player.getInventory().addItem(new Item("Stone", 5000, "assets/Inventory/Stone.png"));
+    }
 
     private void preloadAllTextures() {
-        for (Texture texture : textureCache.values()) {
-            texture.dispose();
-        }
+        for (Texture texture : textureCache.values()) texture.dispose();
         textureCache.clear();
         panelTexture = new Texture(Gdx.files.internal("assets/Map/Inventory/Panel.png"));
         for (Item item : player.getInventory().getItems()) {
             String path = item.getPath();
             if (path != null && !path.isEmpty() && !textureCache.containsKey(path)) {
-                try {
-                    if (Gdx.files.internal(path).exists()) {
-                        textureCache.put(path, new Texture(Gdx.files.internal(path)));
-                    } else {
-                        Gdx.app.error("TextureLoader", "File not found for item " + item.getName() + ": " + path);
-                    }
-                } catch (Exception e) {
-                    Gdx.app.error("TextureLoader", "Failed to load texture for " + item.getName(), e);
+                if (Gdx.files.internal(path).exists()) {
+                    textureCache.put(path, new Texture(Gdx.files.internal(path)));
                 }
             }
         }
-
         trashCanBeginnerTexture = new Texture(Gdx.files.internal("assets/Inventory/Bin.png"));
-        trashCanCopperTexture = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Copper.png"));
-        trashCanSteelTexture = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Steel.png"));
-        trashCanGoldTexture = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Gold.png"));
-        trashCanIridiumTexture = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Iridium.png"));
+        trashCanCopperTexture   = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Copper.png"));
+        trashCanSteelTexture    = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Steel.png"));
+        trashCanGoldTexture     = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Gold.png"));
+        trashCanIridiumTexture  = new Texture(Gdx.files.internal("assets/Inventory/ToolsAndUpgrade/Trash_Can_Iridium.png"));
     }
 
     private void createUI() {
         stage.clear();
+
         if (gameBackgroundTexture != null) {
             Image backgroundImage = new Image(gameBackgroundTexture);
             backgroundImage.setFillParent(true);
@@ -211,11 +201,21 @@ public class InventoryView implements Screen {
 
         createQuickAccessToolbar();
 
+        // CONTENT AREA (scrollable)
         contentTable = new Table();
-        contentTable.top().left();
-        contentTable.setPosition(550, 720 - 400);
-        contentTable.setSize(300, 400);
-        stage.addActor(contentTable);
+        contentTable.top().left().defaults().pad(2);
+
+        contentScrollPane = new ScrollPane(contentTable, menuManager.getPixthulhuSkin());
+        contentScrollPane.setFadeScrollBars(false);
+        contentScrollPane.setScrollingDisabled(false, false);
+        contentScrollPane.setOverscroll(false, true);
+        contentScrollPane.setForceScroll(false, true);
+
+        contentOuterContainer = new Table();
+        contentOuterContainer.setPosition(550, 720 - 400);
+        contentOuterContainer.setSize(370, 400); // Slightly wider to fit scroll bars
+        contentOuterContainer.add(contentScrollPane).expand().fill();
+        stage.addActor(contentOuterContainer);
 
         giftControlsTable = new Table(menuManager.getPixthulhuSkin());
         createGiftControls();
@@ -243,50 +243,38 @@ public class InventoryView implements Screen {
         stage.addActor(trashContainer);
 
         setupDragAndDrop();
-
         showItems();
     }
+
     private void createQuickAccessToolbar() {
         quickAccessTable = new Table();
         quickAccessTable.top().left();
-
-        // Position to match MapView exactly
         quickAccessTable.setPosition(550, 180);
-        quickAccessTable.setSize(420, 70); // Smaller to match MapView
+        quickAccessTable.setSize(420, 70);
 
-        // Add title
         Label quickAccessLabel = new Label("Quick Access (1-6)", menuManager.getPixthulhuSkin());
         quickAccessLabel.setFontScale(0.6f);
         quickAccessLabel.setAlignment(Align.center);
         quickAccessTable.add(quickAccessLabel).colspan(QUICK_ACCESS_SLOTS).padBottom(8).row();
 
-        // Create the 6 quick access slots - NO BUTTONS, just direct drag/drop
         for (int i = 0; i < QUICK_ACCESS_SLOTS; i++) {
             final int slotIndex = i;
-
-            // Create slot using Panel.png - NO BUTTON WRAPPER
             Stack slotStack = createQuickAccessSlot(slotIndex);
-
-            // Add to table with smaller size to match MapView
             quickAccessTable.add(slotStack).size(60, 60).pad(2);
 
-            // Make slot a drop target directly on the stack
             dragAndDrop.addTarget(new DragAndDrop.Target(slotStack) {
                 @Override
                 public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                     return payload.getObject() instanceof Item;
                 }
-
                 @Override
                 public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                     Item draggedItem = (Item) payload.getObject();
-                    Item quickAccessItem = new Item(draggedItem.getName(), 1, draggedItem.getPath());
-                    player.getInventory().setQuickAccessSlot(slotIndex, quickAccessItem);
+                    player.getInventory().setQuickAccessSlot(slotIndex, draggedItem);
                     refreshQuickAccessSlots();
                 }
             });
 
-            // Add right-click to clear slot directly on the stack
             slotStack.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
                 @Override
                 public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
@@ -299,27 +287,20 @@ public class InventoryView implements Screen {
                 }
             });
         }
-
         stage.addActor(quickAccessTable);
     }
 
     private Stack createQuickAccessSlot(int slotIndex) {
         Stack stack = new Stack();
-
-        // Use Panel.png background
         Image bgImage = new Image(panelTexture);
         bgImage.setColor(Color.LIGHT_GRAY);
         stack.add(bgImage);
 
-        // Get item from quick access slot
         Item item = player.getInventory().getQuickAccessSlot(slotIndex);
-
         if (item != null) {
             Texture itemTexture = textureCache.get(item.getPath());
             if (itemTexture != null) {
-                Image itemImage = new Image(itemTexture);
-                itemImage.setColor(Color.WHITE);
-                stack.add(itemImage);
+                stack.add(new Image(itemTexture));
             } else {
                 Label nameLabel = new Label(item.getName(), menuManager.getPixthulhuSkin());
                 nameLabel.setWrap(true);
@@ -328,54 +309,36 @@ public class InventoryView implements Screen {
                 stack.add(nameLabel);
             }
         }
-
-        // Add slot number indicator
         Label slotNumberLabel = new Label(String.valueOf(slotIndex + 1), menuManager.getPixthulhuSkin());
         slotNumberLabel.setAlignment(Align.topLeft);
         slotNumberLabel.setColor(Color.CYAN);
         slotNumberLabel.setFontScale(0.6f);
         stack.add(slotNumberLabel);
-
         return stack;
     }
 
     private void refreshQuickAccessSlots() {
-        // Clear and rebuild the quick access slots
         quickAccessTable.clearChildren();
-
-        // Re-add title
         Label quickAccessLabel = new Label("Quick Access (1-6)", menuManager.getPixthulhuSkin());
         quickAccessLabel.setFontScale(0.6f);
         quickAccessLabel.setAlignment(Align.center);
         quickAccessTable.add(quickAccessLabel).colspan(QUICK_ACCESS_SLOTS).padBottom(5).row();
-
-        // Rebuild slots - USING STACKS DIRECTLY, not buttons
         for (int i = 0; i < QUICK_ACCESS_SLOTS; i++) {
             final int slotIndex = i;
-
-            // Create slot using direct stack, not button
             Stack slotStack = createQuickAccessSlot(slotIndex);
-
-            // Add to table with proper size
             quickAccessTable.add(slotStack).size(60, 60).pad(2);
-
-            // Re-add drop target functionality - FIX: Don't create new Item, use the actual object
             dragAndDrop.addTarget(new DragAndDrop.Target(slotStack) {
                 @Override
                 public boolean drag(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                     return payload.getObject() instanceof Item;
                 }
-
                 @Override
                 public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                     Item draggedItem = (Item) payload.getObject();
-                    // FIX: Use the actual dragged item, don't create a new one
                     player.getInventory().setQuickAccessSlot(slotIndex, draggedItem);
                     refreshQuickAccessSlots();
                 }
             });
-
-            // Add right-click to clear slot directly on the stack
             slotStack.addListener(new com.badlogic.gdx.scenes.scene2d.InputListener() {
                 @Override
                 public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
@@ -389,6 +352,7 @@ public class InventoryView implements Screen {
             });
         }
     }
+
     private void setupDragAndDrop() {
         dragAndDrop = new DragAndDrop();
         dragAndDrop.addTarget(new DragAndDrop.Target(trashBinImage) {
@@ -397,12 +361,10 @@ public class InventoryView implements Screen {
                 getActor().setColor(Color.RED);
                 return true;
             }
-
             @Override
             public void reset(DragAndDrop.Source source, DragAndDrop.Payload payload) {
                 getActor().setColor(Color.WHITE);
             }
-
             @Override
             public void drop(DragAndDrop.Source source, DragAndDrop.Payload payload, float x, float y, int pointer) {
                 Item droppedItem = (Item) payload.getObject();
@@ -412,117 +374,6 @@ public class InventoryView implements Screen {
             }
         });
     }
-    private void showResultDialog(String message) {
-        Dialog dialog = new Dialog("Result", menuManager.getPixthulhuSkin());
-        dialog.text(message);
-        dialog.button("OK");
-        dialog.show(stage);
-    }
-
-    private void createGiftControls() {
-        TextButton minusButton = new TextButton("-", menuManager.getPixthulhuSkin());
-        giftQuantityLabel = new Label("1", menuManager.getPixthulhuSkin());
-        TextButton plusButton = new TextButton("+", menuManager.getPixthulhuSkin());
-        TextButton confirmButton = new TextButton("Gift", menuManager.getPixthulhuSkin());
-
-        giftControlsTable.add(new Label("Quantity:", menuManager.getPixthulhuSkin())).padRight(10);
-        giftControlsTable.add(minusButton).size(40).pad(5);
-        giftControlsTable.add(giftQuantityLabel).width(50).align(Align.center).pad(5);
-        giftControlsTable.add(plusButton).size(40).pad(5);
-        giftControlsTable.add(confirmButton).width(120).padLeft(20);
-
-        minusButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (giftQuantity > 1) {
-                    giftQuantity--;
-                    giftQuantityLabel.setText(String.valueOf(giftQuantity));
-                }
-            }
-        });
-
-        plusButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (selectedGiftItem != null && giftQuantity < selectedGiftItem.getQuantity()) {
-                    giftQuantity++;
-                    giftQuantityLabel.setText(String.valueOf(giftQuantity));
-                }
-            }
-        });
-
-        confirmButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (selectedGiftItem != null && giftingTarget != null) {
-                    String result = GiftController.getInstance().giftToNpc(player, giftingTarget, selectedGiftItem.getName(), giftQuantity);
-
-                    Dialog resultDialog = new Dialog("Gift Result", menuManager.getPixthulhuSkin());
-                    resultDialog.text(result).pad(20);
-                    resultDialog.button("OK", true);
-                    resultDialog.show(stage);
-
-                    giftControlsTable.setVisible(false);
-                    selectedGiftItem = null;
-                    giftingTarget = null;
-                    showItems();
-                }
-            }
-        });
-    }
-
-    private void createSellControls() {
-        TextButton minusButton = new TextButton("-", menuManager.getPixthulhuSkin());
-        sellQuantityLabel = new Label("1", menuManager.getPixthulhuSkin());
-        TextButton plusButton = new TextButton("+", menuManager.getPixthulhuSkin());
-        TextButton confirmButton = new TextButton("Sell", menuManager.getPixthulhuSkin());
-
-        sellControlsTable.add(new Label("Quantity:", menuManager.getPixthulhuSkin())).padRight(10);
-        sellControlsTable.add(minusButton).size(40).pad(5);
-        sellControlsTable.add(sellQuantityLabel).width(50).align(Align.center).pad(5);
-        sellControlsTable.add(plusButton).size(40).pad(5);
-        sellControlsTable.add(confirmButton).width(120).padLeft(20);
-
-        minusButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (sellQuantity > 1) {
-                    sellQuantity--;
-                    sellQuantityLabel.setText(String.valueOf(sellQuantity));
-                }
-            }
-        });
-
-        plusButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (selectedSellItem != null && sellQuantity < selectedSellItem.getQuantity()) {
-                    sellQuantity++;
-                    sellQuantityLabel.setText(String.valueOf(sellQuantity));
-                }
-            }
-        });
-
-        confirmButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (selectedSellItem != null) {
-                    String result = SellingController.getInstance().sellItem(player, selectedSellItem.getName(), sellQuantity);
-
-                    Dialog resultDialog = new Dialog("Sale Result", menuManager.getPixthulhuSkin());
-                    resultDialog.text(result).pad(20);
-                    resultDialog.button("OK", true);
-                    resultDialog.show(stage);
-
-                    sellControlsTable.setVisible(false);
-                    selectedSellItem = null;
-                    sellingMode = false;
-                    showItems();
-                }
-            }
-        });
-    }
-
 
     private Table createSidebarContent() {
         Table sidebar = new Table();
@@ -530,13 +381,13 @@ public class InventoryView implements Screen {
         float buttonHeight = 90;
         float pad = 6;
 
-        TextButton itemsButton = new TextButton("Items", menuManager.getPixthulhuSkin());
-        TextButton skillsButton = new TextButton("Skills", menuManager.getPixthulhuSkin());
-        TextButton socialButton = new TextButton("Social", menuManager.getPixthulhuSkin());
-        TextButton mapButton = new TextButton("Map", menuManager.getPixthulhuSkin());
-        TextButton questsButton = new TextButton("Quests", menuManager.getPixthulhuSkin());
-        TextButton settingsButton = new TextButton("Settings", menuManager.getPixthulhuSkin());
-        TextButton exitButton = new TextButton("Exit Inventory", menuManager.getPixthulhuSkin());
+        TextButton itemsButton     = new TextButton("Items", menuManager.getPixthulhuSkin());
+        TextButton skillsButton    = new TextButton("Skills", menuManager.getPixthulhuSkin());
+        TextButton socialButton    = new TextButton("Social", menuManager.getPixthulhuSkin());
+        TextButton mapButton       = new TextButton("Map", menuManager.getPixthulhuSkin());
+        TextButton questsButton    = new TextButton("Quests", menuManager.getPixthulhuSkin());
+        TextButton settingsButton  = new TextButton("Settings", menuManager.getPixthulhuSkin());
+        TextButton exitButton      = new TextButton("Exit Inventory", menuManager.getPixthulhuSkin());
 
         sidebar.add(itemsButton).fillX().height(buttonHeight).pad(pad).row();
         sidebar.add(skillsButton).fillX().height(buttonHeight).pad(pad).row();
@@ -547,35 +398,30 @@ public class InventoryView implements Screen {
         sidebar.add().expandY().row();
         sidebar.add(exitButton).fillX().height(buttonHeight).pad(pad);
 
-        itemsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showItems(); } });
-        skillsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSkills(); } });
-        socialButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSocial(); } });
-        mapButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { /* map logic */ } });
+        itemsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showItems(); }});
+        skillsButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSkills(); }});
+        socialButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showSocial(); }});
+        mapButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { showMap(); }});
         questsButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                questsCurrentPage = 1; // ریست کردن صفحه هنگام کلیک
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                questsCurrentPage = 1;
                 showQuests();
             }
         });
         settingsButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                gameView.showSettingsView(); // Changed to show new SettingsView
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                gameView.showSettingsView();
             }
         });
-        exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { gameView.showMapView(); } });
+        exitButton.addListener(new ChangeListener() { @Override public void changed(ChangeEvent event, Actor actor) { gameView.showMapView(); }});
 
         return sidebar;
     }
 
     private void showItems() {
-        contentTable.clear();
-        contentTable.top().left();
         sectionTitleLabel.setText("Items");
-
         updateBackgroundToItems();
-
+        resetContent();
         int col = 0;
         final int ITEMS_PER_ROW = 6;
 
@@ -591,7 +437,6 @@ public class InventoryView implements Screen {
             Button itemButton = new Button(new Button.ButtonStyle());
             Stack itemSlot = createItemSlot(item);
             itemButton.add(itemSlot);
-
             contentTable.add(itemButton).size(60, 60);
 
             if (giftingTarget == null && !sellingMode) {
@@ -606,14 +451,12 @@ public class InventoryView implements Screen {
                         dragStack.add(dragBg);
                         Texture itemTexture = textureCache.get(item.getPath());
                         if (itemTexture != null) {
-                            Image dragItemImage = new Image(itemTexture);
-                            dragStack.add(dragItemImage);
+                            dragStack.add(new Image(itemTexture));
                         }
                         dragStack.setSize(50, 50);
                         payload.setDragActor(dragStack);
                         return payload;
                     }
-
                     @Override
                     public void dragStop(InputEvent event, float x, float y, int pointer,
                                          DragAndDrop.Payload payload, DragAndDrop.Target target) {
@@ -631,7 +474,7 @@ public class InventoryView implements Screen {
                         sellControlsTable.setVisible(false);
                     }
                 });
-            } else {
+            } else { // selling
                 itemButton.addListener(new ChangeListener() {
                     @Override
                     public void changed(ChangeEvent event, Actor actor) {
@@ -648,73 +491,131 @@ public class InventoryView implements Screen {
             if (col % ITEMS_PER_ROW == 0) contentTable.row();
         }
         refreshQuickAccessSlots();
+        contentScrollPane.layout();
     }
 
     private Stack createItemSlot(Item item) {
         Stack stack = new Stack();
-
         Image bgImage = new Image(slotBackgroundTexture);
         bgImage.setColor(Color.WHITE);
         stack.add(bgImage);
 
         Texture itemTexture = textureCache.get(item.getPath());
         if (itemTexture != null) {
-            Image itemImage = new Image(itemTexture);
-            itemImage.setColor(Color.WHITE);
-            stack.add(itemImage);
-        }  else {
+            stack.add(new Image(itemTexture));
+        } else {
             Label nameLabel = new Label(item.getName(), menuManager.getPixthulhuSkin());
             nameLabel.setWrap(true);
             nameLabel.setAlignment(Align.center);
             nameLabel.setFontScale(0.7f);
             stack.add(nameLabel);
         }
-
         Label quantityLabel = new Label(String.valueOf(item.getQuantity()), menuManager.getPixthulhuSkin());
         quantityLabel.setAlignment(Align.bottomRight);
         quantityLabel.setColor(Color.YELLOW);
         quantityLabel.setFontScale(0.8f);
         stack.add(quantityLabel);
-
         return stack;
     }
+
+    private void resetContent() {
+        giftControlsTable.setVisible(false);
+        sellControlsTable.setVisible(false);
+        contentTable.clear();
+    }
+
+    // MAP TAB
+    private void showMap() {
+        resetContent();
+        sectionTitleLabel.setText("Map");
+        updateBackgroundToEmpty();
+
+        // Acquire/refresh minimap
+        Texture mm = gameView.getOrCreateMiniMapTexture();
+        if (miniMapImage == null) {
+            miniMapImage = new Image(mm);
+        } else {
+            miniMapImage.setDrawable(new TextureRegionDrawable(new TextureRegion(mm)));
+        }
+
+        // Scale to fit width ~350 while preserving aspect
+        float targetWidth = 340f;
+        float scale = targetWidth / mm.getWidth();
+        miniMapImage.setSize(mm.getWidth() * scale, mm.getHeight() * scale);
+
+        // Container
+        Table mapTable = new Table();
+        mapTable.add(miniMapImage).padBottom(10).row();
+
+        // Refresh button
+        TextButton refreshBtn = new TextButton("Refresh Minimap", menuManager.getPixthulhuSkin());
+        refreshBtn.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                gameView.refreshMiniMapTexture();
+                Texture updated = gameView.getOrCreateMiniMapTexture();
+                miniMapImage.setDrawable(new TextureRegionDrawable(new TextureRegion(updated)));
+            }
+        });
+        mapTable.add(refreshBtn).padBottom(12).row();
+
+        // Legend
+        buildMapLegend();
+        mapTable.add(mapLegendTable).left();
+
+        contentTable.add(mapTable).left().top();
+        contentScrollPane.layout();
+    }
+
+    private void buildMapLegend() {
+        if (mapLegendTable != null) mapLegendTable.clear();
+        else mapLegendTable = new Table(menuManager.getPixthulhuSkin());
+
+        mapLegendTable.top().left();
+        mapLegendTable.add(new Label("Legend:", menuManager.getPixthulhuSkin())).left().row();
+        mapLegendTable.add(colorChip(Color.valueOf("4CAF50"), "Ground / Grass")).left().row();
+        mapLegendTable.add(colorChip(Color.valueOf("1E88E5"), "Water")).left().row();
+        mapLegendTable.add(colorChip(Color.valueOf("8D6E63"), "Plowed")).left().row();
+        mapLegendTable.add(colorChip(Color.valueOf("FFEB3B"), "Crop Growing")).left().row();
+        mapLegendTable.add(colorChip(Color.valueOf("F44336"), "Building")).left().row();
+        mapLegendTable.add(colorChip(Color.valueOf("FFFFFF"), "Player")).left().row();
+    }
+
+    private Table colorChip(Color c, String label) {
+        Pixmap pm = new Pixmap(16, 16, Pixmap.Format.RGBA8888);
+        pm.setColor(c);
+        pm.fill();
+        Texture t = new Texture(pm);
+        pm.dispose();
+        Image img = new Image(t);
+        img.addListener(new com.badlogic.gdx.scenes.scene2d.utils.ClickListener(){ // Dispose on stage dispose automatically
+        });
+        Table row = new Table();
+        row.add(img).size(16).padRight(6);
+        row.add(new Label(label, menuManager.getPixthulhuSkin())).left();
+        return row;
+    }
+
     private void loadNewItemTextures() {
         for (Item item : player.getInventory().getItems()) {
             String path = item.getPath();
             if (path != null && !path.isEmpty() && !textureCache.containsKey(path)) {
-                try {
-                    if (Gdx.files.internal(path).exists()) {
-                        textureCache.put(path, new Texture(Gdx.files.internal(path)));
-                    }
-                    else {
-                        System.out.println("File not found for item " + item.getName() + ": " + path);
-                    }
-                }
-                catch (Exception e) {
-                    System.out.println("Failed to load texture for " + item.getName() + ": " + e.getMessage());
+                if (Gdx.files.internal(path).exists()) {
+                    textureCache.put(path, new Texture(Gdx.files.internal(path)));
                 }
             }
         }
     }
+
     private void updateTrashCanTexture() {
         Texture currentTrashCanTexture;
-        Tools.TrashbinStage stage = player.getInventory().getTrashCanStage();
-        switch (stage) {
-            case COPPER:
-                currentTrashCanTexture = trashCanCopperTexture;
-                break;
-            case STEEL:
-                currentTrashCanTexture = trashCanSteelTexture;
-                break;
-            case GOLD:
-                currentTrashCanTexture = trashCanGoldTexture;
-                break;
-            case IRIDIUM:
-                currentTrashCanTexture = trashCanIridiumTexture;
-                break;
-            default:
-                currentTrashCanTexture = trashCanBeginnerTexture;
-                break;
+        Tools.TrashbinStage stageEnum = player.getInventory().getTrashCanStage();
+        switch (stageEnum) {
+            case COPPER -> currentTrashCanTexture = trashCanCopperTexture;
+            case STEEL -> currentTrashCanTexture = trashCanSteelTexture;
+            case GOLD -> currentTrashCanTexture = trashCanGoldTexture;
+            case IRIDIUM -> currentTrashCanTexture = trashCanIridiumTexture;
+            default -> currentTrashCanTexture = trashCanBeginnerTexture;
         }
         if (trashBinImage != null) {
             trashBinImage.setDrawable(new TextureRegionDrawable(currentTrashCanTexture));
@@ -722,39 +623,29 @@ public class InventoryView implements Screen {
     }
 
     private void showSkills() {
-        giftControlsTable.setVisible(false);
-        sellControlsTable.setVisible(false);
-        contentTable.clear();
+        resetContent();
         sectionTitleLabel.setText("Skills");
         sectionTitleLabel.setFontScale(0.8f);
         updateBackgroundToEmpty();
-
-        contentTable.pad(30).top().left();
+        contentTable.pad(10).top().left();
         for (Skill skill : player.getSkills()) {
             Label skillLabel = new Label(skill.getName() + " - Level: " + skill.getLevel(),
                 menuManager.getPixthulhuSkin());
             skillLabel.setFontScale(0.7f);
-
-            // ساخت Tooltip با توضیحات مهارت
             TextTooltip tooltip = new TextTooltip(skill.getDescription(), menuManager.getPixthulhuSkin());
-            tooltip.setInstant(true); // نمایش فوری
+            tooltip.setInstant(true);
             skillLabel.addListener(tooltip);
-
-            // افزایش فاصله بین مهارت‌ها
-            contentTable.add(skillLabel).left().pad(20).row();
+            contentTable.add(skillLabel).left().pad(8).row();
         }
         refreshQuickAccessSlots();
     }
 
     private void showSocial() {
-        giftControlsTable.setVisible(false);
-        sellControlsTable.setVisible(false);
-        contentTable.clear();
+        resetContent();
         sectionTitleLabel.setText("Social");
         sectionTitleLabel.setFontScale(0.8f);
         updateBackgroundToEmpty();
-
-        contentTable.pad(30).top().left();
+        contentTable.pad(10).top().left();
 
         Table socialTable = new Table();
         socialTable.top().left();
@@ -785,26 +676,26 @@ public class InventoryView implements Screen {
             npcLabel.setFontScale(0.6f);
             npcsColumn.add(npcLabel).left().pad(5).row();
         }
-        socialTable.add(playersColumn).top().left().padRight(100);
+
+        socialTable.add(playersColumn).top().left().padRight(60);
         socialTable.add(npcsColumn).top().left();
-        contentTable.add(socialTable);
+        contentTable.add(socialTable).left();
         refreshQuickAccessSlots();
     }
 
     private void showQuests() {
-        giftControlsTable.setVisible(false);
-        sellControlsTable.setVisible(false);
-        contentTable.clear();
+        resetContent();
         sectionTitleLabel.setText("Available Quests");
         sectionTitleLabel.setFontScale(0.7f);
         updateBackgroundToEmpty();
+        contentTable.pad(10).top().left();
 
-        contentTable.pad(20).top().left();
-
-        NpcRepository npcRepository = NpcRepository.getInstance();
         List<Quest> availableQuests = new ArrayList<>();
+        // Assuming an NPC repository pattern; if absent adapt accordingly
+        com.StardewValley.repository.NpcRepository npcRepo =
+            com.StardewValley.repository.NpcRepository.getInstance();
 
-        for (Npc npc : npcRepository.getAllNpcs()) {
+        for (Npc npc : npcRepo.getAllNpcs()) {
             for (Quest quest : npc.getQuests()) {
                 if (quest.getCompletedBy() == null) {
                     availableQuests.add(quest);
@@ -819,8 +710,6 @@ public class InventoryView implements Screen {
 
         final int questsPerPage = 3;
         int totalPages = (int) Math.ceil((double) availableQuests.size() / questsPerPage);
-
-        // اطمینان از معتبر بودن شماره صفحه
         if (questsCurrentPage < 1) questsCurrentPage = 1;
         if (questsCurrentPage > totalPages) questsCurrentPage = totalPages;
 
@@ -832,49 +721,124 @@ public class InventoryView implements Screen {
             Label questLabel = new Label(quest.toString(), menuManager.getPixthulhuSkin());
             questLabel.setWrap(true);
             questLabel.setFontScale(0.6f);
-            contentTable.add(questLabel).width(400).left().padBottom(15).row();
+            contentTable.add(questLabel).width(340).left().padBottom(15).row();
         }
 
-        // افزودن دکمه‌های صفحه‌بندی
         Table paginationTable = new Table();
         TextButton prevButton = new TextButton("<< Prev", menuManager.getPixthulhuSkin());
         Label pageLabel = new Label("Page " + questsCurrentPage + " / " + totalPages, menuManager.getPixthulhuSkin());
         TextButton nextButton = new TextButton("Next >>", menuManager.getPixthulhuSkin());
 
-        if (questsCurrentPage <= 1) {
-            prevButton.setDisabled(true);
-            prevButton.setColor(Color.GRAY);
-        }
-        if (questsCurrentPage >= totalPages) {
-            nextButton.setDisabled(true);
-            nextButton.setColor(Color.GRAY);
-        }
+        if (questsCurrentPage <= 1) { prevButton.setDisabled(true); prevButton.setColor(Color.GRAY); }
+        if (questsCurrentPage >= totalPages) { nextButton.setDisabled(true); nextButton.setColor(Color.GRAY); }
 
         prevButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (questsCurrentPage > 1) {
-                    questsCurrentPage--;
-                    showQuests();
-                }
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (questsCurrentPage > 1) { questsCurrentPage--; showQuests(); }
             }
         });
-
         nextButton.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                if (questsCurrentPage < totalPages) {
-                    questsCurrentPage++;
-                    showQuests();
-                }
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (questsCurrentPage < totalPages) { questsCurrentPage++; showQuests(); }
             }
         });
 
         paginationTable.add(prevButton).pad(10);
         paginationTable.add(pageLabel).pad(10);
         paginationTable.add(nextButton).pad(10);
+        contentTable.add(paginationTable).center().padTop(20).row();
+    }
 
-        contentTable.add(paginationTable).colspan(1).center().padTop(300).row();
+    private void createGiftControls() {
+        TextButton minusButton = new TextButton("-", menuManager.getPixthulhuSkin());
+        giftQuantityLabel = new Label("1", menuManager.getPixthulhuSkin());
+        TextButton plusButton = new TextButton("+", menuManager.getPixthulhuSkin());
+        TextButton confirmButton = new TextButton("Gift", menuManager.getPixthulhuSkin());
+
+        giftControlsTable.add(new Label("Quantity:", menuManager.getPixthulhuSkin())).padRight(10);
+        giftControlsTable.add(minusButton).size(40).pad(5);
+        giftControlsTable.add(giftQuantityLabel).width(50).align(Align.center).pad(5);
+        giftControlsTable.add(plusButton).size(40).pad(5);
+        giftControlsTable.add(confirmButton).width(120).padLeft(20);
+
+        minusButton.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (giftQuantity > 1) { giftQuantity--; giftQuantityLabel.setText(String.valueOf(giftQuantity)); }
+            }
+        });
+        plusButton.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (selectedGiftItem != null && giftQuantity < selectedGiftItem.getQuantity()) {
+                    giftQuantity++; giftQuantityLabel.setText(String.valueOf(giftQuantity));
+                }
+            }
+        });
+        confirmButton.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (selectedGiftItem != null && giftingTarget != null) {
+                    String result = GiftController.getInstance().giftToNpc(player, giftingTarget,
+                        selectedGiftItem.getName(), giftQuantity);
+                    Dialog resultDialog = new Dialog("Gift Result", menuManager.getPixthulhuSkin());
+                    resultDialog.text(result).pad(20);
+                    resultDialog.button("OK", true);
+                    resultDialog.show(stage);
+                    giftControlsTable.setVisible(false);
+                    selectedGiftItem = null;
+                    giftingTarget = null;
+                    showItems();
+                }
+            }
+        });
+    }
+
+    private void createSellControls() {
+        TextButton minusButton = new TextButton("-", menuManager.getPixthulhuSkin());
+        sellQuantityLabel = new Label("1", menuManager.getPixthulhuSkin());
+        TextButton plusButton = new TextButton("+", menuManager.getPixthulhuSkin());
+        TextButton confirmButton = new TextButton("Sell", menuManager.getPixthulhuSkin());
+
+        sellControlsTable.add(new Label("Quantity:", menuManager.getPixthulhuSkin())).padRight(10);
+        sellControlsTable.add(minusButton).size(40).pad(5);
+        sellControlsTable.add(sellQuantityLabel).width(50).align(Align.center).pad(5);
+        sellControlsTable.add(plusButton).size(40).pad(5);
+        sellControlsTable.add(confirmButton).width(120).padLeft(20);
+
+        minusButton.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (sellQuantity > 1) { sellQuantity--; sellQuantityLabel.setText(String.valueOf(sellQuantity)); }
+            }
+        });
+        plusButton.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (selectedSellItem != null && sellQuantity < selectedSellItem.getQuantity()) {
+                    sellQuantity++; sellQuantityLabel.setText(String.valueOf(sellQuantity));
+                }
+            }
+        });
+        confirmButton.addListener(new ChangeListener() {
+            @Override public void changed(ChangeEvent event, Actor actor) {
+                if (selectedSellItem != null) {
+                    String result = SellingController.getInstance()
+                        .sellItem(player, selectedSellItem.getName(), sellQuantity);
+                    Dialog resultDialog = new Dialog("Sale Result", menuManager.getPixthulhuSkin());
+                    resultDialog.text(result).pad(20);
+                    resultDialog.button("OK", true);
+                    resultDialog.show(stage);
+
+                    sellControlsTable.setVisible(false);
+                    selectedSellItem = null;
+                    sellingMode = false;
+                    showItems();
+                }
+            }
+        });
+    }
+
+    private void showResultDialog(String message) {
+        Dialog dialog = new Dialog("Result", menuManager.getPixthulhuSkin());
+        dialog.text(message);
+        dialog.button("OK");
+        dialog.show(stage);
     }
 
     public void setBackgroundTexture(Texture texture) {
@@ -885,12 +849,13 @@ public class InventoryView implements Screen {
         }
         refreshQuickAccessSlots();
     }
+
     private void updateBackgroundToEmpty() {
         for (Actor actor : stage.getActors()) {
             if (actor instanceof Image) {
                 Drawable drawable = ((Image)actor).getDrawable();
-                if (drawable instanceof TextureRegionDrawable) {
-                    TextureRegion region = ((TextureRegionDrawable)drawable).getRegion();
+                if (drawable instanceof TextureRegionDrawable trd) {
+                    TextureRegion region = trd.getRegion();
                     if (region != null && region.getTexture() == inventoryTexture) {
                         ((Image)actor).setDrawable(new TextureRegionDrawable(inventoryNothingTexture));
                         break;
@@ -899,12 +864,13 @@ public class InventoryView implements Screen {
             }
         }
     }
+
     private void updateBackgroundToItems() {
         for (Actor actor : stage.getActors()) {
             if (actor instanceof Image) {
                 Drawable drawable = ((Image)actor).getDrawable();
-                if (drawable instanceof TextureRegionDrawable) {
-                    TextureRegion region = ((TextureRegionDrawable)drawable).getRegion();
+                if (drawable instanceof TextureRegionDrawable trd) {
+                    TextureRegion region = trd.getRegion();
                     if (region != null && region.getTexture() == inventoryNothingTexture) {
                         ((Image)actor).setDrawable(new TextureRegionDrawable(inventoryTexture));
                         break;
@@ -913,19 +879,15 @@ public class InventoryView implements Screen {
             }
         }
     }
+
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
-
         stage.act(delta);
         stage.draw();
-        if (stage.getBatch() != null) {
-            stage.getBatch().setColor(Color.WHITE);
-        }
+        if (stage.getBatch() != null) stage.getBatch().setColor(Color.WHITE);
     }
-
-
 
     @Override
     public void show() {
@@ -937,19 +899,10 @@ public class InventoryView implements Screen {
         refreshQuickAccessSlots();
     }
 
-    @Override
-    public void resize(int width, int height) {
-        stage.getViewport().update(width, height, true);
-    }
-
-    @Override
-    public void pause() {}
-
-    @Override
-    public void resume() {}
-
-    @Override
-    public void hide() {}
+    @Override public void resize(int width, int height) { stage.getViewport().update(width, height, true); }
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() {}
 
     @Override
     public void dispose() {
@@ -962,9 +915,9 @@ public class InventoryView implements Screen {
         if (trashCanSteelTexture != null) trashCanSteelTexture.dispose();
         if (trashCanGoldTexture != null) trashCanGoldTexture.dispose();
         if (trashCanIridiumTexture != null) trashCanIridiumTexture.dispose();
-        for (Texture texture : textureCache.values()) {
-            texture.dispose();
-        }
+        if (inventoryTexture != null) inventoryTexture.dispose();
+        if (inventoryNothingTexture != null) inventoryNothingTexture.dispose();
+        for (Texture texture : textureCache.values()) texture.dispose();
         textureCache.clear();
         isDisposed = true;
     }
